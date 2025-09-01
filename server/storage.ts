@@ -5,6 +5,8 @@ import {
   attendance,
   teams,
   teamMembers,
+  transfers,
+  terminations,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -17,6 +19,10 @@ import {
   type Team,
   type InsertTeam,
   type TeamMember,
+  type Transfer,
+  type InsertTransfer,
+  type Termination,
+  type InsertTermination,
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
@@ -56,6 +62,14 @@ export interface IStorage {
   getAllTeams(): Promise<Team[]>;
   getTeamsByLeader(leaderId: string): Promise<Team[]>;
   getTeamMembers(teamId: string): Promise<User[]>;
+  
+  // Transfer management
+  getAllTransfers(): Promise<Transfer[]>;
+  createTransfer(transfer: InsertTransfer): Promise<Transfer>;
+  
+  // Termination management
+  getAllTerminations(): Promise<Termination[]>;
+  createTermination(termination: InsertTermination): Promise<Termination>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -271,6 +285,26 @@ export class DatabaseStorage implements IStorage {
       .from(teamMembers)
       .innerJoin(users, eq(teamMembers.userId, users.id))
       .where(eq(teamMembers.teamId, teamId));
+  }
+
+  // Transfer management
+  async getAllTransfers(): Promise<Transfer[]> {
+    return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
+  async createTransfer(transferData: InsertTransfer): Promise<Transfer> {
+    const [transfer] = await db.insert(transfers).values(transferData).returning();
+    return transfer;
+  }
+
+  // Termination management
+  async getAllTerminations(): Promise<Termination[]> {
+    return await db.select().from(terminations).orderBy(desc(terminations.createdAt));
+  }
+
+  async createTermination(terminationData: InsertTermination): Promise<Termination> {
+    const [termination] = await db.insert(terminations).values(terminationData).returning();
+    return termination;
   }
 }
 

@@ -1,11 +1,21 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Asset } from "@shared/schema";
+import { insertAssetSchema } from "@shared/schema";
+import { Laptop, Plus, UserCheck } from "lucide-react";
+import { z } from "zod";
+import type { Asset, User } from "@shared/schema";
 
 interface AssetManagementProps {
   userId?: string;
@@ -13,11 +23,82 @@ interface AssetManagementProps {
 }
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: assets = [], isLoading } = useQuery<Asset[]>({
     queryKey: userId ? ["/api/assets/user", userId] : ["/api/assets"],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: !userId, // Only fetch users when not showing user-specific assets
+  });
+
+  const createAssetForm = useForm({
+    resolver: zodResolver(insertAssetSchema),
+    defaultValues: {
+      name: "",
+      type: "",
+      serialNumber: "",
+      status: "available",
+    },
+  });
+
+  const assignForm = useForm({
+    defaultValues: {
+      userId: "",
+    },
+  });
+
+  const createAssetMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof insertAssetSchema>) => {
+      const res = await apiRequest("POST", "/api/assets", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      setIsCreateOpen(false);
+      createAssetForm.reset();
+      toast({
+        title: "Asset Created",
+        description: "New asset has been added to inventory.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Asset",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignAssetMutation = useMutation({
+    mutationFn: async ({ assetId, userId }: { assetId: string; userId: string }) => {
+      const res = await apiRequest("PATCH", `/api/assets/${assetId}/assign`, { userId });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      setIsAssignOpen(false);
+      setSelectedAsset(null);
+      assignForm.reset();
+      toast({
+        title: "Asset Assigned",
+        description: "Asset has been assigned successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Assignment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const updateAssetMutation = useMutation({

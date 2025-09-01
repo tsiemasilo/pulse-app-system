@@ -90,6 +90,40 @@ export const teamMembers = pgTable("team_members", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
+// Employee transfers (temporary or permanent)
+export const transfers = pgTable("transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  fromDepartmentId: varchar("from_department_id").references(() => departments.id),
+  toDepartmentId: varchar("to_department_id").notNull().references(() => departments.id),
+  fromRole: varchar("from_role"),
+  toRole: varchar("to_role"),
+  transferType: varchar("transfer_type").notNull(), // temporary, permanent
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // null for permanent transfers
+  reason: text("reason"),
+  status: varchar("status").notNull().default('pending'), // pending, approved, rejected, completed
+  requestedBy: varchar("requested_by").notNull().references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Employee terminations
+export const terminations = pgTable("terminations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  terminationType: varchar("termination_type").notNull(), // voluntary, involuntary, layoff, retirement
+  terminationDate: timestamp("termination_date").notNull(),
+  lastWorkingDay: timestamp("last_working_day").notNull(),
+  reason: text("reason"),
+  exitInterviewCompleted: boolean("exit_interview_completed").default(false),
+  assetReturnStatus: varchar("asset_return_status").default('pending'), // pending, partial, completed
+  processedBy: varchar("processed_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -134,6 +168,18 @@ export const insertTeamSchema = createInsertSchema(teams).omit({
   createdAt: true,
 });
 
+export const insertTransferSchema = createInsertSchema(transfers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTerminationSchema = createInsertSchema(terminations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -147,3 +193,7 @@ export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type Team = typeof teams.$inferSelect;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type Transfer = typeof transfers.$inferSelect;
+export type InsertTransfer = z.infer<typeof insertTransferSchema>;
+export type Termination = typeof terminations.$inferSelect;
+export type InsertTermination = z.infer<typeof insertTerminationSchema>;

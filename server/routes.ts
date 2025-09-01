@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -240,6 +240,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  // Transfer management routes (HR only)
+  app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'hr' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const transfers = await storage.getAllTransfers();
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching transfers:", error);
+      res.status(500).json({ message: "Failed to fetch transfers" });
+    }
+  });
+
+  app.post('/api/transfers', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'hr' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const transferData = insertTransferSchema.parse(req.body);
+      const transfer = await storage.createTransfer(transferData);
+      res.json(transfer);
+    } catch (error) {
+      console.error("Error creating transfer:", error);
+      res.status(500).json({ message: "Failed to create transfer" });
+    }
+  });
+
+  // Termination management routes (HR only)
+  app.get('/api/terminations', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'hr' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const terminations = await storage.getAllTerminations();
+      res.json(terminations);
+    } catch (error) {
+      console.error("Error fetching terminations:", error);
+      res.status(500).json({ message: "Failed to fetch terminations" });
+    }
+  });
+
+  app.post('/api/terminations', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'hr' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const terminationData = insertTerminationSchema.parse(req.body);
+      const termination = await storage.createTermination(terminationData);
+      
+      // Deactivate the user when termination is processed
+      await storage.updateUserStatus(terminationData.userId, false);
+      
+      res.json(termination);
+    } catch (error) {
+      console.error("Error creating termination:", error);
+      res.status(500).json({ message: "Failed to process termination" });
     }
   });
 

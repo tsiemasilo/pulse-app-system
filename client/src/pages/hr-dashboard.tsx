@@ -1,12 +1,16 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { StatCard } from "@/components/dashboard-stats";
-import AttendanceTable from "@/components/attendance-table";
+import TransferManagement from "@/components/transfer-management";
+import TerminationManagement from "@/components/termination-management";
+import AssetManagement from "@/components/asset-management";
+import HRAttendanceView from "@/components/hr-attendance-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserCheck, CalendarX, UserX, ArrowLeftRight, UserPlus, Laptop } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserCheck, CalendarX, UserX, ArrowLeftRight, UserPlus, Laptop, Clock, Users } from "lucide-react";
 import type { User, Attendance } from "@shared/schema";
 
 export default function HRDashboard() {
@@ -87,56 +91,43 @@ export default function HRDashboard() {
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <UserPlus className="h-5 w-5 mr-2" />
-              Employee Onboarding
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">Add new employees to the system</p>
-            <Button className="w-full" data-testid="button-start-onboarding">
-              Start Onboarding
-            </Button>
-          </CardContent>
-        </Card>
+      {/* HR Management Tabs */}
+      <Tabs defaultValue="attendance" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="attendance" className="flex items-center">
+            <Clock className="h-4 w-4 mr-2" />
+            Attendance
+          </TabsTrigger>
+          <TabsTrigger value="transfers" className="flex items-center">
+            <ArrowLeftRight className="h-4 w-4 mr-2" />
+            Transfers
+          </TabsTrigger>
+          <TabsTrigger value="terminations" className="flex items-center">
+            <UserX className="h-4 w-4 mr-2" />
+            Terminations
+          </TabsTrigger>
+          <TabsTrigger value="assets" className="flex items-center">
+            <Laptop className="h-4 w-4 mr-2" />
+            Assets
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ArrowLeftRight className="h-5 w-5 mr-2" />
-              Transfers & Promotions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">Process employee movements</p>
-            <Button variant="secondary" className="w-full" data-testid="button-process-transfer">
-              Process Transfer
-            </Button>
-          </CardContent>
-        </Card>
+        <TabsContent value="attendance" className="space-y-6">
+          <HRAttendanceView />
+        </TabsContent>
 
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Laptop className="h-5 w-5 mr-2" />
-              Asset Assignment
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">Assign laptops and devices</p>
-            <Button variant="outline" className="w-full" data-testid="button-assign-asset">
-              Assign Asset
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="transfers" className="space-y-6">
+          <TransferManagement />
+        </TabsContent>
 
-      {/* Attendance Table */}
-      <AttendanceTable />
+        <TabsContent value="terminations" className="space-y-6">
+          <TerminationManagement />
+        </TabsContent>
+
+        <TabsContent value="assets" className="space-y-6">
+          <AssetManagement showActions={true} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
