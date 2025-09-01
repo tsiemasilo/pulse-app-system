@@ -1,5 +1,6 @@
 import { Heart, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 
 interface NavigationProps {
@@ -16,8 +17,15 @@ export default function Navigation({ user }: NavigationProps) {
     agent: "Agent"
   };
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Force reload even if logout fails to clear the session
+      window.location.reload();
+    }
   };
 
   return (
