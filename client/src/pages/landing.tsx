@@ -29,7 +29,8 @@ export default function Landing() {
       return await res.json();
     },
     onSuccess: () => {
-      window.location.reload();
+      // Navigate to root to trigger role-based routing
+      window.location.href = "/";
     },
     onError: (error: Error) => {
       toast({

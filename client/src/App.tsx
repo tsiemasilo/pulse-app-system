@@ -34,7 +34,10 @@ function Router() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <Switch>
           <Route path="/" component={() => {
-            switch (user?.role) {
+            if (!user?.role) {
+              return <div>Loading user role...</div>;
+            }
+            switch (user.role) {
               case 'admin':
                 return <AdminDashboard />;
               case 'hr':
@@ -47,14 +50,18 @@ function Router() {
               case 'agent':
                 return <AgentDashboard />;
               default:
-                return <div>No dashboard available for your role</div>;
+                return <div>No dashboard available for your role: {user.role}</div>;
             }
           }} />
-          <Route path="/admin" component={AdminDashboard} />
-          <Route path="/hr" component={HRDashboard} />
-          <Route path="/contact-center" component={ContactCenterDashboard} />
-          <Route path="/team-leader" component={TeamLeaderDashboard} />
-          <Route path="/agent" component={AgentDashboard} />
+          <Route path="/admin" component={() => user?.role === 'admin' ? <AdminDashboard /> : <NotFound />} />
+          <Route path="/hr" component={() => user?.role === 'hr' ? <HRDashboard /> : <NotFound />} />
+          <Route path="/contact-center" component={() => 
+            (user?.role === 'contact_center_ops_manager' || user?.role === 'contact_center_manager') 
+              ? <ContactCenterDashboard /> 
+              : <NotFound />
+          } />
+          <Route path="/team-leader" component={() => user?.role === 'team_leader' ? <TeamLeaderDashboard /> : <NotFound />} />
+          <Route path="/agent" component={() => user?.role === 'agent' ? <AgentDashboard /> : <NotFound />} />
           <Route component={NotFound} />
         </Switch>
       </main>
