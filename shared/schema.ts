@@ -34,9 +34,11 @@ export const departments = pgTable("departments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// User storage table for Replit Auth with role management
+// User storage table with local authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username").unique().notNull(),
+  password: text("password").notNull(),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -91,6 +93,7 @@ export const teamMembers = pgTable("team_members", {
 // Insert schemas
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
+  username: true,
   email: true,
   firstName: true,
   lastName: true,
@@ -104,6 +107,11 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const insertDepartmentSchema = createInsertSchema(departments).omit({

@@ -1,14 +1,47 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { loginSchema } from "@shared/schema";
 import { Heart, Building2, Users, Shield, UserCheck, Headphones } from "lucide-react";
+import { z } from "zod";
 
 export default function Landing() {
-  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleLogin = () => {
-    setIsLoading(true);
-    window.location.href = "/api/login";
+  const form = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: z.infer<typeof loginSchema>) => {
+      const res = await apiRequest("POST", "/api/login", credentials);
+      return await res.json();
+    },
+    onSuccess: () => {
+      window.location.reload();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: z.infer<typeof loginSchema>) => {
+    loginMutation.mutate(data);
   };
 
   return (
@@ -30,19 +63,51 @@ export default function Landing() {
             <div className="text-center mb-8">
               <h3 className="text-xl font-semibold text-foreground mb-2">Welcome to Pulse</h3>
               <p className="text-muted-foreground">
-                Sign in with your Replit account to access your role-based dashboard
+                Sign in to access your role-based dashboard
               </p>
             </div>
             
-            <Button 
-              onClick={handleLogin}
-              disabled={isLoading}
-              className="w-full text-lg py-6 mb-8"
-              data-testid="button-signin"
-            >
-              <Heart className="h-5 w-5 mr-3" />
-              {isLoading ? "Connecting..." : "Sign In with Replit"}
-            </Button>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mb-8">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-username" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} data-testid="input-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button 
+                  type="submit"
+                  disabled={loginMutation.isPending}
+                  className="w-full text-lg py-6"
+                  data-testid="button-signin"
+                >
+                  <Heart className="h-5 w-5 mr-3" />
+                  {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </Form>
             
             <div className="border-t border-border pt-8">
               <h4 className="font-semibold text-foreground mb-6 text-center">Role-Based Access</h4>

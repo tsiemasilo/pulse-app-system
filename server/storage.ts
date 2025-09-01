@@ -23,8 +23,9 @@ import { db } from "./db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations (required for local auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // User management
@@ -58,9 +59,14 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (required for Replit Auth)
+  // User operations (required for local auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
 
@@ -69,6 +75,8 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values({
         id: userData.id,
+        username: userData.username!,
+        password: "temp-password",
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
@@ -248,6 +256,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select({
         id: users.id,
+        username: users.username,
+        password: users.password,
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
