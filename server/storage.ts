@@ -67,11 +67,26 @@ export class DatabaseStorage implements IStorage {
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        role: userData.role as UserRole,
+        departmentId: userData.departmentId,
+        isActive: userData.isActive ?? true,
+      })
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userData,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
+          role: userData.role as UserRole,
+          departmentId: userData.departmentId,
+          isActive: userData.isActive ?? true,
           updatedAt: new Date(),
         },
       })
@@ -81,7 +96,10 @@ export class DatabaseStorage implements IStorage {
 
   // User management
   async createUser(userData: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(userData).returning();
+    const [user] = await db.insert(users).values({
+      ...userData,
+      role: userData.role as UserRole
+    }).returning();
     return user;
   }
 
