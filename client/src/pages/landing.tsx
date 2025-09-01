@@ -110,6 +110,32 @@ export default function Landing() {
             </Form>
             
             <div className="border-t border-border pt-8">
+              <h4 className="font-semibold text-foreground mb-6 text-center">Demo Credentials</h4>
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-200">Admin</div>
+                    <div className="text-blue-700 dark:text-blue-300">admin / admin123</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-200">HR Manager</div>
+                    <div className="text-blue-700 dark:text-blue-300">hr_manager / hr123</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-200">Ops Manager</div>
+                    <div className="text-blue-700 dark:text-blue-300">ops_manager / manager123</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-200">Team Leader</div>
+                    <div className="text-blue-700 dark:text-blue-300">team_leader / leader123</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-200">Agent</div>
+                    <div className="text-blue-700 dark:text-blue-300">agent_demo / agent123</div>
+                  </div>
+                </div>
+              </div>
+              
               <h4 className="font-semibold text-foreground mb-6 text-center">Role-Based Access</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
