@@ -1,0 +1,141 @@
+8:22:43 AM: build-image version: 24a1153d2167e2fd2b97bf41bcef5782eb23901a (noble)
+8:22:43 AM: buildbot version: e003b962686ea5d1e068eb508ce90ec3003c9b2b
+8:22:43 AM: Fetching cached dependencies
+8:22:43 AM: Failed to fetch cache, continuing with build
+8:22:43 AM: Starting to prepare the repo for build
+8:22:43 AM: No cached dependencies found. Cloning fresh repo
+8:22:43 AM: git clone --filter=blob:none https://github.com/tsiemasilo/pulse-app-system
+8:22:44 AM: Preparing Git Reference refs/heads/main
+8:22:45 AM: Starting to install dependencies
+8:22:46 AM: Downloading and installing node v18.20.8...
+8:22:47 AM: Downloading https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz...
+8:22:47 AM: Computing checksum with sha256sum
+8:22:47 AM: Checksums matched!
+8:22:50 AM: Now using node v18.20.8 (npm v10.8.2)
+8:22:51 AM: Enabling Node.js Corepack
+8:22:51 AM: Started restoring cached build plugins
+8:22:51 AM: Finished restoring cached build plugins
+8:22:51 AM: Started restoring cached corepack dependencies
+8:22:51 AM: Finished restoring cached corepack dependencies
+8:22:51 AM: No npm workspaces detected
+8:22:51 AM: Started restoring cached node modules
+8:22:51 AM: Finished restoring cached node modules
+8:22:51 AM: Installing npm packages using npm version 10.8.2
+8:22:54 AM: npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+8:22:54 AM: npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+8:23:01 AM: added 499 packages in 10s
+8:23:01 AM: npm packages installed
+8:23:01 AM: Successfully installed dependencies
+8:23:01 AM: Starting build script
+8:23:02 AM: Detected 1 framework(s)
+8:23:02 AM: "vite" at version "5.4.19"
+8:23:02 AM: Section completed: initializing
+8:23:03 AM: ​
+8:23:03 AM: Netlify Build                                                 
+8:23:03 AM: ────────────────────────────────────────────────────────────────
+8:23:03 AM: ​
+8:23:03 AM: ❯ Version
+8:23:03 AM:   @netlify/build 35.1.3
+8:23:03 AM: ​
+8:23:03 AM: ❯ Flags
+8:23:03 AM:   accountId: 6786aa5b927658b4b62b93d6
+8:23:03 AM:   baseRelDir: true
+8:23:03 AM:   buildId: 68b68d32a25f07c10465038c
+8:23:03 AM:   deployId: 68b68d32a25f07c10465038e
+8:23:03 AM: ​
+8:23:03 AM: ❯ Current directory
+8:23:03 AM:   /opt/build/repo
+8:23:03 AM: ​
+8:23:03 AM: ❯ Config file
+8:23:03 AM:   /opt/build/repo/netlify.toml
+8:23:03 AM: ​
+8:23:03 AM: ❯ Context
+8:23:03 AM:   production
+8:23:03 AM: ​
+8:23:03 AM: ❯ Installing extensions
+8:23:03 AM:    - neon
+8:23:31 AM: ​
+8:23:31 AM: ❯ Loading extensions
+8:23:31 AM:    - neon
+8:23:31 AM: ​
+8:23:31 AM: build.command from netlify.toml                               
+8:23:31 AM: ────────────────────────────────────────────────────────────────
+8:23:31 AM: ​
+8:23:31 AM: $ npm run build
+8:23:31 AM: > rest-express@1.0.0 build
+8:23:31 AM: > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+8:23:32 AM: vite v5.4.19 building for production...
+8:23:32 AM: transforming...
+8:23:32 AM: Browserslist: browsers data (caniuse-lite) is 11 months old. Please run:
+8:23:32 AM:   npx update-browserslist-db@latest
+8:23:32 AM:   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+8:23:35 AM: Skipping form detection
+8:23:35 AM: Post processing - header rules
+8:23:35 AM: Starting post processing
+8:23:35 AM: Post processing - redirect rules
+8:23:35 AM: Post processing done
+8:23:35 AM: Section completed: postprocessing
+8:23:35 AM: ✓ 2145 modules transformed.
+8:23:35 AM: rendering chunks...
+8:23:35 AM: computing gzip size...
+8:23:35 AM: ../dist/public/index.html                   2.20 kB │ gzip:   0.86 kB
+8:23:35 AM: ../dist/public/assets/index-Cxr53B6O.css   65.00 kB │ gzip:  11.44 kB
+8:23:35 AM: ../dist/public/assets/index-CRff71Df.js   550.82 kB │ gzip: 162.66 kB
+8:23:35 AM: 
+8:23:35 AM: (!) Some chunks are larger than 500 kB after minification. Consider:
+8:23:35 AM: - Using dynamic import() to code-split the application
+8:23:35 AM: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+8:23:35 AM: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+8:23:35 AM: ✓ built in 3.34s
+8:23:35 AM:   dist/index.js  30.5kb
+8:23:35 AM: ⚡ Done in 7ms
+8:23:35 AM: ​
+8:23:35 AM: (build.command completed in 3.6s)
+8:23:35 AM: ​
+8:23:35 AM: Deploy site                                                   
+8:23:35 AM: ────────────────────────────────────────────────────────────────
+8:23:35 AM: ​
+8:23:35 AM: Starting to deploy site from 'dist'
+8:23:35 AM: Calculating files to upload
+8:23:35 AM: 4 new file(s) to upload
+8:23:35 AM: 0 new function(s) to upload
+8:23:35 AM: Section completed: deploying
+8:23:35 AM: Site deploy was successfully initiated
+8:23:35 AM: ​
+8:23:35 AM: (Deploy site completed in 273ms)
+8:23:35 AM: ​
+8:23:35 AM: A "_redirects" file is present in the repository but is missing in the publish directory "dist".
+8:23:36 AM: Site is live ✨
+8:23:36 AM: ​
+8:23:36 AM: Netlify Build Complete                                        
+8:23:36 AM: ────────────────────────────────────────────────────────────────
+8:23:36 AM: ​
+8:23:36 AM: (Netlify Build completed in 32.6s)
+8:23:36 AM: Caching artifacts
+8:23:36 AM: Started saving node modules
+8:23:36 AM: Finished saving node modules
+8:23:36 AM: Started saving build plugins
+8:23:36 AM: Finished saving build plugins
+8:23:36 AM: Started saving bun cache
+8:23:36 AM: Finished saving bun cache
+8:23:36 AM: Started saving go cache
+8:23:37 AM: Finished saving go cache
+8:23:37 AM: Started saving python cache
+8:23:37 AM: Finished saving python cache
+8:23:38 AM: Started saving ruby cache
+8:23:39 AM: Finished saving ruby cache
+8:23:39 AM: Started saving corepack cache
+8:23:39 AM: Finished saving corepack cache
+8:23:39 AM: Started saving emacs cask dependencies
+8:23:39 AM: Finished saving emacs cask dependencies
+8:23:39 AM: Started saving maven dependencies
+8:23:39 AM: Finished saving maven dependencies
+8:23:39 AM: Started saving boot dependencies
+8:23:39 AM: Finished saving boot dependencies
+8:23:39 AM: Started saving rust rustup cache
+8:23:39 AM: Finished saving rust rustup cache
+8:23:40 AM: Build script success
+8:23:40 AM: Section completed: building
+8:23:43 AM: Uploading Cache of size 331.2MB
+8:23:44 AM: Section completed: cleanup
+8:23:44 AM: Finished processing build request in 1m1.149s
