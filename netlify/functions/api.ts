@@ -13,7 +13,13 @@ if (process.env.NETLIFY_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.NETLIFY_DATABASE_URL;
 }
 
-// Register all routes
-registerRoutes(app);
+// Initialize the app with routes
+async function initializeApp() {
+  await registerRoutes(app);
+  return serverless(app);
+}
 
-export const handler = serverless(app);
+export const handler = async (event: any, context: any) => {
+  const serverlessHandler = await initializeApp();
+  return serverlessHandler(event, context);
+};
