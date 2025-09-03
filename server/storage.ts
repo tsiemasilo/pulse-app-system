@@ -86,12 +86,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Create a proper hashed password for OIDC users
+    const { hashPassword } = await import("./replitAuth");
+    const hashedTempPassword = await hashPassword("temp-password");
+    
     const [user] = await db
       .insert(users)
       .values({
         id: userData.id,
         username: userData.username!,
-        password: "temp-password",
+        password: hashedTempPassword,
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
