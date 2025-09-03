@@ -69,13 +69,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       const users = (await apiRequest("GET", "/api/users")) as unknown as User[];
       return users.filter(u => u.role === 'team_leader');
     },
-    enabled: open && user?.role === 'agent',
+    enabled: open,
   });
 
   // Get current team assignment for agents
   const { data: userTeams = [] } = useQuery<Team[]>({
     queryKey: ["/api/users", user?.id, "teams"],
-    enabled: open && user?.role === 'agent' && !!user?.id,
+    enabled: open && !!user?.id && (user?.role === 'agent' || form.watch("role") === 'agent'),
   });
 
   useEffect(() => {
@@ -99,10 +99,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       });
 
       // If user is an agent and team leader changed, reassign
-      if (data.role === 'agent' && selectedTeamLeader && selectedTeamLeader !== (userTeams[0]?.leaderId || "")) {
-        await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
-          teamLeaderId: selectedTeamLeader,
-        });
+      if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "")) {
+        if (selectedTeamLeader) {
+          await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
+            teamLeaderId: selectedTeamLeader,
+          });
+        }
       }
 
       return updatedUser;
@@ -268,7 +270,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             </div>
 
             {/* Team Leader Assignment for Agents */}
-            {form.watch("role") === "agent" && teamLeaders.length > 0 && (
+            {(form.watch("role") === "agent" || user?.role === "agent") && (
               <div>
                 <Label htmlFor="teamLeader">Assign to Team Leader</Label>
                 <Select 
@@ -288,6 +290,9 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Current team leaders available: {teamLeaders.length}
+                </div>
               </div>
             )}
 
