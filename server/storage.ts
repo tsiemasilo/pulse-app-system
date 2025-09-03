@@ -62,6 +62,7 @@ export interface IStorage {
   getAllTeams(): Promise<Team[]>;
   getTeamsByLeader(leaderId: string): Promise<Team[]>;
   getTeamMembers(teamId: string): Promise<User[]>;
+  addTeamMember(teamId: string, userId: string): Promise<any>;
   
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
@@ -285,6 +286,14 @@ export class DatabaseStorage implements IStorage {
       .from(teamMembers)
       .innerJoin(users, eq(teamMembers.userId, users.id))
       .where(eq(teamMembers.teamId, teamId));
+  }
+
+  async addTeamMember(teamId: string, userId: string): Promise<any> {
+    const [member] = await db.insert(teamMembers).values({
+      teamId,
+      userId,
+    }).returning();
+    return member;
   }
 
   // Transfer management

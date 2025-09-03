@@ -243,6 +243,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/team-members', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { teamId, userId } = z.object({ 
+        teamId: z.string(),
+        userId: z.string()
+      }).parse(req.body);
+      
+      const teamMember = await storage.addTeamMember(teamId, userId);
+      res.json(teamMember);
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({ message: "Failed to add team member" });
+    }
+  });
+
   // Transfer management routes (HR only)
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {

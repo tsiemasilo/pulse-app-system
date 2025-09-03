@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { insertUserSchema } from "@shared/schema";
+import type { User, Team } from "@shared/schema";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -20,6 +21,15 @@ interface CreateUserDialogProps {
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: teamLeaders = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    select: (users) => users.filter(user => user.role === 'team_leader'),
+  });
+
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+  });
 
 
   const form = useForm({
@@ -32,12 +42,27 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       email: "",
       role: "agent" as const,
       isActive: true,
+      teamLeaderId: "",
     },
   });
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
-      return await apiRequest("POST", "/api/users", userData);
+      const { teamLeaderId, ...userDataForAPI } = userData;
+      const user = await apiRequest("POST", "/api/users", userDataForAPI);
+      
+      // If agent role and team leader selected, create team membership
+      if (userData.role === 'agent' && teamLeaderId && teamLeaderId !== 'none') {
+        const team = teams.find(t => t.leaderId === teamLeaderId);
+        if (team) {
+          await apiRequest("POST", "/api/team-members", {
+            teamId: team.id,
+            userId: user.id,
+          });
+        }
+      }
+      
+      return user;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -177,6 +202,34 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               )}
             />
 
+            {/* Team Leader Selection - Only show for agents */}
+            {form.watch('role') === 'agent' && (
+              <FormField
+                control={form.control}
+                name="teamLeaderId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assign to Team Leader (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-team-leader">
+                          <SelectValue placeholder="Select a team leader" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No Team Leader</SelectItem>
+                        {teamLeaders.map((leader) => (
+                          <SelectItem key={leader.id} value={leader.id}>
+                            {leader.firstName} {leader.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button 
