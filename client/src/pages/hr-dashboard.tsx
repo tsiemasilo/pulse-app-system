@@ -77,6 +77,7 @@ export default function HRDashboard() {
     {
       title: 'HR MANAGEMENT',
       items: [
+        { icon: Home, label: 'Dashboard', key: 'dashboard' },
         { icon: Monitor, label: 'Attendance', key: 'attendance' },
         { icon: ArrowLeftRight, label: 'Transfers', key: 'transfers' },
         { icon: UserX, label: 'Terminations', key: 'terminations' },
