@@ -44,9 +44,22 @@ This project is pre-configured to use a shared Neon PostgreSQL database. The con
 - **Production**: Uses `NETLIFY_DATABASE_URL` environment variable
 - **Shared Database**: All users connect to the same database instance for seamless collaboration
 
-## Default Admin Login
-- Username: `admin`
-- Password: `admin123`
+## Test Login Credentials
+
+### Administrator Access
+- **Username**: `admin` | **Password**: `admin123`
+
+### Team Leader Access (for testing team features)
+- **Username**: `leader` | **Password**: `leader123`
+- **Username**: `TL` | **Password**: `TL`
+- **Username**: `TL2` | **Password**: `TL2`
+
+### Other Roles
+- **HR Manager**: `hr` / `hr123`
+- **Contact Center Manager**: `manager` / `manager123`  
+- **Agent**: `agent` / `agent123`
+
+*See `LOGIN_CREDENTIALS.md` for complete list of test accounts*
 
 ## Features
 - Role-based access control (Admin, HR, Managers, Team Leaders, Agents)
