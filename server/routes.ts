@@ -141,6 +141,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team leaders endpoint - accessible to admins and HR for team assignment
+  app.get('/api/team-leaders', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const teamLeaders = await storage.getUsersByRole('team_leader');
+      res.json(teamLeaders);
+    } catch (error) {
+      console.error("Error fetching team leaders:", error);
+      res.status(500).json({ message: "Failed to fetch team leaders" });
+    }
+  });
+
   // Department management
   app.get('/api/departments', isAuthenticated, async (req: any, res) => {
     try {

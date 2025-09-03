@@ -23,8 +23,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const queryClient = useQueryClient();
 
   const { data: teamLeaders = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    select: (users) => users.filter(user => user.role === 'team_leader'),
+    queryKey: ["/api/team-leaders"],
   });
 
   const { data: teams = [] } = useQuery<Team[]>({

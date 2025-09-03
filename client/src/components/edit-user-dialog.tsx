@@ -64,11 +64,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
   // Get team leaders for reassignment
   const { data: teamLeaders = [] } = useQuery<User[]>({
-    queryKey: ["/api/users", "team_leader"],
-    queryFn: async () => {
-      const users = (await apiRequest("GET", "/api/users")) as unknown as User[];
-      return users.filter(u => u.role === 'team_leader');
-    },
+    queryKey: ["/api/team-leaders"],
     enabled: open,
   });
 
