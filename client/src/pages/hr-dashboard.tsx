@@ -75,12 +75,6 @@ export default function HRDashboard() {
 
   const sidebarItems = [
     {
-      title: 'MAIN MENU',
-      items: [
-        { icon: Home, label: 'Dashboard', key: 'dashboard' },
-      ]
-    },
-    {
       title: 'HR MANAGEMENT',
       items: [
         { icon: Monitor, label: 'Attendance', key: 'attendance' },
