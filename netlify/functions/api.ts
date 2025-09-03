@@ -7,9 +7,15 @@ import { registerRoutes } from '../../server/routes';
 // Configure WebSocket for Neon (CRITICAL for production)
 neonConfig.webSocketConstructor = ws;
 
-// Set up database connection for production
+// Set up database connection for production - Use the exact production URL
+const PRODUCTION_DB_URL = 'postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
 if (process.env.NETLIFY_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.NETLIFY_DATABASE_URL;
+} else {
+  // Fallback to the production URL directly
+  process.env.DATABASE_URL = PRODUCTION_DB_URL;
+  console.log('⚠️ Using fallback production database URL');
 }
 
 const app = express();
