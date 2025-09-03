@@ -94,7 +94,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         lastName: data.lastName,
         role: data.role,
         isActive: data.isActive,
-      });
+      }) as any;
 
       // If user is an agent and team leader changed, reassign
       if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "none")) {
@@ -107,9 +107,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
       return updatedUser;
     },
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "teams"] });
+      // If role changed to/from team_leader, invalidate team leaders cache
+      if (updatedUser.role === 'team_leader' || user?.role === 'team_leader') {
+        queryClient.invalidateQueries({ queryKey: ["/api/team-leaders"] });
+      }
       toast({
         title: "Success",
         description: "User updated successfully",

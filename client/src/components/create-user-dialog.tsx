@@ -48,7 +48,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
       const { teamLeaderId, ...userDataForAPI } = userData;
-      const user = await apiRequest("POST", "/api/users", userDataForAPI);
+      const user = await apiRequest("POST", "/api/users", userDataForAPI) as any;
       
       // If agent role and team leader selected, create team membership
       if (userData.role === 'agent' && teamLeaderId && teamLeaderId !== 'none') {
@@ -63,8 +63,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       
       return user;
     },
-    onSuccess: () => {
+    onSuccess: (newUser) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      // If a team leader was created, also invalidate team leaders cache
+      if (newUser.role === 'team_leader') {
+        queryClient.invalidateQueries({ queryKey: ["/api/team-leaders"] });
+      }
       toast({
         title: "Success",
         description: "User created successfully",
