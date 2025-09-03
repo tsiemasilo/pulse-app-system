@@ -1,6 +1,7 @@
 [build]
-  publish = "dist/public"
-  command = "npm run build && cp _redirects dist/public/"
+  publish = "dist/public" 
+  command = "vite build && cp _redirects dist/public/"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "18"
