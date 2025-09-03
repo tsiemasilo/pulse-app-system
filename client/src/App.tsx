@@ -53,7 +53,14 @@ function Router() {
                 return <div>No dashboard available for your role: {user.role}</div>;
             }
           }} />
+          {/* Admin Routes */}
           <Route path="/admin" component={() => user?.role === 'admin' ? <AdminDashboard /> : <NotFound />} />
+          <Route path="/admin/hr" component={() => user?.role === 'admin' ? <HRDashboard /> : <NotFound />} />
+          <Route path="/admin/contact-center" component={() => user?.role === 'admin' ? <ContactCenterDashboard /> : <NotFound />} />
+          <Route path="/admin/team-leader" component={() => user?.role === 'admin' ? <TeamLeaderDashboard /> : <NotFound />} />
+          <Route path="/admin/agent" component={() => user?.role === 'admin' ? <AgentDashboard /> : <NotFound />} />
+          
+          {/* Role-specific Routes */}
           <Route path="/hr" component={() => user?.role === 'hr' ? <HRDashboard /> : <NotFound />} />
           <Route path="/contact-center" component={() => 
             (user?.role === 'contact_center_ops_manager' || user?.role === 'contact_center_manager') 
