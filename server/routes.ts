@@ -87,6 +87,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const updateData = z.object({
+        username: z.string().optional(),
+        email: z.string().email().optional(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        role: z.string().optional(),
+        departmentId: z.string().optional(),
+        isActive: z.boolean().optional(),
+      }).parse(req.body);
+      
+      const updatedUser = await storage.updateUser(req.params.userId, updateData);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.post('/api/users/:agentId/reassign-team-leader', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { teamLeaderId } = z.object({ 
+        teamLeaderId: z.string() 
+      }).parse(req.body);
+      
+      const result = await storage.reassignAgentToTeamLeader(req.params.agentId, teamLeaderId);
+      res.json({ message: "Agent successfully reassigned", result });
+    } catch (error) {
+      console.error("Error reassigning agent:", error);
+      res.status(500).json({ message: "Failed to reassign agent" });
+    }
+  });
+
+  app.get('/api/users/:userId/teams', isAuthenticated, async (req: any, res) => {
+    try {
+      const userTeams = await storage.getUserTeams(req.params.userId);
+      res.json(userTeams);
+    } catch (error) {
+      console.error("Error fetching user teams:", error);
+      res.status(500).json({ message: "Failed to fetch user teams" });
+    }
+  });
+
   // Department management
   app.get('/api/departments', isAuthenticated, async (req: any, res) => {
     try {

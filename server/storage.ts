@@ -36,6 +36,7 @@ export interface IStorage {
   
   // User management
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: string, userData: Partial<InsertUser>): Promise<User>;
   updateUserRole(userId: string, role: UserRole): Promise<User>;
   updateUserStatus(userId: string, isActive: boolean): Promise<User>;
   getAllUsers(): Promise<User[]>;
@@ -63,6 +64,9 @@ export interface IStorage {
   getTeamsByLeader(leaderId: string): Promise<Team[]>;
   getTeamMembers(teamId: string): Promise<User[]>;
   addTeamMember(teamId: string, userId: string): Promise<any>;
+  removeTeamMember(teamId: string, userId: string): Promise<any>;
+  getUserTeams(userId: string): Promise<Team[]>;
+  reassignAgentToTeamLeader(agentId: string, newTeamLeaderId: string): Promise<any>;
   
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
@@ -127,6 +131,19 @@ export class DatabaseStorage implements IStorage {
       ...userData,
       role: userData.role as UserRole
     }).returning();
+    return user;
+  }
+
+  async updateUser(userId: string, userData: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        ...userData,
+        role: userData.role as UserRole,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
     return user;
   }
 
@@ -298,6 +315,50 @@ export class DatabaseStorage implements IStorage {
       userId,
     }).returning();
     return member;
+  }
+
+  async removeTeamMember(teamId: string, userId: string): Promise<any> {
+    return await db.delete(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+  }
+
+  async getUserTeams(userId: string): Promise<Team[]> {
+    return await db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        leaderId: teams.leaderId,
+        departmentId: teams.departmentId,
+        createdAt: teams.createdAt,
+      })
+      .from(teamMembers)
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(eq(teamMembers.userId, userId));
+  }
+
+  async reassignAgentToTeamLeader(agentId: string, newTeamLeaderId: string): Promise<any> {
+    // First remove from all existing teams
+    await db.delete(teamMembers).where(eq(teamMembers.userId, agentId));
+    
+    // Find or create team for the new team leader
+    let team = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.leaderId, newTeamLeaderId))
+      .limit(1);
+
+    if (team.length === 0) {
+      // Create a default team for the team leader if none exists
+      const teamLeader = await this.getUser(newTeamLeaderId);
+      const [newTeam] = await db.insert(teams).values({
+        name: `${teamLeader?.firstName || 'TL'} Team`,
+        leaderId: newTeamLeaderId,
+      }).returning();
+      team = [newTeam];
+    }
+
+    // Add agent to the team
+    return await this.addTeamMember(team[0].id, agentId);
   }
 
   // Transfer management
