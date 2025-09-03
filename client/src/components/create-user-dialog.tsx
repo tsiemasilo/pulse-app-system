@@ -25,6 +25,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const form = useForm({
     resolver: zodResolver(insertUserSchema.omit({ departmentId: true })),
     defaultValues: {
+      username: "",
+      password: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -79,6 +81,34 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input {...field} data-testid="input-username" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} data-testid="input-password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="firstName"
