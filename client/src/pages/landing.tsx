@@ -120,19 +120,19 @@ export default function Landing() {
                   </div>
                   <div className="space-y-1">
                     <div className="font-medium text-blue-800 dark:text-blue-200">HR Manager</div>
-                    <div className="text-blue-700 dark:text-blue-300">hr_manager / hr123</div>
+                    <div className="text-blue-700 dark:text-blue-300">hr / hr123</div>
                   </div>
                   <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">Ops Manager</div>
-                    <div className="text-blue-700 dark:text-blue-300">ops_manager / manager123</div>
+                    <div className="font-medium text-blue-800 dark:text-blue-200">Contact Center Manager</div>
+                    <div className="text-blue-700 dark:text-blue-300">manager / manager123</div>
                   </div>
                   <div className="space-y-1">
                     <div className="font-medium text-blue-800 dark:text-blue-200">Team Leader</div>
-                    <div className="text-blue-700 dark:text-blue-300">team_leader / leader123</div>
+                    <div className="text-blue-700 dark:text-blue-300">leader / leader123</div>
                   </div>
                   <div className="space-y-1">
                     <div className="font-medium text-blue-800 dark:text-blue-200">Agent</div>
-                    <div className="text-blue-700 dark:text-blue-300">agent_demo / agent123</div>
+                    <div className="text-blue-700 dark:text-blue-300">agent / agent123</div>
                   </div>
                 </div>
               </div>
