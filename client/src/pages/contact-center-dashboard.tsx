@@ -38,7 +38,7 @@ export default function ContactCenterDashboard() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (user?.role !== 'contact_center_ops_manager' && user?.role !== 'contact_center_manager') {
+  if (user?.role !== 'contact_center_ops_manager' && user?.role !== 'contact_center_manager' && user?.role !== 'admin') {
     return <div className="text-center py-8">Access denied. Contact Center management role required.</div>;
   }
 

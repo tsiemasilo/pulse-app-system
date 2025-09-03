@@ -102,7 +102,7 @@ export default function AgentDashboard() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (user?.role !== 'agent') {
+  if (user?.role !== 'agent' && user?.role !== 'admin') {
     return <div className="text-center py-8">Access denied. Agent role required.</div>;
   }
 

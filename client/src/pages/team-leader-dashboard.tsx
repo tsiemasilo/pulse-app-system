@@ -41,7 +41,7 @@ export default function TeamLeaderDashboard() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (user?.role !== 'team_leader') {
+  if (user?.role !== 'team_leader' && user?.role !== 'admin') {
     return <div className="text-center py-8">Access denied. Team Leader role required.</div>;
   }
 

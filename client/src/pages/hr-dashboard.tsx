@@ -43,7 +43,7 @@ export default function HRDashboard() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (user?.role !== 'hr') {
+  if (user?.role !== 'hr' && user?.role !== 'admin') {
     return <div className="text-center py-8">Access denied. HR role required.</div>;
   }
 
