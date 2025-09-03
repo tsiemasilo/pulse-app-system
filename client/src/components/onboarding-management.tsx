@@ -59,89 +59,8 @@ interface OnboardingChecklistItem {
 export default function OnboardingManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [checklistItems, setChecklistItems] = useState<OnboardingChecklistItem[]>([
-    {
-      id: '1',
-      title: 'Employee Handbook',
-      description: 'Provide and review company handbook',
-      category: 'documentation',
-      required: true,
-      completed: false
-    },
-    {
-      id: '2',
-      title: 'Tax Forms (W-4)',
-      description: 'Complete federal and state tax forms',
-      category: 'documentation',
-      required: true,
-      completed: false
-    },
-    {
-      id: '3',
-      title: 'Direct Deposit Setup',
-      description: 'Configure payroll direct deposit',
-      category: 'documentation',
-      required: true,
-      completed: false
-    },
-    {
-      id: '4',
-      title: 'System Access Setup',
-      description: 'Create user accounts and system access',
-      category: 'systems',
-      required: true,
-      completed: false
-    },
-    {
-      id: '5',
-      title: 'Email Account Creation',
-      description: 'Set up corporate email account',
-      category: 'systems',
-      required: true,
-      completed: false
-    },
-    {
-      id: '6',
-      title: 'Laptop Assignment',
-      description: 'Assign and configure work laptop',
-      category: 'equipment',
-      required: true,
-      completed: false
-    },
-    {
-      id: '7',
-      title: 'Headset Assignment',
-      description: 'Provide contact center headset',
-      category: 'equipment',
-      required: true,
-      completed: false
-    },
-    {
-      id: '8',
-      title: 'Desk Setup',
-      description: 'Assign workspace and seating',
-      category: 'equipment',
-      required: true,
-      completed: false
-    },
-    {
-      id: '9',
-      title: 'Orientation Training',
-      description: 'Complete company orientation program',
-      category: 'training',
-      required: true,
-      completed: false
-    },
-    {
-      id: '10',
-      title: 'Department Training',
-      description: 'Department-specific training sessions',
-      category: 'training',
-      required: true,
-      completed: false
-    }
-  ]);
+  const [showForm, setShowForm] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
@@ -200,7 +119,8 @@ export default function OnboardingManagement() {
         description: "Employee onboarded successfully! Remember to complete the onboarding checklist.",
       });
       form.reset();
-      setIsDialogOpen(false);
+      setShowForm(false);
+      setCurrentStep(1);
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -226,23 +146,14 @@ export default function OnboardingManagement() {
     onboardEmployeeMutation.mutate(data);
   };
 
-  const toggleChecklistItem = (itemId: string) => {
-    setChecklistItems(prev => 
-      prev.map(item => 
-        item.id === itemId 
-          ? { ...item, completed: !item.completed }
-          : item
-      )
-    );
-  };
-
-  const getChecklistProgress = () => {
-    const completed = checklistItems.filter(item => item.completed).length;
-    return Math.round((completed / checklistItems.length) * 100);
-  };
-
-  const getChecklistByCategory = (category: OnboardingChecklistItem['category']) => {
-    return checklistItems.filter(item => item.category === category);
+  const getStepTitle = (step: number) => {
+    switch(step) {
+      case 1: return "Personal Info";
+      case 2: return "Job Details";
+      case 3: return "Contact Info";
+      case 4: return "Emergency";
+      default: return "Personal Info";
+    }
   };
 
   const availableAssets = assets.filter(asset => asset.status === 'available');
@@ -260,29 +171,48 @@ export default function OnboardingManagement() {
             <p className="text-purple-600 dark:text-purple-400">Streamlined onboarding process for new employees</p>
           </div>
           <div className="flex items-center gap-4">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white" data-testid="button-add-employee">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Start New Onboarding
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>New Employee Onboarding</DialogTitle>
-                </DialogHeader>
-                
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <Tabs defaultValue="personal" className="w-full">
-                      <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="personal">Personal Info</TabsTrigger>
-                        <TabsTrigger value="job">Job Details</TabsTrigger>
-                        <TabsTrigger value="contact">Contact Info</TabsTrigger>
-                        <TabsTrigger value="emergency">Emergency</TabsTrigger>
-                      </TabsList>
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700 text-white" 
+              data-testid="button-add-employee"
+              onClick={() => setShowForm(!showForm)}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              {showForm ? "Cancel Onboarding" : "Start New Onboarding"}
+            </Button>
+          </div>
+        </div>
+      </div>
 
-                      <TabsContent value="personal" className="space-y-4">
+      {showForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>New Employee Onboarding</CardTitle>
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Progress</span>
+                <span className="text-sm text-gray-500">{currentStep}/4</span>
+              </div>
+              <Progress value={(currentStep / 4) * 100} className="w-full" />
+              <div className="flex justify-between mt-2 text-xs text-gray-500">
+                <span className={currentStep >= 1 ? 'text-purple-600 font-medium' : ''}>Personal Info</span>
+                <span className={currentStep >= 2 ? 'text-purple-600 font-medium' : ''}>Job Details</span>
+                <span className={currentStep >= 3 ? 'text-purple-600 font-medium' : ''}>Contact Info</span>
+                <span className={currentStep >= 4 ? 'text-purple-600 font-medium' : ''}>Emergency</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Tabs value={`step-${currentStep}`} onValueChange={(value) => setCurrentStep(parseInt(value.split('-')[1]))} className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="step-1">Personal Info</TabsTrigger>
+                    <TabsTrigger value="step-2">Job Details</TabsTrigger>
+                    <TabsTrigger value="step-3">Contact Info</TabsTrigger>
+                    <TabsTrigger value="step-4">Emergency</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="step-1" className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
@@ -342,7 +272,7 @@ export default function OnboardingManagement() {
                         </div>
                       </TabsContent>
 
-                      <TabsContent value="job" className="space-y-4">
+                  <TabsContent value="step-2" className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
@@ -465,7 +395,7 @@ export default function OnboardingManagement() {
                         </div>
                       </TabsContent>
 
-                      <TabsContent value="contact" className="space-y-4">
+                  <TabsContent value="step-3" className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
@@ -496,7 +426,7 @@ export default function OnboardingManagement() {
                         </div>
                       </TabsContent>
 
-                      <TabsContent value="emergency" className="space-y-4">
+                  <TabsContent value="step-4" className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
@@ -539,139 +469,57 @@ export default function OnboardingManagement() {
                             </FormItem>
                           )}
                         />
-                      </TabsContent>
-                    </Tabs>
+                  </TabsContent>
+                </Tabs>
 
-                    <div className="flex justify-end space-x-2">
+                <div className="flex justify-between space-x-2">
+                  <div className="flex space-x-2">
+                    {currentStep > 1 && (
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => setIsDialogOpen(false)}
-                        data-testid="button-cancel"
+                        onClick={() => setCurrentStep(currentStep - 1)}
+                        data-testid="button-previous"
                       >
-                        Cancel
+                        Previous
                       </Button>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {setShowForm(false); setCurrentStep(1);}}
+                      data-testid="button-cancel"
+                    >
+                      Cancel
+                    </Button>
+                    {currentStep < 4 ? (
+                      <Button 
+                        type="button" 
+                        onClick={() => setCurrentStep(currentStep + 1)}
+                        className="bg-purple-600 hover:bg-purple-700"
+                        data-testid="button-next"
+                      >
+                        Next
+                      </Button>
+                    ) : (
                       <Button 
                         type="submit" 
                         disabled={onboardEmployeeMutation.isPending}
                         className="bg-purple-600 hover:bg-purple-700"
                         data-testid="button-submit-onboarding"
                       >
-                        {onboardEmployeeMutation.isPending ? "Creating..." : "Start Onboarding"}
+                        {onboardEmployeeMutation.isPending ? "Creating..." : "Complete Onboarding"}
                       </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </div>
-
-      {/* Onboarding Checklist */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                Onboarding Progress
-              </CardTitle>
-              <Badge variant="outline">
-                {checklistItems.filter(item => item.completed).length}/{checklistItems.length} Complete
-              </Badge>
-            </div>
-            <Progress value={getChecklistProgress()} className="w-full" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {(['documentation', 'systems', 'equipment', 'training'] as const).map((category) => (
-                <div key={category} className="space-y-2">
-                  <h4 className="font-medium text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {category === 'documentation' && <><FileText className="inline h-4 w-4 mr-1" /> Documentation</>}
-                    {category === 'systems' && <><UserIcon className="inline h-4 w-4 mr-1" /> Systems Access</>}
-                    {category === 'equipment' && <><Briefcase className="inline h-4 w-4 mr-1" /> Equipment</>}
-                    {category === 'training' && <><Calendar className="inline h-4 w-4 mr-1" /> Training</>}
-                  </h4>
-                  {getChecklistByCategory(category).map((item) => (
-                    <div key={item.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <Checkbox
-                        checked={item.completed}
-                        onCheckedChange={() => toggleChecklistItem(item.id)}
-                        data-testid={`checkbox-${item.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className={`text-sm font-medium ${item.completed ? 'line-through text-gray-500' : ''}`}>
-                            {item.title}
-                          </span>
-                          {item.required && !item.completed && (
-                            <Badge variant="destructive" className="text-xs">Required</Badge>
-                          )}
-                          {item.completed && (
-                            <Badge variant="default" className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Complete</Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{item.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" data-testid="button-bulk-upload">
-                <Upload className="h-6 w-6 text-blue-600" />
-                <span className="text-sm">Bulk Upload</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" data-testid="button-export-checklist">
-                <Download className="h-6 w-6 text-green-600" />
-                <span className="text-sm">Export Checklist</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" data-testid="button-email-template">
-                <Mail className="h-6 w-6 text-purple-600" />
-                <span className="text-sm">Email Templates</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" data-testid="button-assign-assets">
-                <Briefcase className="h-6 w-6 text-orange-600" />
-                <span className="text-sm">Assign Assets</span>
-              </Button>
-            </div>
-
-            <div className="mt-6">
-              <h4 className="font-medium mb-3">Available Equipment</h4>
-              <div className="space-y-2">
-                {availableAssets.slice(0, 5).map((asset) => (
-                  <div key={asset.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium">{asset.name}</span>
-                      <Badge variant="outline" className="text-xs">{asset.type}</Badge>
-                    </div>
-                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      Available
-                    </Badge>
+                    )}
                   </div>
-                ))}
-                {availableAssets.length > 5 && (
-                  <p className="text-sm text-gray-500 text-center">
-                    +{availableAssets.length - 5} more available
-                  </p>
-                )}
-              </div>
-            </div>
+                </div>
+              </form>
+            </Form>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }
