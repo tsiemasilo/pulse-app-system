@@ -106,6 +106,33 @@ export default function HRDashboard() {
         return <TerminationManagement />;
       case 'assets':
         return <AssetManagement showActions={true} />;
+      case 'onboarding':
+        return (
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-lg p-6 border border-purple-100 dark:border-purple-800/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Employee Onboarding</h2>
+                  <p className="text-purple-600 dark:text-purple-400">Manage new employee onboarding process</p>
+                </div>
+                <UserPlus className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Onboarding Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <UserPlus className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Onboarding functionality will be implemented here.</p>
+                  <p className="text-sm mt-2">This section will include new employee setup, document collection, and orientation tracking.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       default:
         return (
           <div className="space-y-6 animate-in fade-in-50 duration-500">
