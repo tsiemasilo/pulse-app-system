@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { insertUserSchema } from "@shared/schema";
-import type { Department } from "@shared/schema";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -22,18 +21,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: departments = [] } = useQuery<Department[]>({
-    queryKey: ["/api/departments"],
-  });
 
   const form = useForm({
-    resolver: zodResolver(insertUserSchema),
+    resolver: zodResolver(insertUserSchema.omit({ departmentId: true })),
     defaultValues: {
       firstName: "",
       lastName: "",
       email: "",
       role: "agent" as const,
-      departmentId: "",
       isActive: true,
     },
   });
@@ -152,30 +147,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="departmentId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-department">
-                        <SelectValue placeholder="Select a department" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button 
