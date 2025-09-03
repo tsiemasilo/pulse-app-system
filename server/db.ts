@@ -3,13 +3,15 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-// Only use WebSocket in production/deployment environments
-if (process.env.NODE_ENV === 'production') {
-  neonConfig.webSocketConstructor = ws;
-} else {
-  // Disable WebSocket for development to avoid SSL issues
+// Configure Neon for development environment
+if (process.env.NODE_ENV === 'development') {
+  // Disable WebSocket completely for development
+  neonConfig.webSocketConstructor = undefined;
   neonConfig.useSecureWebSocket = false;
   neonConfig.pipelineConnect = false;
+} else {
+  // Use WebSocket in production/deployment environments
+  neonConfig.webSocketConstructor = ws;
 }
 
 // Use NETLIFY_DATABASE_URL for production or DATABASE_URL for development
