@@ -48,24 +48,6 @@ registerRoutes(app).then(() => {
 });
 
 // Enhanced handler with logging
-const serverlessHandler = serverless(app);
+const handler = serverless(app);
 
-export const handler = async (event: any, context: any) => {
-  console.log('📥 Incoming request:', {
-    path: event.path,
-    httpMethod: event.httpMethod,
-    headers: event.headers ? Object.keys(event.headers) : 'none'
-  });
-  
-  try {
-    const result = await serverlessHandler(event, context);
-    console.log('📤 Response status:', (result as any).statusCode);
-    return result;
-  } catch (error: any) {
-    console.error('💥 Handler error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error', details: error.message })
-    };
-  }
-};
+export { handler };
