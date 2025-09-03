@@ -132,7 +132,7 @@ export default function UserManagementTable() {
                     {user.role === 'agent' ? 'Agent' : user.role === 'team_leader' ? 'Team Leader' : '-'}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -141,19 +141,6 @@ export default function UserManagementTable() {
                     data-testid={`button-edit-${user.id}`}
                   >
                     Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deactivateUserMutation.mutate({ 
-                      userId: user.id, 
-                      isActive: !user.isActive 
-                    })}
-                    disabled={deactivateUserMutation.isPending}
-                    className={user.isActive ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800"}
-                    data-testid={`button-toggle-status-${user.id}`}
-                  >
-                    {user.isActive ? "Deactivate" : "Activate"}
                   </Button>
                 </td>
               </tr>
