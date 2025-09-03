@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Design
 - **Primary Database**: PostgreSQL with connection pooling via Neon Database serverless driver
+- **Shared Database URL**: postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 - **Schema Structure**: 
   - Users table with role-based access control (admin, hr, contact_center_ops_manager, contact_center_manager, team_leader, agent)
   - Departments table for organizational structure
@@ -41,6 +42,13 @@ Preferred communication style: Simple, everyday language.
   - Attendance table for time tracking and presence management
   - Teams and team members tables for organizational hierarchy
   - Sessions table for authentication session persistence
+
+### Setup for New Users
+When importing this project:
+1. Copy `.env.example` to `.env` to use the shared database
+2. Run `npm install` to install dependencies
+3. Run `npm run db:push` to sync database schema
+4. Run `npm run dev` to start the application
 
 ### Role-Based Access Control
 - **Admin**: Full system access including user management, system configuration, and reporting
