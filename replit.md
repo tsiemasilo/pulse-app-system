@@ -10,6 +10,11 @@ The system is built as a full-stack web application with a React frontend and Ex
 
 Preferred communication style: Simple, everyday language.
 
+## Git Configuration
+- Repository: https://github.com/tsiemasilo/pulse-app-system.git
+- Branch: main
+- Format: Always provide git commands with token authentication
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -58,6 +63,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting with connection pooling
+- **Production Database**: Configured via NETLIFY_DATABASE_URL environment variable
 - **WebSocket Support**: Real-time database connections via ws library
 
 ### UI and Styling

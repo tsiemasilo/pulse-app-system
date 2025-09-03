@@ -1,0 +1,45 @@
+error: failed to push some refs to 'https://github.com/tsiemasilo/pulse-app-system.git'
+~/workspace$ ^C
+~/workspace$ git add .
+git commit -m "Remove sensitive credentials from documentation"
+git push https://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@github.com/tsiemasilo/pulse-app-system.git main
+On branch main
+Your branch is ahead of 'origin/main' by 5 commits.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+Enumerating objects: 25, done.
+Counting objects: 100% (25/25), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (18/18), done.
+Writing objects: 100% (19/19), 3.67 KiB | 3.67 MiB/s, done.
+Total 19 (delta 16), reused 1 (delta 1), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (16/16), completed with 5 local objects.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: 
+remote: - GITHUB PUSH PROTECTION
+remote:   —————————————————————————————————————————
+remote:     Resolve the following violations before pushing again
+remote: 
+remote:     - Push cannot contain secrets
+remote: 
+remote:     
+remote:      (?) Learn how to resolve a blocked push
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
+remote:     
+remote:     
+remote:       —— GitHub Personal Access Token ——————————————————————
+remote:        locations:
+remote:          - commit: 0086b914a8333fab9c531add93361374189a987d
+remote:            path: attached_assets/Pasted--workspace-git-add-git-commit-m-Database-setup-and-authentication-system-with-production-cred-1756888167264_1756888167269.txt:3
+remote:          - commit: 0f6ade914390435ba3f347d92dec65b5e323d4af
+remote:            path: replit.md:16
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/tsiemasilo/pulse-app-system/security/secret-scanning/unblock-secret/32BJcGsE1Ac3gxA01cXPyOy7zdF
+remote:     
+remote: 
+remote: 
+To https://github.com/tsiemasilo/pulse-app-system.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/tsiemasilo/pulse-app-system.git'
