@@ -32,7 +32,7 @@ interface EditUserDialogProps {
 }
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
-  const [selectedTeamLeader, setSelectedTeamLeader] = useState<string>("");
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState<string>("none");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -80,7 +80,9 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
   useEffect(() => {
     if (userTeams.length > 0) {
-      setSelectedTeamLeader(userTeams[0].leaderId || "");
+      setSelectedTeamLeader(userTeams[0].leaderId || "none");
+    } else {
+      setSelectedTeamLeader("none");
     }
   }, [userTeams]);
 
@@ -99,8 +101,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       });
 
       // If user is an agent and team leader changed, reassign
-      if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "")) {
-        if (selectedTeamLeader) {
+      if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "none")) {
+        if (selectedTeamLeader && selectedTeamLeader !== "none") {
           await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
             teamLeaderId: selectedTeamLeader,
           });
@@ -282,7 +284,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     <SelectValue placeholder="Select team leader" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Team Leader</SelectItem>
+                    <SelectItem value="none">No Team Leader</SelectItem>
                     {teamLeaders.map((leader) => (
                       <SelectItem key={leader.id} value={leader.id}>
                         {leader.firstName} {leader.lastName}
