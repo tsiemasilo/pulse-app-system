@@ -7,7 +7,7 @@ import TerminationManagement from "@/components/termination-management";
 import AssetManagement from "@/components/asset-management";
 import HRAttendanceView from "@/components/hr-attendance-view";
 import OnboardingManagement from "@/components/onboarding-management";
-import UserManagementTable from "@/components/user-management-table";
+import HREmployeeManagement from "@/components/hr-employee-management";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,7 +111,7 @@ export default function HRDashboard() {
       case 'onboarding':
         return <OnboardingManagement />;
       case 'employees':
-        return <UserManagementTable />;
+        return <HREmployeeManagement />;
       default:
         return (
           <div className="space-y-6 animate-in fade-in-50 duration-500">
