@@ -83,6 +83,7 @@ export default function HRDashboard() {
         { icon: UserX, label: 'Terminations', key: 'terminations' },
         { icon: Briefcase, label: 'Assets', key: 'assets' },
         { icon: Users, label: 'Employees', key: 'employees' },
+        { icon: UserPlus, label: 'Onboarding', key: 'onboarding' },
       ]
     },
     {
