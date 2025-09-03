@@ -7,11 +7,14 @@ import { registerRoutes } from '../../server/routes';
 // Configure WebSocket for Neon (CRITICAL for production)
 neonConfig.webSocketConstructor = ws;
 
-// Set up database connection for production - Use the exact production URL
-const PRODUCTION_DB_URL = 'postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-
-// ALWAYS use the production database for Netlify deployment
-process.env.DATABASE_URL = PRODUCTION_DB_URL;
+// Use environment variables for database connection
+// NETLIFY_DATABASE_URL will be set via Netlify environment variables
+if (process.env.NETLIFY_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.NETLIFY_DATABASE_URL;
+  console.log('🔗 Using NETLIFY_DATABASE_URL for production');
+} else if (!process.env.DATABASE_URL) {
+  console.error('❌ No database URL found in environment variables');
+}
 console.log('🔗 Using production database URL for Netlify function');
 
 const app = express();
