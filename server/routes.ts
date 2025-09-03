@@ -1,13 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, users } from "@shared/schema";
 import { z } from "zod";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
+
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
