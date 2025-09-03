@@ -78,9 +78,6 @@ export default function HRDashboard() {
       title: 'MAIN MENU',
       items: [
         { icon: Home, label: 'Dashboard', key: 'dashboard' },
-        { icon: Calendar, label: 'Calendar', key: 'calendar' },
-        { icon: Settings, label: 'Settings', key: 'settings' },
-        { icon: HelpCircle, label: 'Help & Center', key: 'help' },
       ]
     },
     {
