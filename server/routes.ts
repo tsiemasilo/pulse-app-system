@@ -90,7 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/users/:userId', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
+      console.log("Update user request - User role:", user?.role, "User ID:", user?.id, "Target user:", req.params.userId);
+      
       if (user?.role !== 'admin') {
+        console.log("Access denied - User role is not admin:", user?.role);
         return res.status(403).json({ message: "Forbidden" });
       }
 
