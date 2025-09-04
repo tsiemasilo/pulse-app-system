@@ -269,8 +269,26 @@ export class DatabaseStorage implements IStorage {
     endOfDay.setHours(23, 59, 59, 999);
 
     return await db
-      .select()
+      .select({
+        id: attendance.id,
+        userId: attendance.userId,
+        date: attendance.date,
+        clockIn: attendance.clockIn,
+        clockOut: attendance.clockOut,
+        status: attendance.status,
+        hoursWorked: attendance.hoursWorked,
+        createdAt: attendance.createdAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          role: users.role,
+        }
+      })
       .from(attendance)
+      .leftJoin(users, eq(attendance.userId, users.id))
       .where(and(
         gte(attendance.date, startOfDay),
         lte(attendance.date, endOfDay)

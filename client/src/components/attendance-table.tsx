@@ -71,10 +71,12 @@ export default function AttendanceTable() {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-foreground" data-testid={`text-employee-name-${record.id}`}>
-                          {record.user?.firstName} {record.user?.lastName}
+                          {record.user?.firstName && record.user?.lastName 
+                            ? `${record.user.firstName} ${record.user.lastName}`
+                            : record.user?.username || 'Unknown User'}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          ID: {record.userId.slice(-8)}
+                          @{record.user?.username || record.userId.slice(-8)}
                         </div>
                       </div>
                     </div>
