@@ -23,9 +23,7 @@ export default function UserManagementTable() {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       try {
-        const response = await apiRequest(`/api/users/${userId}`, {
-          method: "DELETE",
-        });
+        const response = await apiRequest("DELETE", `/api/users/${userId}`);
         return response;
       } catch (error: any) {
         if (isUnauthorizedError(error)) {
