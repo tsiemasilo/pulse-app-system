@@ -26,7 +26,7 @@ import {
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for local auth)
@@ -167,41 +167,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
-    // Clean up all foreign key references before deleting the user
-    
-    // 1. Remove user from all teams
-    await db.delete(teamMembers).where(eq(teamMembers.userId, userId));
-    
-    // 2. Unassign all assets from the user
-    await db.update(assets)
-      .set({ assignedToUserId: null, assignedAt: null })
-      .where(eq(assets.assignedToUserId, userId));
-    
-    // 3. Delete attendance records for the user
-    await db.delete(attendance).where(eq(attendance.userId, userId));
-    
-    // 4. Update teams where this user is the leader (set leader to null)
-    await db.update(teams)
-      .set({ leaderId: null })
-      .where(eq(teams.leaderId, userId));
-    
-    // 5. Handle transfers - update references to null or delete records
-    await db.update(transfers)
-      .set({ requestedBy: null })
-      .where(eq(transfers.requestedBy, userId));
-    await db.update(transfers)
-      .set({ approvedBy: null })
-      .where(eq(transfers.approvedBy, userId));
-    await db.delete(transfers).where(eq(transfers.userId, userId));
-    
-    // 6. Handle terminations - update processedBy to null or delete records
-    await db.update(terminations)
-      .set({ processedBy: null })
-      .where(eq(terminations.processedBy, userId));
-    await db.delete(terminations).where(eq(terminations.userId, userId));
-    
-    // Finally, delete the user
-    await db.delete(users).where(eq(users.id, userId));
+    // Use transaction to ensure all operations complete or none do
+    await db.transaction(async (tx) => {
+      // Clean up all foreign key references before deleting the user
+      
+      // 1. Remove user from all teams
+      await tx.delete(teamMembers).where(eq(teamMembers.userId, userId));
+      
+      // 2. Unassign all assets from the user
+      await tx.update(assets)
+        .set({ assignedToUserId: null, assignedAt: null })
+        .where(eq(assets.assignedToUserId, userId));
+      
+      // 3. Delete attendance records for the user
+      await tx.delete(attendance).where(eq(attendance.userId, userId));
+      
+      // 4. Update teams where this user is the leader (set leader to null)
+      await tx.update(teams)
+        .set({ leaderId: sql`NULL` })
+        .where(eq(teams.leaderId, userId));
+      
+      // 5. Handle transfers - update references to null or delete records
+      await tx.update(transfers)
+        .set({ requestedBy: sql`NULL` })
+        .where(eq(transfers.requestedBy, userId));
+      await tx.update(transfers)
+        .set({ approvedBy: sql`NULL` })
+        .where(eq(transfers.approvedBy, userId));
+      await tx.delete(transfers).where(eq(transfers.userId, userId));
+      
+      // 6. Handle terminations - update processedBy to null or delete records
+      await tx.update(terminations)
+        .set({ processedBy: sql`NULL` })
+        .where(eq(terminations.processedBy, userId));
+      await tx.delete(terminations).where(eq(terminations.userId, userId));
+      
+      // Finally, delete the user
+      await tx.delete(users).where(eq(users.id, userId));
+    });
   }
 
   async getAllUsers(): Promise<User[]> {
