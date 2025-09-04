@@ -167,10 +167,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
-    // First, remove user from all teams to avoid foreign key constraint violations
+    // Clean up all foreign key references before deleting the user
+    
+    // 1. Remove user from all teams
     await db.delete(teamMembers).where(eq(teamMembers.userId, userId));
     
-    // Then delete the user
+    // 2. Unassign all assets from the user
+    await db.update(assets)
+      .set({ assignedToUserId: null, assignedAt: null })
+      .where(eq(assets.assignedToUserId, userId));
+    
+    // 3. Delete attendance records for the user
+    await db.delete(attendance).where(eq(attendance.userId, userId));
+    
+    // 4. Update teams where this user is the leader (set leader to null)
+    await db.update(teams)
+      .set({ leaderId: null })
+      .where(eq(teams.leaderId, userId));
+    
+    // 5. Handle transfers - update references to null or delete records
+    await db.update(transfers)
+      .set({ requestedBy: null })
+      .where(eq(transfers.requestedBy, userId));
+    await db.update(transfers)
+      .set({ approvedBy: null })
+      .where(eq(transfers.approvedBy, userId));
+    await db.delete(transfers).where(eq(transfers.userId, userId));
+    
+    // 6. Handle terminations - update processedBy to null or delete records
+    await db.update(terminations)
+      .set({ processedBy: null })
+      .where(eq(terminations.processedBy, userId));
+    await db.delete(terminations).where(eq(terminations.userId, userId));
+    
+    // Finally, delete the user
     await db.delete(users).where(eq(users.id, userId));
   }
 
