@@ -42,6 +42,7 @@ export default function TeamLeaderDashboard() {
       for (const team of leaderTeams) {
         const response = await apiRequest("GET", `/api/teams/${team.id}/members`);
         const members = await response.json() as User[];
+        console.log('Team members data:', members);
         allMembers.push(...members);
       }
       return allMembers;
@@ -148,7 +149,9 @@ export default function TeamLeaderDashboard() {
                       </Avatar>
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {member.firstName} {member.lastName}
+                          {member.firstName && member.lastName 
+                            ? `${member.firstName} ${member.lastName}` 
+                            : member.username || 'Unknown User'}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">@{member.username}</p>
                       </div>
