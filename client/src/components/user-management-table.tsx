@@ -20,10 +20,45 @@ export default function UserManagementTable() {
     queryKey: ["/api/users"],
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      try {
+        const response = await apiRequest(`/api/users/${userId}`, {
+          method: "DELETE",
+        });
+        return response;
+      } catch (error: any) {
+        if (isUnauthorizedError(error)) {
+          throw new Error("Session expired. Please log in again.");
+        }
+        throw new Error("Failed to delete user");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    if (window.confirm(`Are you sure you want to delete ${user.firstName} ${user.lastName}? This action cannot be undone.`)) {
+      deleteUserMutation.mutate(user.id);
+    }
   };
 
   const roleColorMap = {
@@ -103,15 +138,27 @@ export default function UserManagementTable() {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditUser(user)}
-                    className="text-blue-600 hover:text-blue-800"
-                    data-testid={`button-edit-${user.id}`}
-                  >
-                    Edit
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                      className="text-blue-600 hover:text-blue-800"
+                      data-testid={`button-edit-${user.id}`}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user)}
+                      className="text-red-600 hover:text-red-800"
+                      disabled={deleteUserMutation.isPending}
+                      data-testid={`button-delete-${user.id}`}
+                    >
+                      {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
