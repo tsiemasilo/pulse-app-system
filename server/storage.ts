@@ -167,6 +167,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    // First, remove user from all teams to avoid foreign key constraint violations
+    await db.delete(teamMembers).where(eq(teamMembers.userId, userId));
+    
+    // Then delete the user
     await db.delete(users).where(eq(users.id, userId));
   }
 
