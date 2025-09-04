@@ -40,7 +40,8 @@ export default function TeamLeaderDashboard() {
       
       const allMembers: User[] = [];
       for (const team of leaderTeams) {
-        const members = await apiRequest("GET", `/api/teams/${team.id}/members`);
+        const response = await apiRequest("GET", `/api/teams/${team.id}/members`);
+        const members = await response.json() as User[];
         allMembers.push(...members);
       }
       return allMembers;
