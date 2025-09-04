@@ -102,7 +102,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: z.string().optional(),
         departmentId: z.string().optional(),
         isActive: z.boolean().optional(),
+        password: z.string().min(1, "Password must not be empty").optional(),
       }).parse(req.body);
+      
+      // If password is provided, hash it before updating
+      if (updateData.password) {
+        updateData.password = await hashPassword(updateData.password);
+      }
       
       const updatedUser = await storage.updateUser(req.params.userId, updateData);
       res.json(updatedUser);

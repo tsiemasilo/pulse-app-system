@@ -21,6 +21,7 @@ const editUserSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   role: z.enum(['admin', 'hr', 'contact_center_ops_manager', 'contact_center_manager', 'team_leader', 'agent']),
   isActive: z.boolean(),
+  password: z.string().optional().or(z.literal("")),
 });
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -45,6 +46,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       lastName: "",
       role: "agent",
       isActive: true,
+      password: "",
     },
   });
 
@@ -58,6 +60,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         lastName: user.lastName || "",
         role: user.role as any,
         isActive: user.isActive,
+        password: "",
       });
     }
   }, [user, form]);
@@ -87,14 +90,21 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       if (!user) throw new Error("No user selected");
       
       // Update user details
-      const updatedUser = await apiRequest("PATCH", `/api/users/${user.id}`, {
+      const updatePayload: any = {
         username: data.username,
         email: data.email || null,
         firstName: data.firstName,
         lastName: data.lastName,
         role: data.role,
         isActive: data.isActive,
-      }) as any;
+      };
+      
+      // Only include password if it's provided and not empty
+      if (data.password && data.password.trim() !== "") {
+        updatePayload.password = data.password;
+      }
+      
+      const updatedUser = await apiRequest("PATCH", `/api/users/${user.id}`, updatePayload) as any;
 
       // If user is an agent and team leader changed, reassign
       if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "none")) {
@@ -207,6 +217,20 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input {...field} type="email" data-testid="input-email" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password (leave blank to keep current)</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" placeholder="Enter new password" data-testid="input-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
