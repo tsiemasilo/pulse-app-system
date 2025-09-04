@@ -47,6 +47,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userData = insertUserSchema.parse(req.body);
+      
+      // Hash the password before creating the user
+      if (userData.password) {
+        userData.password = await hashPassword(userData.password);
+      }
+      
       const newUser = await storage.createUser(userData);
       res.json(newUser);
     } catch (error) {
