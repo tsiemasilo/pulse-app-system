@@ -10,7 +10,6 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
-import AgentDashboard from "@/pages/agent-dashboard";
 import Navigation from "@/components/navigation";
 
 function Router() {
@@ -48,7 +47,12 @@ function Router() {
               case 'team_leader':
                 return <TeamLeaderDashboard />;
               case 'agent':
-                return <AgentDashboard />;
+                return (
+                  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                    <h1 className="text-2xl font-bold mb-4">Access Restricted</h1>
+                    <p className="text-muted-foreground">Dashboard access is not available for your role.</p>
+                  </div>
+                );
               default:
                 return <div>No dashboard available for your role: {user.role}</div>;
             }
@@ -58,7 +62,6 @@ function Router() {
           <Route path="/admin/hr" component={() => user?.role === 'admin' ? <HRDashboard /> : <NotFound />} />
           <Route path="/admin/contact-center" component={() => user?.role === 'admin' ? <ContactCenterDashboard /> : <NotFound />} />
           <Route path="/admin/team-leader" component={() => user?.role === 'admin' ? <TeamLeaderDashboard /> : <NotFound />} />
-          <Route path="/admin/agent" component={() => user?.role === 'admin' ? <AgentDashboard /> : <NotFound />} />
           
           {/* Role-specific Routes */}
           <Route path="/hr" component={() => user?.role === 'hr' ? <HRDashboard /> : <NotFound />} />
@@ -68,7 +71,6 @@ function Router() {
               : <NotFound />
           } />
           <Route path="/team-leader" component={() => user?.role === 'team_leader' ? <TeamLeaderDashboard /> : <NotFound />} />
-          <Route path="/agent" component={() => user?.role === 'agent' ? <AgentDashboard /> : <NotFound />} />
           <Route component={NotFound} />
         </Switch>
       </main>
