@@ -36,7 +36,6 @@ export default function Navigation({ user }: NavigationProps) {
     { path: "/admin/hr", label: "HR", icon: Users, testId: "nav-hr" },
     { path: "/admin/contact-center", label: "Contact Center", icon: Headphones, testId: "nav-contact-center" },
     { path: "/admin/team-leader", label: "Team Leader", icon: UserCheck, testId: "nav-team-leader" },
-    { path: "/admin/agent", label: "Agent", icon: Clock, testId: "nav-agent" },
   ];
 
   return (
