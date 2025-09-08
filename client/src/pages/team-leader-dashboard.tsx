@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { 
@@ -21,11 +22,14 @@ import {
   Laptop, 
   Mail, 
   Phone, 
-  LayoutDashboard,
+  LayoutDashboard as Home,
   Calendar,
   ArrowRightLeft,
   UserX,
-  UserPlus
+  UserPlus,
+  Search,
+  Bell,
+  ChevronRight
 } from "lucide-react";
 import type { User, Attendance, Asset, Team } from "@shared/schema";
 
@@ -102,17 +106,22 @@ export default function TeamLeaderDashboard() {
     asset.assignedToUserId && teamMemberIds.includes(asset.assignedToUserId)
   ).length;
 
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'attendance', label: 'Attendance', icon: Clock },
-    { id: 'transfers', label: 'Transfers', icon: ArrowRightLeft },
-    { id: 'terminations', label: 'Terminations', icon: UserX },
-    { id: 'assets', label: 'Assets', icon: Laptop },
-    { id: 'employees', label: 'Employees', icon: Users },
-    { id: 'onboarding', label: 'Onboarding', icon: UserPlus },
+  const sidebarItems = [
+    {
+      title: 'TEAM MANAGEMENT',
+      items: [
+        { icon: Home, label: 'Dashboard', key: 'dashboard' },
+        { icon: Clock, label: 'Attendance', key: 'attendance' },
+        { icon: ArrowRightLeft, label: 'Transfers', key: 'transfers' },
+        { icon: UserX, label: 'Terminations', key: 'terminations' },
+        { icon: Laptop, label: 'Assets', key: 'assets' },
+        { icon: Users, label: 'Employees', key: 'employees' },
+        { icon: UserPlus, label: 'Onboarding', key: 'onboarding' },
+      ]
+    }
   ];
 
-  const renderTabContent = () => {
+  const renderMainContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -304,38 +313,122 @@ export default function TeamLeaderDashboard() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <div className="w-64 bg-card border-r border-border p-4">
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold">Team Leadership</h2>
-          <p className="text-sm text-muted-foreground">Management Dashboard</p>
+      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">P</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Pulse Team</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Team Leadership</p>
+            </div>
+          </div>
         </div>
         
-        <nav className="space-y-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <Button
-                key={tab.id}
-                variant={activeTab === tab.id ? "default" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => setActiveTab(tab.id)}
-                data-testid={`tab-${tab.id}`}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {tab.label}
-              </Button>
-            );
-          })}
-        </nav>
+        <div className="p-4">
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input 
+              placeholder="Search anything.." 
+              className="pl-10 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+            />
+          </div>
+          
+          <nav className="space-y-6">
+            {sidebarItems.map((section) => (
+              <div key={section.title}>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                  {section.title}
+                </h3>
+                <ul className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.key;
+                    return (
+                      <li key={item.key}>
+                        <button
+                          onClick={() => setActiveTab(item.key)}
+                          className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                            isActive 
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500' 
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                          data-testid={`tab-${item.key}`}
+                        >
+                          <Icon className={`mr-3 h-5 w-5 ${
+                            isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                          }`} />
+                          {item.label}
+                          {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 overflow-auto">
-        <div className="fade-in">
-          {renderTabContent()}
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {activeTab === 'dashboard' ? 'Team Leadership Dashboard' : 
+                 activeTab === 'attendance' ? 'Attendance Management' :
+                 activeTab === 'transfers' ? 'Employee Transfers' :
+                 activeTab === 'terminations' ? 'Termination Management' :
+                 activeTab === 'assets' ? 'Asset Management' :
+                 activeTab === 'employees' ? 'Team Members' :
+                 activeTab === 'onboarding' ? 'Employee Onboarding' :
+                 'Team Dashboard'}
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {activeTab === 'dashboard' ? 'Manage your team performance and operations' :
+                 activeTab === 'attendance' ? 'Track and manage team member attendance' :
+                 activeTab === 'transfers' ? 'Handle team member transfers' :
+                 activeTab === 'terminations' ? 'Process team member terminations' :
+                 activeTab === 'assets' ? 'Manage team assets and equipment' :
+                 activeTab === 'employees' ? 'View and manage team members' :
+                 activeTab === 'onboarding' ? 'Onboard new team members' :
+                 'Team management tools'}
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+              </Button>
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user?.firstName?.charAt(0) || 'T'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user?.firstName || 'Team'} {user?.lastName || 'Leader'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-auto p-6">
+          <div className="fade-in">
+            {renderMainContent()}
+          </div>
+        </main>
       </div>
     </div>
   );
