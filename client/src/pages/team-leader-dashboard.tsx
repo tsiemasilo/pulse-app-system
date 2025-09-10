@@ -113,7 +113,7 @@ export default function TeamLeaderDashboard() {
         { icon: Clock, label: 'Attendance', key: 'attendance' },
         { icon: ArrowRightLeft, label: 'Transfers', key: 'transfers' },
         { icon: UserX, label: 'Terminations', key: 'terminations' },
-        { icon: Laptop, label: 'Assets', key: 'assets' },
+        { icon: Laptop, label: 'Asset Control', key: 'assets' },
         { icon: Users, label: 'Employees', key: 'employees' },
         { icon: UserPlus, label: 'Onboarding', key: 'onboarding' },
       ]
@@ -394,7 +394,7 @@ export default function TeamLeaderDashboard() {
                 {activeTab === 'attendance' ? 'Attendance Management' :
                  activeTab === 'transfers' ? 'Employee Transfers' :
                  activeTab === 'terminations' ? 'Termination Management' :
-                 activeTab === 'assets' ? 'Asset Management' :
+                 activeTab === 'assets' ? 'Asset Control' :
                  activeTab === 'employees' ? 'Team Members' :
                  activeTab === 'onboarding' ? 'Employee Onboarding' :
                  'Team Dashboard'}
@@ -403,7 +403,7 @@ export default function TeamLeaderDashboard() {
                 {activeTab === 'attendance' ? 'Track and manage team member attendance' :
                  activeTab === 'transfers' ? 'Handle team member transfers' :
                  activeTab === 'terminations' ? 'Process team member terminations' :
-                 activeTab === 'assets' ? 'Manage team assets and equipment' :
+                 activeTab === 'assets' ? 'Track asset booking in and out for team members' :
                  activeTab === 'employees' ? 'View and manage team members' :
                  activeTab === 'onboarding' ? 'Onboard new team members' :
                  'Team management tools'}

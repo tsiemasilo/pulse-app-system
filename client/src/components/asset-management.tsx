@@ -1,277 +1,288 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { insertAssetSchema } from "@shared/schema";
-import { Laptop, Plus, UserCheck } from "lucide-react";
-import { z } from "zod";
-import type { Asset, User } from "@shared/schema";
+import { Laptop, Headphones, Usb, Check, X } from "lucide-react";
+import type { User, Asset } from "@shared/schema";
 
 interface AssetManagementProps {
   userId?: string;
   showActions?: boolean;
 }
 
+interface AssetBooking {
+  agentId: string;
+  agentName: string;
+  laptop: boolean;
+  headsets: boolean;
+  dongle: boolean;
+  date: string;
+  type: 'book_in' | 'book_out';
+}
+
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isAssignOpen, setIsAssignOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [activeTab, setActiveTab] = useState('book_in');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: assets = [], isLoading } = useQuery<Asset[]>({
-    queryKey: userId ? ["/api/assets/user", userId] : ["/api/assets"],
-  });
+  // For user-specific view (agents seeing their own assets)
+  if (userId) {
+    const { data: userAssets = [], isLoading } = useQuery<Asset[]>({
+      queryKey: ["/api/assets/user", userId],
+    });
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    enabled: !userId, // Only fetch users when not showing user-specific assets
-  });
-
-  const createAssetForm = useForm({
-    resolver: zodResolver(insertAssetSchema),
-    defaultValues: {
-      name: "",
-      type: "",
-      serialNumber: "",
-      status: "available",
-    },
-  });
-
-  const assignForm = useForm({
-    defaultValues: {
-      userId: "",
-    },
-  });
-
-  const createAssetMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof insertAssetSchema>) => {
-      const res = await apiRequest("POST", "/api/assets", data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
-      setIsCreateOpen(false);
-      createAssetForm.reset();
-      toast({
-        title: "Asset Created",
-        description: "New asset has been added to inventory.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Create Asset",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const assignAssetMutation = useMutation({
-    mutationFn: async ({ assetId, userId }: { assetId: string; userId: string }) => {
-      const res = await apiRequest("PATCH", `/api/assets/${assetId}/assign`, { userId });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
-      setIsAssignOpen(false);
-      setSelectedAsset(null);
-      assignForm.reset();
-      toast({
-        title: "Asset Assigned",
-        description: "Asset has been assigned successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Assignment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateAssetMutation = useMutation({
-    mutationFn: async ({ assetId, status }: { assetId: string; status: string }) => {
-      return await apiRequest("PATCH", `/api/assets/${assetId}/status`, { status });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
-      toast({
-        title: "Success",
-        description: "Asset status updated successfully",
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to update asset status",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available':
-        return "bg-green-100 text-green-800";
-      case 'assigned':
-        return "bg-blue-100 text-blue-800";
-      case 'maintenance':
-        return "bg-yellow-100 text-yellow-800";
-      case 'missing':
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    if (isLoading) {
+      return <div className="text-center py-8">Loading assets...</div>;
     }
-  };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading assets...</div>;
-  }
+    if (userAssets.length === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>My Assets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-center py-4">No assets assigned</p>
+          </CardContent>
+        </Card>
+      );
+    }
 
-  if (userId && assets.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>My Assets</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-4">No assets assigned</p>
+          <div className="space-y-3">
+            {userAssets.map((asset) => (
+              <div 
+                key={asset.id} 
+                className="flex justify-between items-center p-3 bg-muted rounded-lg"
+                data-testid={`asset-card-${asset.id}`}
+              >
+                <div>
+                  <div className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.id}`}>
+                    {asset.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground" data-testid={`text-asset-id-${asset.id}`}>
+                    Asset ID: {asset.id.slice(-8)}
+                  </div>
+                </div>
+                <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-asset-status-${asset.id}`}>
+                  {asset.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {userId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>My Assets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {assets.map((asset) => (
-                <div 
-                  key={asset.id} 
-                  className="flex justify-between items-center p-3 bg-muted rounded-lg"
-                  data-testid={`asset-card-${asset.id}`}
-                >
-                  <div>
-                    <div className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.id}`}>
-                      {asset.name}
+  // For team leaders - fetch team members
+  const { data: teamMembers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    select: (users) => users.filter(user => user.role === 'agent'),
+  });
+
+  // Mock asset booking data - in a real app this would come from your backend
+  const [assetBookings, setAssetBookings] = useState<Record<string, AssetBooking>>(() => {
+    const bookings: Record<string, AssetBooking> = {};
+    teamMembers.forEach(member => {
+      bookings[`${member.id}_book_in`] = {
+        agentId: member.id,
+        agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
+        laptop: false,
+        headsets: false,
+        dongle: false,
+        date: new Date().toISOString().split('T')[0],
+        type: 'book_in'
+      };
+      bookings[`${member.id}_book_out`] = {
+        agentId: member.id,
+        agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
+        laptop: false,
+        headsets: false,
+        dongle: false,
+        date: new Date().toISOString().split('T')[0],
+        type: 'book_out'
+      };
+    });
+    return bookings;
+  });
+
+  const updateAssetBooking = (agentId: string, assetType: string, checked: boolean, bookingType: 'book_in' | 'book_out') => {
+    const key = `${agentId}_${bookingType}`;
+    setAssetBookings(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [assetType]: checked
+      }
+    }));
+    
+    toast({
+      title: "Asset Updated",
+      description: `${assetType} ${checked ? 'checked in' : 'unchecked'} for agent`,
+    });
+  };
+
+  const AssetTable = ({ bookingType }: { bookingType: 'book_in' | 'book_out' }) => (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-muted">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Agent
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Laptop className="h-4 w-4" />
+                Laptop
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Headphones className="h-4 w-4" />
+                Headsets
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Usb className="h-4 w-4" />
+                Dongle
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-card divide-y divide-border">
+          {teamMembers.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                No team members found
+              </td>
+            </tr>
+          ) : (
+            teamMembers.map((member) => {
+              const bookingKey = `${member.id}_${bookingType}`;
+              const booking = assetBookings[bookingKey];
+              
+              return (
+                <tr key={member.id} data-testid={`row-agent-${member.id}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
+                      {booking?.agentName || 'Unknown Agent'}
                     </div>
-                    <div className="text-xs text-muted-foreground" data-testid={`text-asset-id-${asset.id}`}>
-                      Asset ID: {asset.id.slice(-8)}
+                    <div className="text-sm text-muted-foreground">
+                      @{member.username}
                     </div>
-                  </div>
-                  <Badge 
-                    className={getStatusColor(asset.status)}
-                    data-testid={`badge-asset-status-${asset.id}`}
-                  >
-                    {asset.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="bg-card rounded-lg border border-border shadow-sm">
-          <div className="p-6 border-b border-border">
-            <h2 className="text-xl font-semibold text-foreground">Asset Management</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Asset</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Assigned To</th>
-                  {showActions && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-                  )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={booking?.laptop || false}
+                        onCheckedChange={(checked) => 
+                          updateAssetBooking(member.id, 'laptop', checked as boolean, bookingType)
+                        }
+                        data-testid={`checkbox-laptop-${member.id}-${bookingType}`}
+                        className="h-5 w-5"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={booking?.headsets || false}
+                        onCheckedChange={(checked) => 
+                          updateAssetBooking(member.id, 'headsets', checked as boolean, bookingType)
+                        }
+                        data-testid={`checkbox-headsets-${member.id}-${bookingType}`}
+                        className="h-5 w-5"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={booking?.dongle || false}
+                        onCheckedChange={(checked) => 
+                          updateAssetBooking(member.id, 'dongle', checked as boolean, bookingType)
+                        }
+                        data-testid={`checkbox-dongle-${member.id}-${bookingType}`}
+                        className="h-5 w-5"
+                      />
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-border">
-                {assets.length === 0 ? (
-                  <tr>
-                    <td colSpan={showActions ? 5 : 4} className="px-6 py-8 text-center text-muted-foreground">
-                      No assets found
-                    </td>
-                  </tr>
-                ) : (
-                  assets.map((asset) => (
-                    <tr key={asset.id} data-testid={`row-asset-${asset.id}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.id}`}>
-                          {asset.name}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {asset.serialNumber}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-asset-type-${asset.id}`}>
-                        {asset.type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge 
-                          className={getStatusColor(asset.status)}
-                          data-testid={`badge-asset-status-${asset.id}`}
-                        >
-                          {asset.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                        {asset.assignedToUserId ? asset.assignedToUserId.slice(-8) : "Unassigned"}
-                      </td>
-                      {showActions && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => updateAssetMutation.mutate({ 
-                              assetId: asset.id, 
-                              status: asset.status === 'available' ? 'maintenance' : 'available'
-                            })}
-                            disabled={updateAssetMutation.isPending}
-                            data-testid={`button-toggle-asset-${asset.id}`}
-                          >
-                            {asset.status === 'available' ? 'Mark Maintenance' : 'Mark Available'}
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Laptop className="h-5 w-5" />
+            Asset Control System
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Track which assets agents have collected (Book In) and returned (Book Out)
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="book_in" data-testid="tab-book-in">
+                Book In
+              </TabsTrigger>
+              <TabsTrigger value="book_out" data-testid="tab-book-out">
+                Book Out
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="book_in" className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <Check className="h-5 w-5 text-green-600" />
+                  <div>
+                    <h3 className="font-medium text-green-800 dark:text-green-200">Book In Assets</h3>
+                    <p className="text-sm text-green-600 dark:text-green-300">
+                      Mark which assets each agent has collected for their shift
+                    </p>
+                  </div>
+                </div>
+                <AssetTable bookingType="book_in" />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="book_out" className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <X className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <h3 className="font-medium text-orange-800 dark:text-orange-200">Book Out Assets</h3>
+                    <p className="text-sm text-orange-600 dark:text-orange-300">
+                      Mark which assets each agent has returned after their shift
+                    </p>
+                  </div>
+                </div>
+                <AssetTable bookingType="book_out" />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }
