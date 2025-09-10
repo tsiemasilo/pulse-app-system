@@ -91,8 +91,15 @@ export default function TerminationManagement() {
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'layoff':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'retirement':
+      case 'resignation':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'absent':
+      case 'sick':
+      case 'leave':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'AWOL':
+      case 'suspended':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
@@ -173,10 +180,15 @@ export default function TerminationManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="voluntary">Voluntary (Resignation)</SelectItem>
+                            <SelectItem value="absent">Absent</SelectItem>
+                            <SelectItem value="AWOL">AWOL</SelectItem>
                             <SelectItem value="involuntary">Involuntary (Termination)</SelectItem>
                             <SelectItem value="layoff">Layoff</SelectItem>
-                            <SelectItem value="retirement">Retirement</SelectItem>
+                            <SelectItem value="leave">Leave</SelectItem>
+                            <SelectItem value="resignation">Resignation</SelectItem>
+                            <SelectItem value="sick">Sick</SelectItem>
+                            <SelectItem value="suspended">Suspended</SelectItem>
+                            <SelectItem value="voluntary">Voluntary (Resignation)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
