@@ -11,8 +11,9 @@ if (typeof WebSocket === 'undefined') {
 }
 
 // Set additional configuration for better reliability
-neonConfig.useSecureWebSocket = true;
+neonConfig.useSecureWebSocket = false;
 neonConfig.pipelineConnect = "password";
+neonConfig.poolQueryViaFetch = true;
 
 // Use NETLIFY_DATABASE_URL for production or DATABASE_URL for development
 const databaseUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
