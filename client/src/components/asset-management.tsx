@@ -18,11 +18,21 @@ interface AssetManagementProps {
 interface AssetBooking {
   agentId: string;
   agentName: string;
+  laptop: 'none' | 'returned' | 'not_returned';
+  headsets: 'none' | 'returned' | 'not_returned';
+  dongle: 'none' | 'returned' | 'not_returned';
+  date: string;
+  type: 'book_in' | 'book_out';
+}
+
+interface AssetBookingBookIn {
+  agentId: string;
+  agentName: string;
   laptop: boolean;
   headsets: boolean;
   dongle: boolean;
   date: string;
-  type: 'book_in' | 'book_out';
+  type: 'book_in';
 }
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
@@ -92,10 +102,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   });
 
   // Mock asset booking data - in a real app this would come from your backend
-  const [assetBookings, setAssetBookings] = useState<Record<string, AssetBooking>>(() => {
-    const bookings: Record<string, AssetBooking> = {};
+  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>(() => {
+    const bookings: Record<string, AssetBookingBookIn> = {};
     teamMembers.forEach(member => {
-      bookings[`${member.id}_book_in`] = {
+      bookings[member.id] = {
         agentId: member.id,
         agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
         laptop: false,
@@ -104,12 +114,19 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         date: new Date().toISOString().split('T')[0],
         type: 'book_in'
       };
-      bookings[`${member.id}_book_out`] = {
+    });
+    return bookings;
+  });
+
+  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>(() => {
+    const bookings: Record<string, AssetBooking> = {};
+    teamMembers.forEach(member => {
+      bookings[member.id] = {
         agentId: member.id,
         agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
-        laptop: false,
-        headsets: false,
-        dongle: false,
+        laptop: 'none',
+        headsets: 'none',
+        dongle: 'none',
         date: new Date().toISOString().split('T')[0],
         type: 'book_out'
       };
@@ -117,23 +134,38 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return bookings;
   });
 
-  const updateAssetBooking = (agentId: string, assetType: string, checked: boolean, bookingType: 'book_in' | 'book_out') => {
-    const key = `${agentId}_${bookingType}`;
-    setAssetBookings(prev => ({
+  const updateAssetBookingBookIn = (agentId: string, assetType: string, checked: boolean) => {
+    setAssetBookingsBookIn(prev => ({
       ...prev,
-      [key]: {
-        ...prev[key],
+      [agentId]: {
+        ...prev[agentId],
         [assetType]: checked
       }
     }));
     
     toast({
       title: "Asset Updated",
-      description: `${assetType} ${checked ? 'checked in' : 'unchecked'} for agent`,
+      description: `${assetType} ${checked ? 'collected' : 'not collected'} for agent`,
     });
   };
 
-  const AssetTable = ({ bookingType }: { bookingType: 'book_in' | 'book_out' }) => (
+  const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    setAssetBookingsBookOut(prev => ({
+      ...prev,
+      [agentId]: {
+        ...prev[agentId],
+        [assetType]: status
+      }
+    }));
+    
+    const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'not returned' : 'unmarked';
+    toast({
+      title: "Asset Updated",
+      description: `${assetType} marked as ${statusText} for agent`,
+    });
+  };
+
+  const BookInTable = () => (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead className="bg-muted">
@@ -170,14 +202,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             </tr>
           ) : (
             teamMembers.map((member) => {
-              const bookingKey = `${member.id}_${bookingType}`;
-              const booking = assetBookings[bookingKey];
+              const booking = assetBookingsBookIn[member.id];
               
               return (
                 <tr key={member.id} data-testid={`row-agent-${member.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
-                      {booking?.agentName || 'Unknown Agent'}
+                      {booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       @{member.username}
@@ -188,9 +219,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <Checkbox
                         checked={booking?.laptop || false}
                         onCheckedChange={(checked) => 
-                          updateAssetBooking(member.id, 'laptop', checked as boolean, bookingType)
+                          updateAssetBookingBookIn(member.id, 'laptop', checked as boolean)
                         }
-                        data-testid={`checkbox-laptop-${member.id}-${bookingType}`}
+                        data-testid={`checkbox-laptop-${member.id}-book-in`}
                         className="h-5 w-5"
                       />
                     </div>
@@ -200,9 +231,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <Checkbox
                         checked={booking?.headsets || false}
                         onCheckedChange={(checked) => 
-                          updateAssetBooking(member.id, 'headsets', checked as boolean, bookingType)
+                          updateAssetBookingBookIn(member.id, 'headsets', checked as boolean)
                         }
-                        data-testid={`checkbox-headsets-${member.id}-${bookingType}`}
+                        data-testid={`checkbox-headsets-${member.id}-book-in`}
                         className="h-5 w-5"
                       />
                     </div>
@@ -212,10 +243,135 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <Checkbox
                         checked={booking?.dongle || false}
                         onCheckedChange={(checked) => 
-                          updateAssetBooking(member.id, 'dongle', checked as boolean, bookingType)
+                          updateAssetBookingBookIn(member.id, 'dongle', checked as boolean)
                         }
-                        data-testid={`checkbox-dongle-${member.id}-${bookingType}`}
+                        data-testid={`checkbox-dongle-${member.id}-book-in`}
                         className="h-5 w-5"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const AssetStatusButton = ({ status, onStatusChange, assetType, agentId }: {
+    status: 'none' | 'returned' | 'not_returned';
+    onStatusChange: (newStatus: 'none' | 'returned' | 'not_returned') => void;
+    assetType: string;
+    agentId: string;
+  }) => {
+    const getNextStatus = () => {
+      if (status === 'none') return 'returned';
+      if (status === 'returned') return 'not_returned';
+      return 'none';
+    };
+
+    const getIcon = () => {
+      if (status === 'returned') return <Check className="h-4 w-4 text-green-600" />;
+      if (status === 'not_returned') return <X className="h-4 w-4 text-red-600" />;
+      return <div className="h-4 w-4 border border-gray-300 rounded" />;
+    };
+
+    const getButtonClass = () => {
+      if (status === 'returned') return 'bg-green-100 hover:bg-green-200 border-green-300';
+      if (status === 'not_returned') return 'bg-red-100 hover:bg-red-200 border-red-300';
+      return 'bg-gray-50 hover:bg-gray-100 border-gray-300';
+    };
+
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onStatusChange(getNextStatus())}
+        className={`w-8 h-8 p-0 ${getButtonClass()}`}
+        data-testid={`button-${assetType}-${agentId}-book-out`}
+      >
+        {getIcon()}
+      </Button>
+    );
+  };
+
+  const BookOutTable = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-muted">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Agent
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Laptop className="h-4 w-4" />
+                Laptop
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Headphones className="h-4 w-4" />
+                Headsets
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Usb className="h-4 w-4" />
+                Dongle
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-card divide-y divide-border">
+          {teamMembers.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                No team members found
+              </td>
+            </tr>
+          ) : (
+            teamMembers.map((member) => {
+              const booking = assetBookingsBookOut[member.id];
+              
+              return (
+                <tr key={member.id} data-testid={`row-agent-${member.id}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
+                      {booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      @{member.username}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <AssetStatusButton
+                        status={booking?.laptop || 'none'}
+                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'laptop', status)}
+                        assetType="laptop"
+                        agentId={member.id}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <AssetStatusButton
+                        status={booking?.headsets || 'none'}
+                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'headsets', status)}
+                        assetType="headsets"
+                        agentId={member.id}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <AssetStatusButton
+                        status={booking?.dongle || 'none'}
+                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'dongle', status)}
+                        assetType="dongle"
+                        agentId={member.id}
                       />
                     </div>
                   </td>
@@ -262,7 +418,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     </p>
                   </div>
                 </div>
-                <AssetTable bookingType="book_in" />
+                <BookInTable />
               </div>
             </TabsContent>
             
@@ -277,7 +433,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     </p>
                   </div>
                 </div>
-                <AssetTable bookingType="book_out" />
+                <BookOutTable />
               </div>
             </TabsContent>
           </Tabs>
