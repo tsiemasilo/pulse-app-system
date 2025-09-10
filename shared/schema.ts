@@ -124,6 +124,19 @@ export const terminations = pgTable("terminations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Asset loss records
+export const assetLossRecords = pgTable("asset_loss_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  assetType: varchar("asset_type").notNull(), // laptop, headsets, dongle
+  dateLost: timestamp("date_lost").notNull(),
+  reason: text("reason").notNull(),
+  reportedBy: varchar("reported_by").notNull().references(() => users.id),
+  status: varchar("status").notNull().default('reported'), // reported, investigating, resolved
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -180,6 +193,12 @@ export const insertTerminationSchema = createInsertSchema(terminations).omit({
   updatedAt: true,
 });
 
+export const insertAssetLossRecordSchema = createInsertSchema(assetLossRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -197,3 +216,5 @@ export type Transfer = typeof transfers.$inferSelect;
 export type InsertTransfer = z.infer<typeof insertTransferSchema>;
 export type Termination = typeof terminations.$inferSelect;
 export type InsertTermination = z.infer<typeof insertTerminationSchema>;
+export type AssetLossRecord = typeof assetLossRecords.$inferSelect;
+export type InsertAssetLossRecord = z.infer<typeof insertAssetLossRecordSchema>;
