@@ -71,7 +71,7 @@ export default function TransferManagement() {
       form.reset();
       toast({
         title: "Transfer Created",
-        description: "Employee transfer has been submitted for approval.",
+        description: "Team leader transfer has been submitted for approval.",
       });
     },
     onError: (error: Error) => {
@@ -115,7 +115,7 @@ export default function TransferManagement() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center">
           <ArrowRightLeft className="h-5 w-5 mr-2" />
-          Employee Transfers
+          Team Leader Transfers
         </CardTitle>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -126,7 +126,7 @@ export default function TransferManagement() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Employee Transfer</DialogTitle>
+              <DialogTitle>Create Team Leader Transfer</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -136,15 +136,15 @@ export default function TransferManagement() {
                     name="userId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Employee</FormLabel>
+                        <FormLabel>Team Leader</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-employee">
-                              <SelectValue placeholder="Select employee" />
+                              <SelectValue placeholder="Select team leader" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {users.map((user) => (
+                            {users.filter(u => u.role === 'team_leader').map((user) => (
                               <SelectItem key={user.id} value={user.id}>
                                 {user.firstName} {user.lastName} ({user.username})
                               </SelectItem>
@@ -296,10 +296,25 @@ export default function TransferManagement() {
                   name="reason"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reason</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Transfer reason" data-testid="textarea-reason" />
-                      </FormControl>
+                      <FormLabel>Transfer Reason</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-reason">
+                            <SelectValue placeholder="Select transfer reason" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="litigation">Litigation</SelectItem>
+                          <SelectItem value="admin_work">Administrative Work</SelectItem>
+                          <SelectItem value="training">Training Assignment</SelectItem>
+                          <SelectItem value="project_management">Project Management</SelectItem>
+                          <SelectItem value="compliance">Compliance</SelectItem>
+                          <SelectItem value="audit">Audit</SelectItem>
+                          <SelectItem value="special_assignment">Special Assignment</SelectItem>
+                          <SelectItem value="cross_training">Cross Training</SelectItem>
+                          <SelectItem value="operational_support">Operational Support</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -347,7 +362,7 @@ export default function TransferManagement() {
         <div className="space-y-4">
           {transfers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No transfers found. Create a new transfer to get started.
+              No team leader transfers found. Create a new transfer to get started.
             </div>
           ) : (
             transfers.map((transfer) => (
