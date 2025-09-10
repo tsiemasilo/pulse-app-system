@@ -42,12 +42,10 @@ export default function TransferManagement() {
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
-      userId: "",
       fromDepartmentId: "",
       toDepartmentId: "",
       fromRole: "",
       toRole: "",
-      transferType: "",
       startDate: "",
       endDate: "",
       reason: "",
@@ -130,52 +128,6 @@ export default function TransferManagement() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="userId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-employee">
-                              <SelectValue placeholder="" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users.filter(u => u.role === 'team_leader').map((user) => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.firstName} {user.lastName} ({user.username})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="transferType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-transfer-type">
-                              <SelectValue placeholder="" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="temporary">Temporary</SelectItem>
-                            <SelectItem value="permanent">Permanent</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
