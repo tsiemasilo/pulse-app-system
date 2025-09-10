@@ -188,13 +188,13 @@
 .asset-checkbox .toggleButton input + div:before {
   opacity: 0;
   transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
-  animation: bounceInBefore 0.3s linear forwards 0.3s;
+  transition: all 0.3s ease;
 }
 
 .asset-checkbox .toggleButton input + div:after {
   opacity: 0;
   transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
-  animation: bounceInAfter 0.3s linear forwards 0.3s;
+  transition: all 0.3s ease;
 }
 
 /* Checked state styles */
@@ -210,15 +210,15 @@
 }
 
 .asset-checkbox .toggleButton input:checked + div:before {
-  opacity: 0;
-  transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
-  animation: bounceInBeforeDont 0.3s linear forwards 0s;
+  opacity: 1;
+  transform: scale(1) translate(-50%, -50%) rotate(45deg);
+  transition: all 0.3s ease;
 }
 
 .asset-checkbox .toggleButton input:checked + div:after {
-  opacity: 0;
-  transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
-  animation: bounceInAfterDont 0.3s linear forwards 0s;
+  opacity: 1;
+  transform: scale(1) translate(-50%, -50%) rotate(-45deg);
+  transition: all 0.3s ease;
 }
 
 /* X state styles for not returned/not collected */
@@ -242,63 +242,4 @@
   transform: scale(1) translate(-50%, -50%) rotate(-45deg);
 }
 
-/* Animations */
-@keyframes bounceInBefore {
-  0% {
-    opacity: 0;
-    transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.1) translate(-50%, -50%) rotate(45deg);
-  }
-  80% {
-    opacity: 1;
-    transform: scale(0.89) translate(-50%, -50%) rotate(45deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translate(-50%, -50%) rotate(45deg);
-  }
-}
-
-@keyframes bounceInAfter {
-  0% {
-    opacity: 0;
-    transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.1) translate(-50%, -50%) rotate(-45deg);
-  }
-  80% {
-    opacity: 1;
-    transform: scale(0.89) translate(-50%, -50%) rotate(-45deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translate(-50%, -50%) rotate(-45deg);
-  }
-}
-
-@keyframes bounceInBeforeDont {
-  0% {
-    opacity: 1;
-    transform: scale(1) translate(-50%, -50%) rotate(45deg);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
-  }
-}
-
-@keyframes bounceInAfterDont {
-  0% {
-    opacity: 1;
-    transform: scale(1) translate(-50%, -50%) rotate(-45deg);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
-  }
-}
+/* Simplified transitions - no global animations */
