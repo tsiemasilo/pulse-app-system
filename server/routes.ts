@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, users } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, users } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -261,6 +261,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error assigning asset:", error);
       res.status(500).json({ message: "Failed to assign asset" });
+    }
+  });
+
+  // Asset loss records
+  app.post('/api/asset-loss', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const assetLossData = insertAssetLossRecordSchema.parse({
+        ...req.body,
+        reportedBy: user.id,
+      });
+      
+      const assetLossRecord = await storage.createAssetLossRecord(assetLossData);
+      res.json(assetLossRecord);
+    } catch (error) {
+      console.error("Error creating asset loss record:", error);
+      res.status(500).json({ message: "Failed to create asset loss record" });
+    }
+  });
+
+  app.get('/api/asset-loss', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const assetLossRecords = await storage.getAllAssetLossRecords();
+      res.json(assetLossRecords);
+    } catch (error) {
+      console.error("Error fetching asset loss records:", error);
+      res.status(500).json({ message: "Failed to fetch asset loss records" });
     }
   });
 

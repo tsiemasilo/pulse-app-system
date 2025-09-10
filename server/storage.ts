@@ -7,6 +7,7 @@ import {
   teamMembers,
   transfers,
   terminations,
+  assetLossRecords,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -23,6 +24,8 @@ import {
   type InsertTransfer,
   type Termination,
   type InsertTermination,
+  type AssetLossRecord,
+  type InsertAssetLossRecord,
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
@@ -76,6 +79,10 @@ export interface IStorage {
   // Termination management
   getAllTerminations(): Promise<Termination[]>;
   createTermination(termination: InsertTermination): Promise<Termination>;
+  
+  // Asset loss record management
+  getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
+  createAssetLossRecord(assetLossRecord: InsertAssetLossRecord): Promise<AssetLossRecord>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -439,6 +446,16 @@ export class DatabaseStorage implements IStorage {
   async createTermination(terminationData: InsertTermination): Promise<Termination> {
     const [termination] = await db.insert(terminations).values(terminationData).returning();
     return termination;
+  }
+
+  // Asset loss record management
+  async getAllAssetLossRecords(): Promise<AssetLossRecord[]> {
+    return await db.select().from(assetLossRecords).orderBy(desc(assetLossRecords.createdAt));
+  }
+
+  async createAssetLossRecord(assetLossData: InsertAssetLossRecord): Promise<AssetLossRecord> {
+    const [assetLossRecord] = await db.insert(assetLossRecords).values(assetLossData).returning();
+    return assetLossRecord;
   }
 }
 

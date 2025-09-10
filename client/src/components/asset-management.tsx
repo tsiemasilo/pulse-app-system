@@ -184,7 +184,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       ...prev,
       [agentId]: {
         ...prev[agentId],
-        [assetType]: status
+        [assetType]: status as 'none' | 'returned' | 'not_returned'
       }
     }));
     
