@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X } from "lucide-react";
 import type { User, Asset } from "@shared/schema";
+import { AssetLostDialog } from "./asset-lost-dialog";
 
 interface AssetManagementProps {
   userId?: string;
@@ -39,6 +40,19 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [activeTab, setActiveTab] = useState('book_in');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Asset Lost Dialog state
+  const [assetLostDialog, setAssetLostDialog] = useState<{
+    open: boolean;
+    agentId: string;
+    agentName: string;
+    assetType: string;
+  }>({
+    open: false,
+    agentId: '',
+    agentName: '',
+    assetType: '',
+  });
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
@@ -151,6 +165,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    if (status === 'not_returned') {
+      // Find the agent's name for the dialog
+      const agent = teamMembers.find(member => member.id === agentId);
+      const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
+      
+      // Open the Asset Lost dialog
+      setAssetLostDialog({
+        open: true,
+        agentId,
+        agentName,
+        assetType,
+      });
+      return; // Don't update the status yet - wait for the dialog to complete
+    }
+    
     setAssetBookingsBookOut(prev => ({
       ...prev,
       [agentId]: {
@@ -389,6 +418,22 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     </div>
   );
 
+  const handleAssetLostSaved = () => {
+    // Mark the asset as not returned after the loss report is saved
+    setAssetBookingsBookOut(prev => ({
+      ...prev,
+      [assetLostDialog.agentId]: {
+        ...prev[assetLostDialog.agentId],
+        [assetLostDialog.assetType]: 'not_returned'
+      }
+    }));
+    
+    toast({
+      title: "Asset Updated",
+      description: `${assetLostDialog.assetType} marked as not returned for agent`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -444,6 +489,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           </Tabs>
         </CardContent>
       </Card>
+      
+      <AssetLostDialog
+        open={assetLostDialog.open}
+        onOpenChange={(open) => setAssetLostDialog(prev => ({ ...prev, open }))}
+        agentId={assetLostDialog.agentId}
+        agentName={assetLostDialog.agentName}
+        assetType={assetLostDialog.assetType}
+        onSaved={handleAssetLostSaved}
+      />
     </div>
   );
 }

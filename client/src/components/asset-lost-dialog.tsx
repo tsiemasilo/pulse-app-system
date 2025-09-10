@@ -64,14 +64,11 @@ export function AssetLostDialog({
 
   const saveAssetLoss = useMutation({
     mutationFn: async (data: AssetLostForm) => {
-      return apiRequest<any>('/api/asset-loss', {
-        method: 'POST',
-        body: {
-          userId: agentId,
-          assetType,
-          dateLost: new Date(data.dateLost).toISOString(),
-          reason: data.reason,
-        },
+      return apiRequest('POST', '/api/asset-loss', {
+        userId: agentId,
+        assetType,
+        dateLost: new Date(data.dateLost).toISOString(),
+        reason: data.reason,
       });
     },
     onSuccess: () => {
