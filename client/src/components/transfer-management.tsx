@@ -17,7 +17,10 @@ import { ArrowRightLeft, Calendar, User, Building2 } from "lucide-react";
 import { z } from "zod";
 import type { Transfer, User as UserType, Department } from "@shared/schema";
 
-const transferFormSchema = insertTransferSchema.extend({
+const transferFormSchema = insertTransferSchema.omit({ 
+  userId: true, 
+  transferType: true 
+}).extend({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
 });
@@ -57,6 +60,8 @@ export default function TransferManagement() {
     mutationFn: async (data: z.infer<typeof transferFormSchema>) => {
       const transferData = {
         ...data,
+        userId: "placeholder", // Will be set by backend based on context
+        transferType: "temporary", // Default type since field was removed
         startDate: new Date(data.startDate).toISOString(),
         endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
       };
