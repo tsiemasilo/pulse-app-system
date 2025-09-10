@@ -9,15 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTerminationSchema } from "@shared/schema";
 import { UserX, Calendar, User, CheckCircle2, AlertCircle } from "lucide-react";
 import { z } from "zod";
 import type { Termination, User as UserType } from "@shared/schema";
 
-const terminationFormSchema = insertTerminationSchema.extend({
+const terminationFormSchema = insertTerminationSchema.omit({ exitInterviewCompleted: true }).extend({
   terminationDate: z.string().min(1, "Termination date is required"),
   lastWorkingDay: z.string().min(1, "Last working day is required"),
 });
@@ -26,6 +26,7 @@ export default function TerminationManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
@@ -43,9 +44,8 @@ export default function TerminationManagement() {
       terminationDate: "",
       lastWorkingDay: "",
       reason: "",
-      exitInterviewCompleted: false,
       assetReturnStatus: "pending",
-      processedBy: "",
+      processedBy: user?.id || "",
     },
   });
 
@@ -55,6 +55,7 @@ export default function TerminationManagement() {
         ...data,
         terminationDate: new Date(data.terminationDate).toISOString(),
         lastWorkingDay: new Date(data.lastWorkingDay).toISOString(),
+        processedBy: user?.id || "",
       };
       const res = await apiRequest("POST", "/api/terminations", terminationData);
       return await res.json();
@@ -209,7 +210,6 @@ export default function TerminationManagement() {
                     name="lastWorkingDay"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Working Day</FormLabel>
                         <FormControl>
                           <input 
                             type="date" 
@@ -238,74 +238,35 @@ export default function TerminationManagement() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="exitInterviewCompleted"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="checkbox-exit-interview"
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Exit Interview Completed</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="assetReturnStatus"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Asset Return Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-asset-return">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="partial">Partial</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
                 <FormField
                   control={form.control}
-                  name="processedBy"
+                  name="assetReturnStatus"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Processed By</FormLabel>
+                      <FormLabel>Asset Return Status</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-processed-by">
-                            <SelectValue placeholder="Select HR representative" />
+                          <SelectTrigger data-testid="select-asset-return">
+                            <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users.filter(u => u.role === 'hr' || u.role === 'admin').map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} ({user.role})
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="partial">Partial</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {user && (
+                  <div className="bg-muted/50 p-3 rounded-md">
+                    <div className="text-sm font-medium text-muted-foreground">Processed by:</div>
+                    <div className="text-sm">{user.firstName} {user.lastName} ({user.role})</div>
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
@@ -344,20 +305,12 @@ export default function TerminationManagement() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-1">
-                      {termination.exitInterviewCompleted ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-yellow-600" />
-                      )}
-                      <span>Exit Interview</span>
-                    </div>
                     <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')}>
                       Assets: {termination.assetReturnStatus || 'pending'}
                     </Badge>
                   </div>
                   <span className="text-muted-foreground">
-                    Last Day: {new Date(termination.lastWorkingDay).toLocaleDateString()}
+                    {new Date(termination.lastWorkingDay).toLocaleDateString()}
                   </span>
                 </div>
                 {termination.reason && (
