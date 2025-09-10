@@ -217,7 +217,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.laptop || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'laptop', status)}
                         assetType="laptop"
@@ -228,7 +228,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.headsets || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'headsets', status)}
                         assetType="headsets"
@@ -239,7 +239,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.dongle || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'dongle', status)}
                         assetType="dongle"
@@ -257,7 +257,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     </div>
   );
 
-  const AssetStatusButton = ({ status, onStatusChange, assetType, agentId, tabType }: {
+  const AnimatedAssetCheckbox = ({ status, onStatusChange, assetType, agentId, tabType }: {
     status: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected';
     onStatusChange: (newStatus: any) => void;
     assetType: string;
@@ -276,28 +276,25 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       }
     };
 
-    const getIcon = () => {
-      if (status === 'returned' || status === 'collected') return <Check className="h-4 w-4 text-green-600" />;
-      if (status === 'not_returned' || status === 'not_collected') return <X className="h-4 w-4 text-red-600" />;
-      return <div className="h-4 w-4 border border-gray-300 rounded" />;
-    };
-
-    const getButtonClass = () => {
-      if (status === 'returned' || status === 'collected') return 'bg-green-100 hover:bg-green-200 border-green-300';
-      if (status === 'not_returned' || status === 'not_collected') return 'bg-red-100 hover:bg-red-200 border-red-300';
-      return 'bg-gray-50 hover:bg-gray-100 border-gray-300';
-    };
+    const isChecked = status === 'collected' || status === 'returned';
+    const isXState = status === 'not_collected' || status === 'not_returned';
 
     return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onStatusChange(getNextStatus())}
-        className={`w-8 h-8 p-0 ${getButtonClass()}`}
-        data-testid={`button-${assetType}-${agentId}-${tabType}`}
-      >
-        {getIcon()}
-      </Button>
+      <div className="asset-checkbox">
+        <label className={`toggleButton ${isXState ? 'x-state' : ''}`}>
+          <input 
+            type="checkbox" 
+            checked={isChecked}
+            onChange={() => onStatusChange(getNextStatus())}
+            data-testid={`checkbox-${assetType}-${agentId}-${tabType}`}
+          />
+          <div>
+            <svg viewBox="0 0 44 44">
+              <path transform="translate(-2.000000, -2.000000)" d="M14,24 L21,31 L39.7428882,11.5937758 C35.2809627,6.53125861 30.0333333,4 24,4 C12.95,4 4,12.95 4,24 C4,35.05 12.95,44 24,44 C35.05,44 44,35.05 44,24 C44,19.3 42.5809627,15.1645919 39.7428882,11.5937758" />
+            </svg>
+          </div>
+        </label>
+      </div>
     );
   };
 
@@ -352,7 +349,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.laptop || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'laptop', status)}
                         assetType="laptop"
@@ -363,7 +360,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.headsets || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'headsets', status)}
                         assetType="headsets"
@@ -374,7 +371,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AssetStatusButton
+                      <AnimatedAssetCheckbox
                         status={booking?.dongle || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'dongle', status)}
                         assetType="dongle"
