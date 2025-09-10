@@ -37,7 +37,7 @@ export default function TeamLeaderDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('attendance');
 
   const { data: attendanceRecords = [] } = useQuery<Attendance[]>({
     queryKey: ["/api/attendance/today"],
@@ -110,7 +110,6 @@ export default function TeamLeaderDashboard() {
     {
       title: 'TEAM MANAGEMENT',
       items: [
-        { icon: Home, label: 'Dashboard', key: 'dashboard' },
         { icon: Clock, label: 'Attendance', key: 'attendance' },
         { icon: ArrowRightLeft, label: 'Transfers', key: 'transfers' },
         { icon: UserX, label: 'Terminations', key: 'terminations' },
@@ -123,11 +122,11 @@ export default function TeamLeaderDashboard() {
 
   const renderMainContent = () => {
     switch (activeTab) {
-      case 'dashboard':
+      case 'attendance':
         return (
           <div>
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-foreground">Team Leadership</h1>
+              <h1 className="text-3xl font-bold text-foreground">Team Attendance</h1>
               <p className="text-muted-foreground">Manage your team's attendance, assets, and performance</p>
             </div>
 
@@ -229,10 +228,21 @@ export default function TeamLeaderDashboard() {
                 </CardContent>
               </Card>
             )}
+            
+            {/* Attendance Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Detailed Attendance Records
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AttendanceTable />
+              </CardContent>
+            </Card>
           </div>
         );
-      case 'attendance':
-        return <AttendanceTable />;
       case 'transfers':
         return <TransferManagement />;
       case 'terminations':
@@ -381,8 +391,7 @@ export default function TeamLeaderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {activeTab === 'dashboard' ? 'Team Leadership Dashboard' : 
-                 activeTab === 'attendance' ? 'Attendance Management' :
+                {activeTab === 'attendance' ? 'Attendance Management' :
                  activeTab === 'transfers' ? 'Employee Transfers' :
                  activeTab === 'terminations' ? 'Termination Management' :
                  activeTab === 'assets' ? 'Asset Management' :
@@ -391,8 +400,7 @@ export default function TeamLeaderDashboard() {
                  'Team Dashboard'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                {activeTab === 'dashboard' ? 'Manage your team performance and operations' :
-                 activeTab === 'attendance' ? 'Track and manage team member attendance' :
+                {activeTab === 'attendance' ? 'Track and manage team member attendance' :
                  activeTab === 'transfers' ? 'Handle team member transfers' :
                  activeTab === 'terminations' ? 'Process team member terminations' :
                  activeTab === 'assets' ? 'Manage team assets and equipment' :
