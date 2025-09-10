@@ -172,30 +172,7 @@
   transition: all 0.4s ease 0s;
 }
 
-/* Checkmark lines for checked state */
-.asset-checkbox .toggleButton input + div:before,
-.asset-checkbox .toggleButton input + div:after {
-  content: "";
-  width: 3px;
-  height: 16px;
-  background: #22c55e;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border-radius: 5px;
-}
-
-.asset-checkbox .toggleButton input + div:before {
-  opacity: 0;
-  transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
-  transition: all 0.3s ease;
-}
-
-.asset-checkbox .toggleButton input + div:after {
-  opacity: 0;
-  transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
-  transition: all 0.3s ease;
-}
+/* Removed redundant checkmark lines - SVG handles the checkmark */
 
 /* Checked state styles */
 .asset-checkbox .toggleButton input:checked + div {
@@ -209,17 +186,7 @@
   transition: all 0.4s ease 0.2s;
 }
 
-.asset-checkbox .toggleButton input:checked + div:before {
-  opacity: 1;
-  transform: scale(1) translate(-50%, -50%) rotate(45deg);
-  transition: all 0.3s ease;
-}
-
-.asset-checkbox .toggleButton input:checked + div:after {
-  opacity: 1;
-  transform: scale(1) translate(-50%, -50%) rotate(-45deg);
-  transition: all 0.3s ease;
-}
+/* Removed redundant checkmark styles - SVG handles the checkmark */
 
 /* X state styles for not returned/not collected */
 .asset-checkbox .toggleButton.x-state input + div {
