@@ -136,11 +136,10 @@ export default function TransferManagement() {
                     name="userId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Team Leader</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-employee">
-                              <SelectValue placeholder="Select team leader" />
+                              <SelectValue placeholder="" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -161,11 +160,10 @@ export default function TransferManagement() {
                     name="transferType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Transfer Type</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-transfer-type">
-                              <SelectValue placeholder="Select type" />
+                              <SelectValue placeholder="" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
