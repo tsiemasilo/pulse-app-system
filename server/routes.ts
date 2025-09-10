@@ -272,10 +272,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const assetLossData = insertAssetLossRecordSchema.parse({
+      // Convert dateLost string to Date object before validation
+      const requestData = {
         ...req.body,
+        dateLost: new Date(req.body.dateLost),
         reportedBy: user.id,
-      });
+      };
+
+      const assetLossData = insertAssetLossRecordSchema.parse(requestData);
       
       const assetLossRecord = await storage.createAssetLossRecord(assetLossData);
       res.json(assetLossRecord);
