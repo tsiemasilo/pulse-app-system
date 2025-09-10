@@ -1,18 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-// Configure WebSocket for both development and production
-if (typeof WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws;
-} else {
-  neonConfig.webSocketConstructor = WebSocket;
-}
-
-// Set additional configuration for better reliability
-neonConfig.useSecureWebSocket = true;
-neonConfig.pipelineConnect = "password";
 
 // Use NETLIFY_DATABASE_URL for production or DATABASE_URL for development
 const databaseUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
@@ -25,6 +13,6 @@ if (!databaseUrl) {
 
 export const pool = new Pool({ 
   connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle(pool, { schema });
