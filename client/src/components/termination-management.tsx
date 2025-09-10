@@ -91,8 +91,6 @@ export default function TerminationManagement() {
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'layoff':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'resignation':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'absent':
       case 'sick':
       case 'leave':
@@ -185,7 +183,6 @@ export default function TerminationManagement() {
                             <SelectItem value="involuntary">Involuntary (Termination)</SelectItem>
                             <SelectItem value="layoff">Layoff</SelectItem>
                             <SelectItem value="leave">Leave</SelectItem>
-                            <SelectItem value="resignation">Resignation</SelectItem>
                             <SelectItem value="sick">Sick</SelectItem>
                             <SelectItem value="suspended">Suspended</SelectItem>
                             <SelectItem value="voluntary">Voluntary (Resignation)</SelectItem>
@@ -222,6 +219,7 @@ export default function TerminationManagement() {
                     name="lastWorkingDay"
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>&nbsp;</FormLabel>
                         <FormControl>
                           <input 
                             type="date" 
