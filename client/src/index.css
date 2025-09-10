@@ -172,9 +172,27 @@
   transition: all 0.4s ease 0s;
 }
 
-/* Removed redundant checkmark lines - SVG handles the checkmark */
+/* Base pseudo-elements for X state - hidden by default */
+.asset-checkbox .toggleButton input + div:before,
+.asset-checkbox .toggleButton input + div:after {
+  content: "";
+  width: 3px;
+  height: 16px;
+  background: #22c55e;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 5px;
+  opacity: 0;
+  transform: scale(0.3) translate(-50%, -50%) rotate(45deg);
+  transition: all 0.3s ease;
+}
 
-/* Checked state styles */
+.asset-checkbox .toggleButton input + div:after {
+  transform: scale(0.3) translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Checked state styles - SVG handles the checkmark, no pseudo-elements */
 .asset-checkbox .toggleButton input:checked + div {
   border-color: #22c55e;
 }
@@ -186,8 +204,6 @@
   transition: all 0.4s ease 0.2s;
 }
 
-/* Removed redundant checkmark styles - SVG handles the checkmark */
-
 /* X state styles for not returned/not collected */
 .asset-checkbox .toggleButton.x-state input + div {
   border-color: #ef4444;
@@ -197,15 +213,14 @@
 .asset-checkbox .toggleButton.x-state input + div:after {
   background: #ef4444;
   height: 20px;
+  opacity: 1;
 }
 
 .asset-checkbox .toggleButton.x-state input + div:before {
-  opacity: 1;
   transform: scale(1) translate(-50%, -50%) rotate(45deg);
 }
 
 .asset-checkbox .toggleButton.x-state input + div:after {
-  opacity: 1;
   transform: scale(1) translate(-50%, -50%) rotate(-45deg);
 }
 
