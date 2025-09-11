@@ -246,7 +246,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.laptop || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'laptop', status)}
                         assetType="laptop"
@@ -257,7 +257,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.headsets || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'headsets', status)}
                         assetType="headsets"
@@ -268,7 +268,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.dongle || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'dongle', status)}
                         assetType="dongle"
@@ -286,43 +286,57 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     </div>
   );
 
-  const AnimatedAssetCheckbox = ({ status, onStatusChange, assetType, agentId, tabType }: {
+  const AssetStatusButtons = ({ status, onStatusChange, assetType, agentId, tabType }: {
     status: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected';
     onStatusChange: (newStatus: any) => void;
     assetType: string;
     agentId: string;
     tabType: 'book_in' | 'book_out';
   }) => {
-    const getNextStatus = () => {
-      if (tabType === 'book_in') {
-        if (status === 'none') return 'collected';
-        if (status === 'collected') return 'not_collected';
-        return 'none';
-      } else {
-        if (status === 'none') return 'returned';
-        if (status === 'returned') return 'not_returned';
-        return 'none';
-      }
+    const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
+    const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
+    
+    const handlePositiveClick = () => {
+      // If already positive, deselect (go to none), otherwise select positive
+      onStatusChange(status === positiveStatus ? 'none' : positiveStatus);
+    };
+    
+    const handleNegativeClick = () => {
+      // If already negative, deselect (go to none), otherwise select negative
+      onStatusChange(status === negativeStatus ? 'none' : negativeStatus);
     };
 
-    const isChecked = status === 'collected' || status === 'returned';
-    const isXState = status === 'not_collected' || status === 'not_returned';
-
     return (
-      <div className="asset-checkbox">
-        <label className={`toggleButton ${isXState ? 'x-state' : ''}`}>
-          <input 
-            type="checkbox" 
-            checked={isChecked}
-            onChange={() => onStatusChange(getNextStatus())}
-            data-testid={`checkbox-${assetType}-${agentId}-${tabType}`}
-          />
-          <div>
-            <svg viewBox="0 0 44 44">
-              <path transform="translate(-2.000000, -2.000000)" d="M14,24 L21,31 L39.7428882,11.5937758 C35.2809627,6.53125861 30.0333333,4 24,4 C12.95,4 4,12.95 4,24 C4,35.05 12.95,44 24,44 C35.05,44 44,35.05 44,24 C44,19.3 42.5809627,15.1645919 39.7428882,11.5937758" />
-            </svg>
-          </div>
-        </label>
+      <div className="flex items-center gap-2">
+        {/* Tick/Check Button */}
+        <Button
+          variant={status === positiveStatus ? "default" : "outline"}
+          size="sm"
+          onClick={handlePositiveClick}
+          className={`h-8 w-8 p-0 ${
+            status === positiveStatus 
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'border-green-300 text-green-600 hover:bg-green-50 hover:text-green-700'
+          }`}
+          data-testid={`button-check-${assetType}-${agentId}-${tabType}`}
+        >
+          <Check className="h-4 w-4" />
+        </Button>
+        
+        {/* X Button */}
+        <Button
+          variant={status === negativeStatus ? "default" : "outline"}
+          size="sm"
+          onClick={handleNegativeClick}
+          className={`h-8 w-8 p-0 ${
+            status === negativeStatus 
+              ? 'bg-red-600 hover:bg-red-700 text-white' 
+              : 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700'
+          }`}
+          data-testid={`button-x-${assetType}-${agentId}-${tabType}`}
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     );
   };
@@ -378,7 +392,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.laptop || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'laptop', status)}
                         assetType="laptop"
@@ -389,7 +403,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.headsets || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'headsets', status)}
                         assetType="headsets"
@@ -400,7 +414,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
-                      <AnimatedAssetCheckbox
+                      <AssetStatusButtons
                         status={booking?.dongle || 'none'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'dongle', status)}
                         assetType="dongle"
