@@ -41,7 +41,11 @@ export default function Reports() {
 
   // Historical records from database
   const { data: historicalRecords = [] } = useQuery<any[]>({
-    queryKey: ['/api/historical-asset-records', { date: selectedDate }],
+    queryKey: ['/api/historical-asset-records', selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/historical-asset-records?date=${selectedDate}`);
+      return response.json();
+    },
   });
 
   // Asset bookings state for book in and book out
@@ -90,8 +94,11 @@ export default function Reports() {
   };
 
   const getReportsData = () => {
+    // Ensure historicalRecords is an array before filtering
+    const recordsArray = Array.isArray(historicalRecords) ? historicalRecords : [];
+    
     // Filter historical records by selected date
-    const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+    const dayRecords = recordsArray.filter(record => record.date === selectedDate);
     
     let totalBookedIn = 0;
     let totalBookedOut = 0;
@@ -287,7 +294,7 @@ export default function Reports() {
           <CardTitle>Saved Records for {selectedDate}</CardTitle>
         </CardHeader>
         <CardContent>
-          {historicalRecords.filter(record => record.date === selectedDate).length === 0 ? (
+          {(Array.isArray(historicalRecords) ? historicalRecords : []).filter(record => record.date === selectedDate).length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No saved records for this date
             </div>
@@ -314,7 +321,7 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="bg-card divide-y divide-border">
-                  {historicalRecords.filter(record => record.date === selectedDate).map((record, index) => (
+                  {(Array.isArray(historicalRecords) ? historicalRecords : []).filter(record => record.date === selectedDate).map((record, index) => (
                     <tr key={record.id} data-testid={`row-historical-record-${index}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`text-record-id-${index}`}>
                         {record.id.slice(-8)}
