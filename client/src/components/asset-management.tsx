@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Save, Calendar, BarChart3 } from "lucide-react";
 import type { User, Asset } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -47,6 +47,23 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     assetType: string;
     dateLost: string;
   }>>([]);
+
+  // Historical records storage
+  const [historicalRecords, setHistoricalRecords] = useState<Array<{
+    id: string;
+    date: string;
+    bookInRecords: Record<string, AssetBookingBookIn>;
+    bookOutRecords: Record<string, AssetBooking>;
+    lostAssets: Array<{
+      agentId: string;
+      agentName: string;
+      assetType: string;
+      dateLost: string;
+    }>;
+  }>>([]);
+
+  // Selected date for reports
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
@@ -198,6 +215,76 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       title: "Asset Updated", 
       description: `${assetType} marked as ${statusText} for ${teamMembers.find(m => m.id === agentId)?.username || 'agent'}`,
     });
+  };
+
+  // Save current asset booking records to historical data
+  const saveAssetRecords = () => {
+    const recordId = `record-${Date.now()}`;
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    setHistoricalRecords(prev => [...prev, {
+      id: recordId,
+      date: currentDate,
+      bookInRecords: { ...assetBookingsBookIn },
+      bookOutRecords: { ...assetBookingsBookOut },
+      lostAssets: [...lostAssets]
+    }]);
+    
+    toast({
+      title: "Records Saved",
+      description: `Asset booking records for ${currentDate} have been saved successfully`,
+    });
+  };
+
+  // Get data for reports based on selected date
+  const getReportsData = () => {
+    const dateRecords = historicalRecords.filter(record => record.date === selectedDate);
+    
+    if (dateRecords.length === 0) {
+      return {
+        totalBookedIn: 0,
+        totalBookedOut: 0,
+        totalLost: 0,
+        assetTypes: { laptop: 0, headsets: 0, dongle: 0 },
+        agents: []
+      };
+    }
+    
+    // Aggregate data from all records for the selected date
+    let totalBookedIn = 0;
+    let totalBookedOut = 0;
+    let totalLost = 0;
+    const assetTypes = { laptop: 0, headsets: 0, dongle: 0 };
+    const agentsSet = new Set<string>();
+    
+    dateRecords.forEach(record => {
+      Object.values(record.bookInRecords).forEach(booking => {
+        if (booking.laptop === 'collected') totalBookedIn++;
+        if (booking.headsets === 'collected') totalBookedIn++;
+        if (booking.dongle === 'collected') totalBookedIn++;
+        agentsSet.add(booking.agentName);
+      });
+      
+      Object.values(record.bookOutRecords).forEach(booking => {
+        if (booking.laptop === 'returned') totalBookedOut++;
+        if (booking.headsets === 'returned') totalBookedOut++;
+        if (booking.dongle === 'returned') totalBookedOut++;
+        agentsSet.add(booking.agentName);
+      });
+      
+      record.lostAssets.forEach(asset => {
+        totalLost++;
+        assetTypes[asset.assetType as keyof typeof assetTypes]++;
+      });
+    });
+    
+    return {
+      totalBookedIn,
+      totalBookedOut,
+      totalLost,
+      assetTypes,
+      agents: Array.from(agentsSet)
+    };
   };
 
   const BookInTable = () => (
@@ -452,17 +539,34 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="book_in" data-testid="tab-book-in">
-                Book In
-              </TabsTrigger>
-              <TabsTrigger value="book_out" data-testid="tab-book-out">
-                Book Out
-              </TabsTrigger>
-              <TabsTrigger value="lost_assets" data-testid="tab-lost-assets">
-                Lost Assets
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="grid grid-cols-4 w-fit">
+                <TabsTrigger value="book_in" data-testid="tab-book-in">
+                  Book In
+                </TabsTrigger>
+                <TabsTrigger value="book_out" data-testid="tab-book-out">
+                  Book Out
+                </TabsTrigger>
+                <TabsTrigger value="lost_assets" data-testid="tab-lost-assets">
+                  Lost Assets
+                </TabsTrigger>
+                <TabsTrigger value="reports" data-testid="tab-reports">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Reports
+                </TabsTrigger>
+              </TabsList>
+              
+              {(activeTab === 'book_in' || activeTab === 'book_out') && (
+                <Button
+                  onClick={saveAssetRecords}
+                  className="flex items-center gap-2"
+                  data-testid="button-save-records"
+                >
+                  <Save className="h-4 w-4" />
+                  Save Records
+                </Button>
+              )}
+            </div>
             
             <TabsContent value="book_in" className="mt-6">
               <div className="space-y-4">
@@ -561,6 +665,213 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     </table>
                   </div>
                 )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="reports" className="mt-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h3 className="font-medium text-blue-800 dark:text-blue-200">Reports & Analytics</h3>
+                    <p className="text-sm text-blue-600 dark:text-blue-300">
+                      View historical data and analytics for asset management, attendance, and operational changes
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date Picker */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Select Date for Reports
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full p-2 border rounded-md"
+                      data-testid="date-picker-reports"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Analytics Dashboard */}
+                {(() => {
+                  const reportsData = getReportsData();
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Total Booked In */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-green-600">Assets Booked In</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-green-700" data-testid="stat-booked-in">
+                            {reportsData.totalBookedIn}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Total collected on {selectedDate}</p>
+                        </CardContent>
+                      </Card>
+
+                      {/* Total Booked Out */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-orange-600">Assets Booked Out</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-orange-700" data-testid="stat-booked-out">
+                            {reportsData.totalBookedOut}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Total returned on {selectedDate}</p>
+                        </CardContent>
+                      </Card>
+
+                      {/* Total Lost */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-red-600">Lost Assets</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-red-700" data-testid="stat-lost-assets">
+                            {reportsData.totalLost}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Total lost on {selectedDate}</p>
+                        </CardContent>
+                      </Card>
+
+                      {/* Active Agents */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-blue-600">Active Agents</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-blue-700" data-testid="stat-active-agents">
+                            {reportsData.agents.length}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Agents with activity on {selectedDate}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                })()}
+
+                {/* Asset Types Breakdown */}
+                {(() => {
+                  const reportsData = getReportsData();
+                  return reportsData.totalLost > 0 ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Lost Assets by Type</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Laptop className="h-4 w-4 text-muted-foreground" />
+                              <span>Laptops</span>
+                            </div>
+                            <Badge variant="outline" data-testid="chart-laptops">
+                              {reportsData.assetTypes.laptop}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Headphones className="h-4 w-4 text-muted-foreground" />
+                              <span>Headsets</span>
+                            </div>
+                            <Badge variant="outline" data-testid="chart-headsets">
+                              {reportsData.assetTypes.headsets}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Usb className="h-4 w-4 text-muted-foreground" />
+                              <span>Dongles</span>
+                            </div>
+                            <Badge variant="outline" data-testid="chart-dongles">
+                              {reportsData.assetTypes.dongle}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="text-center py-8 text-muted-foreground">
+                        No lost assets data for {selectedDate}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* Historical Records Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Saved Records for {selectedDate}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {historicalRecords.filter(record => record.date === selectedDate).length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No saved records for this date
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Record ID
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Date Saved
+                              </th>
+                              <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Book In Records
+                              </th>
+                              <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Book Out Records
+                              </th>
+                              <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Lost Assets
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-card divide-y divide-border">
+                            {historicalRecords.filter(record => record.date === selectedDate).map((record, index) => (
+                              <tr key={record.id} data-testid={`row-historical-record-${index}`}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`text-record-id-${index}`}>
+                                  {record.id.slice(-8)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm" data-testid={`text-record-date-${index}`}>
+                                  {record.date}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                  <Badge variant="outline" data-testid={`badge-book-in-count-${index}`}>
+                                    {Object.keys(record.bookInRecords).length}
+                                  </Badge>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                  <Badge variant="outline" data-testid={`badge-book-out-count-${index}`}>
+                                    {Object.keys(record.bookOutRecords).length}
+                                  </Badge>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                  <Badge variant="outline" data-testid={`badge-lost-assets-count-${index}`}>
+                                    {record.lostAssets.length}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>
