@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -11,7 +12,8 @@ import {
   Laptop, 
   Headphones, 
   Usb,
-  Save
+  Save,
+  Eye
 } from "lucide-react";
 
 interface AssetBooking {
@@ -38,6 +40,10 @@ export default function Reports() {
     assetType: string;
     dateLost: string;
   }>>([]);
+
+  // State for detailed view modal
+  const [selectedAgentDetails, setSelectedAgentDetails] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Historical records from database
   const { data: historicalRecords = [] } = useQuery<any[]>({
@@ -146,6 +152,47 @@ export default function Reports() {
       agents: Array.from(agents),
       assetTypes
     };
+  };
+
+  // Function to get agent-specific records for display
+  const getAgentRecords = () => {
+    const recordsArray = Array.isArray(historicalRecords) ? historicalRecords : [];
+    const dayRecords = recordsArray.filter(record => record.date === selectedDate);
+    const agentRecords: any[] = [];
+
+    dayRecords.forEach(record => {
+      // Process book in records
+      Object.entries(record.bookInRecords || {}).forEach(([agentId, booking]: [string, any]) => {
+        agentRecords.push({
+          agentId,
+          agentName: booking.agentName || agentId,
+          type: 'Book In',
+          record,
+          booking,
+          recordId: record.id
+        });
+      });
+
+      // Process book out records
+      Object.entries(record.bookOutRecords || {}).forEach(([agentId, booking]: [string, any]) => {
+        agentRecords.push({
+          agentId,
+          agentName: booking.agentName || agentId,
+          type: 'Book Out',
+          record,
+          booking,
+          recordId: record.id
+        });
+      });
+    });
+
+    return agentRecords;
+  };
+
+  // Function to show agent details
+  const showAgentDetails = (agentRecord: any) => {
+    setSelectedAgentDetails(agentRecord);
+    setShowDetailsModal(true);
   };
 
   return (
@@ -288,68 +335,113 @@ export default function Reports() {
         );
       })()}
 
-      {/* Historical Records Table */}
+      {/* Agent Records Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Saved Records for {selectedDate}</CardTitle>
+          <CardTitle>Agent Records for {selectedDate}</CardTitle>
         </CardHeader>
         <CardContent>
-          {(Array.isArray(historicalRecords) ? historicalRecords : []).filter(record => record.date === selectedDate).length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No saved records for this date
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Record ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Date Saved
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Book In Records
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Book Out Records
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Lost Assets
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-card divide-y divide-border">
-                  {(Array.isArray(historicalRecords) ? historicalRecords : []).filter(record => record.date === selectedDate).map((record, index) => (
-                    <tr key={record.id} data-testid={`row-historical-record-${index}`}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`text-record-id-${index}`}>
-                        {record.id.slice(-8)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm" data-testid={`text-record-date-${index}`}>
-                        {record.date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <Badge variant="outline" data-testid={`badge-book-in-count-${index}`}>
-                          {Object.keys(record.bookInRecords).length}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <Badge variant="outline" data-testid={`badge-book-out-count-${index}`}>
-                          {Object.keys(record.bookOutRecords).length}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <Badge variant="outline" data-testid={`badge-lost-assets-count-${index}`}>
-                          {record.lostAssets.length}
-                        </Badge>
-                      </td>
+          {(() => {
+            const agentRecords = getAgentRecords();
+            return agentRecords.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No agent records for this date
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Agent Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Record Type
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="bg-card divide-y divide-border">
+                    {agentRecords.map((agentRecord, index) => (
+                      <tr key={`${agentRecord.recordId}-${agentRecord.agentId}-${index}`} data-testid={`row-agent-record-${index}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`text-agent-name-${index}`}>
+                          {agentRecord.agentName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm" data-testid={`text-record-type-${index}`}>
+                          <Badge variant={agentRecord.type === 'Book In' ? 'default' : 'secondary'}>
+                            {agentRecord.type}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm" data-testid={`text-record-date-${index}`}>
+                          {selectedDate}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <Dialog open={showDetailsModal && selectedAgentDetails?.recordId === agentRecord.recordId && selectedAgentDetails?.agentId === agentRecord.agentId} onOpenChange={setShowDetailsModal}>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => showAgentDetails(agentRecord)}
+                                data-testid={`button-view-details-${index}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Details
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Asset Details - {selectedAgentDetails?.agentName}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="font-medium mb-2">Record Type: {selectedAgentDetails?.type}</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Laptop className="h-4 w-4" />
+                                        <span>Laptop</span>
+                                      </div>
+                                      <Badge variant={selectedAgentDetails?.booking?.laptop === 'collected' || selectedAgentDetails?.booking?.laptop === 'returned' ? 'default' : 'secondary'}>
+                                        {selectedAgentDetails?.booking?.laptop || 'none'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Headphones className="h-4 w-4" />
+                                        <span>Headsets</span>
+                                      </div>
+                                      <Badge variant={selectedAgentDetails?.booking?.headsets === 'collected' || selectedAgentDetails?.booking?.headsets === 'returned' ? 'default' : 'secondary'}>
+                                        {selectedAgentDetails?.booking?.headsets || 'none'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Usb className="h-4 w-4" />
+                                        <span>Dongle</span>
+                                      </div>
+                                      <Badge variant={selectedAgentDetails?.booking?.dongle === 'collected' || selectedAgentDetails?.booking?.dongle === 'returned' ? 'default' : 'secondary'}>
+                                        {selectedAgentDetails?.booking?.dongle || 'none'}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()
+          }
         </CardContent>
       </Card>
     </div>
