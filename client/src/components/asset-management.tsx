@@ -40,13 +40,60 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Lost assets tracking - simple state to track lost assets
+  // Helper functions for localStorage persistence (moved to top)
+  const getCurrentDateKey = () => new Date().toISOString().split('T')[0];
+  
+  const loadFromLocalStorage = () => {
+    const currentDate = getCurrentDateKey();
+    const bookInKey = `assetBookings_bookIn_${currentDate}`;
+    const bookOutKey = `assetBookings_bookOut_${currentDate}`;
+    const lostAssetsKey = `lostAssets_${currentDate}`;
+    
+    try {
+      const bookInData = localStorage.getItem(bookInKey);
+      const bookOutData = localStorage.getItem(bookOutKey);
+      const lostAssetsData = localStorage.getItem(lostAssetsKey);
+      
+      return {
+        bookIn: bookInData ? JSON.parse(bookInData) : {},
+        bookOut: bookOutData ? JSON.parse(bookOutData) : {},
+        lostAssets: lostAssetsData ? JSON.parse(lostAssetsData) : []
+      };
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+      return {
+        bookIn: {},
+        bookOut: {},
+        lostAssets: []
+      };
+    }
+  };
+  
+  const saveToLocalStorage = (bookIn: Record<string, AssetBookingBookIn>, bookOut: Record<string, AssetBooking>, lostAssetsData: any[]) => {
+    const currentDate = getCurrentDateKey();
+    const bookInKey = `assetBookings_bookIn_${currentDate}`;
+    const bookOutKey = `assetBookings_bookOut_${currentDate}`;
+    const lostAssetsKey = `lostAssets_${currentDate}`;
+    
+    try {
+      localStorage.setItem(bookInKey, JSON.stringify(bookIn));
+      localStorage.setItem(bookOutKey, JSON.stringify(bookOut));
+      localStorage.setItem(lostAssetsKey, JSON.stringify(lostAssetsData));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
+
+  // Load initial data from localStorage
+  const initialData = loadFromLocalStorage();
+  
+  // Lost assets tracking with localStorage persistence
   const [lostAssets, setLostAssets] = useState<Array<{
     agentId: string;
     agentName: string;
     assetType: string;
     dateLost: string;
-  }>>([]);
+  }>>(initialData.lostAssets);
 
 
   // For user-specific view (agents seeing their own assets)
@@ -110,9 +157,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     select: (users) => users.filter(user => user.role === 'agent'),
   });
 
-  // Initialize booking states as empty objects initially
-  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>({});
-  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>({});
+  // Initialize booking states with localStorage data
+  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>(initialData.bookIn);
+  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>(initialData.bookOut);
 
   // Initialize booking states when teamMembers data becomes available
   // Only initialize new agents, preserve existing selections
@@ -168,36 +215,47 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }
   }, [teamMembers]);
 
+  // Auto-save to localStorage whenever states change
+  useEffect(() => {
+    saveToLocalStorage(assetBookingsBookIn, assetBookingsBookOut, lostAssets);
+  }, [assetBookingsBookIn, assetBookingsBookOut, lostAssets]);
+
   const updateAssetBookingBookIn = (agentId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
     setAssetBookingsBookIn(prev => {
       const currentAgent = prev[agentId];
+      let updated;
+      
       if (!currentAgent) {
         // If agent doesn't exist, find them in teamMembers to get their name
         const agent = teamMembers.find(member => member.id === agentId);
         const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
         
-        return {
+        updated = {
           ...prev,
           [agentId]: {
             agentId,
             agentName,
-            laptop: 'none',
-            headsets: 'none',
-            dongle: 'none',
+            laptop: assetType === 'laptop' ? status : 'none',
+            headsets: assetType === 'headsets' ? status : 'none',
+            dongle: assetType === 'dongle' ? status : 'none',
             date: new Date().toISOString().split('T')[0],
-            type: 'book_in',
-            [assetType]: status
+            type: 'book_in'
           }
+        };
+      } else {
+        const updatedAgent = { ...currentAgent };
+        if (assetType === 'laptop') updatedAgent.laptop = status;
+        else if (assetType === 'headsets') updatedAgent.headsets = status;
+        else if (assetType === 'dongle') updatedAgent.dongle = status;
+        
+        updated = {
+          ...prev,
+          [agentId]: updatedAgent
         };
       }
       
-      return {
-        ...prev,
-        [agentId]: {
-          ...currentAgent,
-          [assetType]: status
-        }
-      };
+      
+      return updated;
     });
     
     const statusText = status === 'collected' ? 'collected' : status === 'not_collected' ? 'not collected' : 'unmarked';
@@ -236,33 +294,39 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     
     setAssetBookingsBookOut(prev => {
       const currentAgent = prev[agentId];
+      let updated;
+      
       if (!currentAgent) {
         // If agent doesn't exist, find them in teamMembers to get their name
         const agent = teamMembers.find(member => member.id === agentId);
         const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
         
-        return {
+        updated = {
           ...prev,
           [agentId]: {
             agentId,
             agentName,
-            laptop: 'none',
-            headsets: 'none',
-            dongle: 'none',
+            laptop: assetType === 'laptop' ? status : 'none',
+            headsets: assetType === 'headsets' ? status : 'none',
+            dongle: assetType === 'dongle' ? status : 'none',
             date: new Date().toISOString().split('T')[0],
-            type: 'book_out',
-            [assetType]: status as 'none' | 'returned' | 'not_returned'
+            type: 'book_out'
           }
+        };
+      } else {
+        const updatedAgent = { ...currentAgent };
+        if (assetType === 'laptop') updatedAgent.laptop = status;
+        else if (assetType === 'headsets') updatedAgent.headsets = status;
+        else if (assetType === 'dongle') updatedAgent.dongle = status;
+        
+        updated = {
+          ...prev,
+          [agentId]: updatedAgent
         };
       }
       
-      return {
-        ...prev,
-        [agentId]: {
-          ...currentAgent,
-          [assetType]: status as 'none' | 'returned' | 'not_returned'
-        }
-      };
+      
+      return updated;
     });
     
     const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'lost' : 'unmarked';
