@@ -115,38 +115,56 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>({});
 
   // Initialize booking states when teamMembers data becomes available
+  // Only initialize new agents, preserve existing selections
   useEffect(() => {
     if (teamMembers.length > 0) {
-      const bookInBookings: Record<string, AssetBookingBookIn> = {};
-      const bookOutBookings: Record<string, AssetBooking> = {};
-      
-      teamMembers.forEach(member => {
-        const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
-        const currentDate = new Date().toISOString().split('T')[0];
+      setAssetBookingsBookIn(prev => {
+        const updated = { ...prev };
         
-        bookInBookings[member.id] = {
-          agentId: member.id,
-          agentName,
-          laptop: 'none',
-          headsets: 'none',
-          dongle: 'none',
-          date: currentDate,
-          type: 'book_in'
-        };
+        teamMembers.forEach(member => {
+          // Only initialize if agent doesn't already exist
+          if (!updated[member.id]) {
+            const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
+            const currentDate = new Date().toISOString().split('T')[0];
+            
+            updated[member.id] = {
+              agentId: member.id,
+              agentName,
+              laptop: 'none',
+              headsets: 'none',
+              dongle: 'none',
+              date: currentDate,
+              type: 'book_in'
+            };
+          }
+        });
         
-        bookOutBookings[member.id] = {
-          agentId: member.id,
-          agentName,
-          laptop: 'none',
-          headsets: 'none',
-          dongle: 'none',
-          date: currentDate,
-          type: 'book_out'
-        };
+        return updated;
       });
       
-      setAssetBookingsBookIn(bookInBookings);
-      setAssetBookingsBookOut(bookOutBookings);
+      setAssetBookingsBookOut(prev => {
+        const updated = { ...prev };
+        
+        teamMembers.forEach(member => {
+          // Only initialize if agent doesn't already exist
+          if (!updated[member.id]) {
+            const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
+            const currentDate = new Date().toISOString().split('T')[0];
+            
+            updated[member.id] = {
+              agentId: member.id,
+              agentName,
+              laptop: 'none',
+              headsets: 'none',
+              dongle: 'none',
+              date: currentDate,
+              type: 'book_out'
+            };
+          }
+        });
+        
+        return updated;
+      });
     }
   }, [teamMembers]);
 
@@ -211,7 +229,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         }
         return prev;
       });
-    } else if (currentStatus === 'not_returned' && status !== 'not_returned') {
+    } else if (currentStatus === 'not_returned' && (status === 'none' || status === 'returned')) {
       // Remove from lost assets records when changing away from 'not_returned'
       setLostAssets(prev => prev.filter(item => !(item.agentId === agentId && item.assetType === assetType)));
     }
