@@ -521,7 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const recordData = insertHistoricalAssetRecordSchema.parse(req.body);
-      const record = await storage.createHistoricalAssetRecord(recordData);
+      const record = await storage.upsertHistoricalAssetRecord(recordData);
       res.json(record);
     } catch (error) {
       console.error("Error creating historical asset record:", error);

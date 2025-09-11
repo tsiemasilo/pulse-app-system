@@ -479,6 +479,29 @@ export class DatabaseStorage implements IStorage {
     const [record] = await db.insert(historicalAssetRecords).values(recordData).returning();
     return record;
   }
+
+  async upsertHistoricalAssetRecord(recordData: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord> {
+    // Check if a record already exists for this date
+    const existingRecords = await this.getHistoricalAssetRecordsByDate(recordData.date);
+    
+    if (existingRecords.length > 0) {
+      // Update the most recent record for this date
+      const existingRecord = existingRecords[0];
+      const [updatedRecord] = await db
+        .update(historicalAssetRecords)
+        .set({
+          bookInRecords: recordData.bookInRecords,
+          bookOutRecords: recordData.bookOutRecords,
+          lostAssets: recordData.lostAssets,
+        })
+        .where(eq(historicalAssetRecords.id, existingRecord.id))
+        .returning();
+      return updatedRecord;
+    } else {
+      // Create new record if none exists
+      return await this.createHistoricalAssetRecord(recordData);
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
