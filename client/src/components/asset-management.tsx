@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X } from "lucide-react";
 import type { User, Asset } from "@shared/schema";
-import { AssetLostDialog } from "./asset-lost-dialog";
 
 interface AssetManagementProps {
   userId?: string;
@@ -41,18 +40,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Asset Lost Dialog state
-  const [assetLostDialog, setAssetLostDialog] = useState<{
-    open: boolean;
+  // Lost assets tracking - simple state to track lost assets
+  const [lostAssets, setLostAssets] = useState<Array<{
     agentId: string;
     agentName: string;
     assetType: string;
-  }>({
-    open: false,
-    agentId: '',
-    agentName: '',
-    assetType: '',
-  });
+    dateLost: string;
+  }>>([]);
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
@@ -166,18 +160,17 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
     if (status === 'not_returned') {
-      // Find the agent's name for the dialog
+      // Find the agent's name
       const agent = teamMembers.find(member => member.id === agentId);
       const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
       
-      // Open the Asset Lost dialog
-      setAssetLostDialog({
-        open: true,
+      // Add to lost assets records
+      setLostAssets(prev => [...prev, {
         agentId,
         agentName,
         assetType,
-      });
-      return; // Don't update the status yet - wait for the dialog to complete
+        dateLost: new Date().toISOString().split('T')[0]
+      }]);
     }
     
     setAssetBookingsBookOut(prev => ({
@@ -188,10 +181,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       }
     }));
     
-    const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'not returned' : 'unmarked';
+    const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'lost' : 'unmarked';
     toast({
-      title: "Asset Updated",
-      description: `${assetType} marked as ${statusText} for agent`,
+      title: "Asset Updated", 
+      description: `${assetType} marked as ${statusText} for ${teamMembers.find(m => m.id === agentId)?.username || 'agent'}`,
     });
   };
 
@@ -432,21 +425,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     </div>
   );
 
-  const handleAssetLostSaved = () => {
-    // Mark the asset as not returned after the loss report is saved
-    setAssetBookingsBookOut(prev => ({
-      ...prev,
-      [assetLostDialog.agentId]: {
-        ...prev[assetLostDialog.agentId],
-        [assetLostDialog.assetType]: 'not_returned'
-      }
-    }));
-    
-    toast({
-      title: "Asset Updated",
-      description: `${assetLostDialog.assetType} marked as not returned for agent`,
-    });
-  };
 
   return (
     <div className="space-y-6">
@@ -462,12 +440,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="book_in" data-testid="tab-book-in">
                 Book In
               </TabsTrigger>
               <TabsTrigger value="book_out" data-testid="tab-book-out">
                 Book Out
+              </TabsTrigger>
+              <TabsTrigger value="lost_assets" data-testid="tab-lost-assets">
+                Lost Assets
               </TabsTrigger>
             </TabsList>
             
@@ -500,18 +481,80 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 <BookOutTable />
               </div>
             </TabsContent>
+            
+            <TabsContent value="lost_assets" className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <X className="h-5 w-5 text-red-600" />
+                  <div>
+                    <h3 className="font-medium text-red-800 dark:text-red-200">Lost Assets Records</h3>
+                    <p className="text-sm text-red-600 dark:text-red-300">
+                      Track assets that have been reported as lost or missing
+                    </p>
+                  </div>
+                </div>
+                
+                {lostAssets.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No lost assets recorded
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Agent
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Asset Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Date Lost
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-card divide-y divide-border">
+                        {lostAssets.map((lostAsset, index) => (
+                          <tr key={`${lostAsset.agentId}-${lostAsset.assetType}-${index}`} data-testid={`row-lost-asset-${index}`}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-foreground" data-testid={`text-lost-agent-name-${index}`}>
+                                {lostAsset.agentName}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                {lostAsset.assetType === 'laptop' && <Laptop className="h-4 w-4 text-muted-foreground" />}
+                                {lostAsset.assetType === 'headsets' && <Headphones className="h-4 w-4 text-muted-foreground" />}
+                                {lostAsset.assetType === 'dongle' && <Usb className="h-4 w-4 text-muted-foreground" />}
+                                <span className="text-sm text-foreground capitalize" data-testid={`text-lost-asset-type-${index}`}>
+                                  {lostAsset.assetType}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-lost-date-${index}`}>
+                              {lostAsset.dateLost}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <Badge className="bg-red-100 text-red-800" data-testid={`badge-lost-status-${index}`}>
+                                Lost
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
       
-      <AssetLostDialog
-        open={assetLostDialog.open}
-        onOpenChange={(open) => setAssetLostDialog(prev => ({ ...prev, open }))}
-        agentId={assetLostDialog.agentId}
-        agentName={assetLostDialog.agentName}
-        assetType={assetLostDialog.assetType}
-        onSaved={handleAssetLostSaved}
-      />
     </div>
   );
 }
