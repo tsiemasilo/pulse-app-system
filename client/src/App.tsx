@@ -10,7 +10,6 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
-import Reports from "@/pages/reports";
 import Navigation from "@/components/navigation";
 
 function Router() {
@@ -72,14 +71,6 @@ function Router() {
               : <NotFound />
           } />
           <Route path="/team-leader" component={() => user?.role === 'team_leader' ? <TeamLeaderDashboard /> : <NotFound />} />
-          
-          {/* Reports Route - Available to team leaders and managers */}
-          <Route path="/reports" component={() => 
-            (user?.role === 'admin' || user?.role === 'hr' || user?.role === 'team_leader' || 
-             user?.role === 'contact_center_manager' || user?.role === 'contact_center_ops_manager') 
-              ? <Reports /> 
-              : <NotFound />
-          } />
           
           <Route component={NotFound} />
         </Switch>

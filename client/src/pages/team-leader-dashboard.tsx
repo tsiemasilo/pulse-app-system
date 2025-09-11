@@ -8,6 +8,7 @@ import AssetManagement from "@/components/asset-management";
 import TransferManagement from "@/components/transfer-management";
 import TerminationManagement from "@/components/termination-management";
 import OnboardingManagement from "@/components/onboarding-management";
+import Reports from "@/pages/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,7 +30,8 @@ import {
   UserPlus,
   Search,
   Bell,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from "lucide-react";
 import type { User, Attendance, Asset, Team } from "@shared/schema";
 
@@ -114,6 +116,7 @@ export default function TeamLeaderDashboard() {
         { icon: ArrowRightLeft, label: 'Transfers', key: 'transfers' },
         { icon: UserX, label: 'Terminations', key: 'terminations' },
         { icon: Laptop, label: 'Asset Control', key: 'assets' },
+        { icon: BarChart3, label: 'Reports', key: 'reports' },
         { icon: Users, label: 'Employees', key: 'employees' },
         { icon: UserPlus, label: 'Onboarding', key: 'onboarding' },
       ]
@@ -249,6 +252,8 @@ export default function TeamLeaderDashboard() {
         return <TerminationManagement />;
       case 'assets':
         return <AssetManagement />;
+      case 'reports':
+        return <Reports />;
       case 'employees':
         return (
           <Card>
@@ -395,6 +400,7 @@ export default function TeamLeaderDashboard() {
                  activeTab === 'transfers' ? 'Employee Transfers' :
                  activeTab === 'terminations' ? 'Termination Management' :
                  activeTab === 'assets' ? 'Asset Control' :
+                 activeTab === 'reports' ? 'Reports & Analytics' :
                  activeTab === 'employees' ? 'Team Members' :
                  activeTab === 'onboarding' ? 'Employee Onboarding' :
                  'Team Dashboard'}
@@ -404,6 +410,7 @@ export default function TeamLeaderDashboard() {
                  activeTab === 'transfers' ? 'Handle team member transfers' :
                  activeTab === 'terminations' ? 'Process team member terminations' :
                  activeTab === 'assets' ? 'Track asset booking in and out for team members' :
+                 activeTab === 'reports' ? 'View historical data and analytics for asset management and operational changes' :
                  activeTab === 'employees' ? 'View and manage team members' :
                  activeTab === 'onboarding' ? 'Onboard new team members' :
                  'Team management tools'}
