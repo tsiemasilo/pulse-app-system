@@ -159,18 +159,30 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    // Get current status to check if we're changing from 'not_returned' to something else
+    const currentStatus = assetBookingsBookOut[agentId]?.[assetType as keyof typeof assetBookingsBookOut[string]] || 'none';
+    
     if (status === 'not_returned') {
       // Find the agent's name
       const agent = teamMembers.find(member => member.id === agentId);
       const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
       
-      // Add to lost assets records
-      setLostAssets(prev => [...prev, {
-        agentId,
-        agentName,
-        assetType,
-        dateLost: new Date().toISOString().split('T')[0]
-      }]);
+      // Add to lost assets records (avoid duplicates)
+      setLostAssets(prev => {
+        const exists = prev.some(item => item.agentId === agentId && item.assetType === assetType);
+        if (!exists) {
+          return [...prev, {
+            agentId,
+            agentName,
+            assetType,
+            dateLost: new Date().toISOString().split('T')[0]
+          }];
+        }
+        return prev;
+      });
+    } else if (currentStatus === 'not_returned' && status !== 'not_returned') {
+      // Remove from lost assets records when changing away from 'not_returned'
+      setLostAssets(prev => prev.filter(item => !(item.agentId === agentId && item.assetType === assetType)));
     }
     
     setAssetBookingsBookOut(prev => ({
