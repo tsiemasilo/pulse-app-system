@@ -1,4 +1,4 @@
-import { Heart, LogOut, Shield, Users, Headphones, UserCheck, Clock } from "lucide-react";
+import { Heart, LogOut, Shield, Users, Headphones, UserCheck, Clock, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -36,7 +36,16 @@ export default function Navigation({ user }: NavigationProps) {
     { path: "/admin/hr", label: "HR", icon: Users, testId: "nav-hr" },
     { path: "/admin/contact-center", label: "Contact Center", icon: Headphones, testId: "nav-contact-center" },
     { path: "/admin/team-leader", label: "Team Leader", icon: UserCheck, testId: "nav-team-leader" },
+    { path: "/reports", label: "Reports", icon: BarChart3, testId: "nav-reports" },
   ];
+
+  // General navigation buttons for non-admin roles
+  const generalButtons = [];
+  
+  // Add Reports button for applicable roles
+  if (user?.role && ['hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+    generalButtons.push({ path: "/reports", label: "Reports", icon: BarChart3, testId: "nav-reports" });
+  }
 
   return (
     <nav className="bg-card border-b border-border shadow-sm">
@@ -54,6 +63,29 @@ export default function Navigation({ user }: NavigationProps) {
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2">
                 {adminRoleButtons.map((button) => {
+                  const Icon = button.icon;
+                  const isActive = location === button.path;
+                  return (
+                    <Button
+                      key={button.path}
+                      variant={isActive ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => navigate(button.path)}
+                      className="flex items-center space-x-1"
+                      data-testid={button.testId}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{button.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* General Navigation Buttons for Non-Admin Roles */}
+            {user?.role !== 'admin' && generalButtons.length > 0 && (
+              <div className="hidden md:flex items-center space-x-2">
+                {generalButtons.map((button) => {
                   const Icon = button.icon;
                   const isActive = location === button.path;
                   return (
