@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, users } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, users } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -27,12 +27,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin') {
+      // Allow admins and team leaders to access user data for asset management
+      if (!user?.role || !['admin', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
       
       const users = await storage.getAllUsers();
-      res.json(users);
+      
+      // For non-admins, return only safe fields
+      if (user.role !== 'admin') {
+        const safeUsers = users.map(u => ({
+          id: u.id,
+          username: u.username,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: u.role,
+          departmentId: u.departmentId,
+          isActive: u.isActive
+        }));
+        res.json(safeUsers);
+      } else {
+        res.json(users);
+      }
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -471,6 +487,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Historical Asset Records routes (for asset control system reports)
+  app.get('/api/historical-asset-records', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow team leaders and above to access historical records
+      if (!user?.role || !['admin', 'hr', 'contact_center_ops_manager', 'contact_center_manager', 'team_leader'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const date = req.query.date as string | undefined;
+      
+      let records;
+      if (date) {
+        records = await storage.getHistoricalAssetRecordsByDate(date);
+      } else {
+        records = await storage.getAllHistoricalAssetRecords();
+      }
+      
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching historical asset records:", error);
+      res.status(500).json({ message: "Failed to fetch historical asset records" });
+    }
+  });
+
+  app.post('/api/historical-asset-records', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow team leaders and above to save asset records
+      if (!user?.role || !['admin', 'hr', 'contact_center_ops_manager', 'contact_center_manager', 'team_leader'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const recordData = insertHistoricalAssetRecordSchema.parse(req.body);
+      const record = await storage.createHistoricalAssetRecord(recordData);
+      res.json(record);
+    } catch (error) {
+      console.error("Error creating historical asset record:", error);
+      res.status(500).json({ message: "Failed to save historical asset record" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -74,6 +74,16 @@ export const attendance = pgTable("attendance", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Historical Asset Records for Reports
+export const historicalAssetRecords = pgTable("historical_asset_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  bookInRecords: jsonb("book_in_records").notNull(), // JSON of agent booking data
+  bookOutRecords: jsonb("book_out_records").notNull(), // JSON of agent booking data  
+  lostAssets: jsonb("lost_assets").notNull(), // JSON array of lost asset records
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Team assignments
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -199,6 +209,11 @@ export const insertAssetLossRecordSchema = createInsertSchema(assetLossRecords).
   updatedAt: true,
 });
 
+export const insertHistoricalAssetRecordSchema = createInsertSchema(historicalAssetRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -218,3 +233,5 @@ export type Termination = typeof terminations.$inferSelect;
 export type InsertTermination = z.infer<typeof insertTerminationSchema>;
 export type AssetLossRecord = typeof assetLossRecords.$inferSelect;
 export type InsertAssetLossRecord = z.infer<typeof insertAssetLossRecordSchema>;
+export type HistoricalAssetRecord = typeof historicalAssetRecords.$inferSelect;
+export type InsertHistoricalAssetRecord = z.infer<typeof insertHistoricalAssetRecordSchema>;

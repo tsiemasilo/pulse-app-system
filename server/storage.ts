@@ -8,6 +8,7 @@ import {
   transfers,
   terminations,
   assetLossRecords,
+  historicalAssetRecords,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -26,6 +27,8 @@ import {
   type InsertTermination,
   type AssetLossRecord,
   type InsertAssetLossRecord,
+  type HistoricalAssetRecord,
+  type InsertHistoricalAssetRecord,
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
@@ -83,6 +86,11 @@ export interface IStorage {
   // Asset loss record management
   getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
   createAssetLossRecord(assetLossRecord: InsertAssetLossRecord): Promise<AssetLossRecord>;
+
+  // Historical asset records management  
+  getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]>;
+  getHistoricalAssetRecordsByDate(date: string): Promise<HistoricalAssetRecord[]>;
+  createHistoricalAssetRecord(record: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -456,6 +464,20 @@ export class DatabaseStorage implements IStorage {
   async createAssetLossRecord(assetLossData: InsertAssetLossRecord): Promise<AssetLossRecord> {
     const [assetLossRecord] = await db.insert(assetLossRecords).values(assetLossData).returning();
     return assetLossRecord;
+  }
+
+  // Historical asset records management
+  async getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]> {
+    return await db.select().from(historicalAssetRecords).orderBy(desc(historicalAssetRecords.createdAt));
+  }
+
+  async getHistoricalAssetRecordsByDate(date: string): Promise<HistoricalAssetRecord[]> {
+    return await db.select().from(historicalAssetRecords).where(eq(historicalAssetRecords.date, date)).orderBy(desc(historicalAssetRecords.createdAt));
+  }
+
+  async createHistoricalAssetRecord(recordData: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord> {
+    const [record] = await db.insert(historicalAssetRecords).values(recordData).returning();
+    return record;
   }
 }
 

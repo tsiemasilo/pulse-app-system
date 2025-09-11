@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,22 +48,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     dateLost: string;
   }>>([]);
 
-  // Historical records storage
-  const [historicalRecords, setHistoricalRecords] = useState<Array<{
-    id: string;
-    date: string;
-    bookInRecords: Record<string, AssetBookingBookIn>;
-    bookOutRecords: Record<string, AssetBooking>;
-    lostAssets: Array<{
-      agentId: string;
-      agentName: string;
-      assetType: string;
-      dateLost: string;
-    }>;
-  }>>([]);
-
   // Selected date for reports
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Historical records from database
+  const { data: historicalRecords = [] } = useQuery<any[]>({
+    queryKey: ['/api/historical-asset-records', { date: selectedDate }],
+  });
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
@@ -126,47 +117,77 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     select: (users) => users.filter(user => user.role === 'agent'),
   });
 
-  // Mock asset booking data - in a real app this would come from your backend
-  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>(() => {
-    const bookings: Record<string, AssetBookingBookIn> = {};
-    teamMembers.forEach(member => {
-      bookings[member.id] = {
-        agentId: member.id,
-        agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
-        laptop: 'none',
-        headsets: 'none',
-        dongle: 'none',
-        date: new Date().toISOString().split('T')[0],
-        type: 'book_in'
-      };
-    });
-    return bookings;
-  });
+  // Initialize booking states as empty objects initially
+  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>({});
+  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>({});
 
-  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>(() => {
-    const bookings: Record<string, AssetBooking> = {};
-    teamMembers.forEach(member => {
-      bookings[member.id] = {
-        agentId: member.id,
-        agentName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown',
-        laptop: 'none',
-        headsets: 'none',
-        dongle: 'none',
-        date: new Date().toISOString().split('T')[0],
-        type: 'book_out'
-      };
-    });
-    return bookings;
-  });
+  // Initialize booking states when teamMembers data becomes available
+  useEffect(() => {
+    if (teamMembers.length > 0) {
+      const bookInBookings: Record<string, AssetBookingBookIn> = {};
+      const bookOutBookings: Record<string, AssetBooking> = {};
+      
+      teamMembers.forEach(member => {
+        const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
+        const currentDate = new Date().toISOString().split('T')[0];
+        
+        bookInBookings[member.id] = {
+          agentId: member.id,
+          agentName,
+          laptop: 'none',
+          headsets: 'none',
+          dongle: 'none',
+          date: currentDate,
+          type: 'book_in'
+        };
+        
+        bookOutBookings[member.id] = {
+          agentId: member.id,
+          agentName,
+          laptop: 'none',
+          headsets: 'none',
+          dongle: 'none',
+          date: currentDate,
+          type: 'book_out'
+        };
+      });
+      
+      setAssetBookingsBookIn(bookInBookings);
+      setAssetBookingsBookOut(bookOutBookings);
+    }
+  }, [teamMembers]);
 
   const updateAssetBookingBookIn = (agentId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
-    setAssetBookingsBookIn(prev => ({
-      ...prev,
-      [agentId]: {
-        ...prev[agentId],
-        [assetType]: status
+    setAssetBookingsBookIn(prev => {
+      const currentAgent = prev[agentId];
+      if (!currentAgent) {
+        // If agent doesn't exist, find them in teamMembers to get their name
+        const agent = teamMembers.find(member => member.id === agentId);
+        const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
+        
+        return {
+          ...prev,
+          [agentId]: {
+            agentId,
+            agentName,
+            laptop: 'none',
+            headsets: 'none',
+            dongle: 'none',
+            date: new Date().toISOString().split('T')[0],
+            type: 'book_in',
+            [assetType]: status
+          }
+        };
       }
-    }));
+      
+      return {
+        ...prev,
+        [agentId]: {
+          ...currentAgent,
+          [assetType]: status
+        }
+      };
+    });
     
     const statusText = status === 'collected' ? 'collected' : status === 'not_collected' ? 'not collected' : 'unmarked';
     toast({
@@ -202,13 +223,36 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       setLostAssets(prev => prev.filter(item => !(item.agentId === agentId && item.assetType === assetType)));
     }
     
-    setAssetBookingsBookOut(prev => ({
-      ...prev,
-      [agentId]: {
-        ...prev[agentId],
-        [assetType]: status as 'none' | 'returned' | 'not_returned'
+    setAssetBookingsBookOut(prev => {
+      const currentAgent = prev[agentId];
+      if (!currentAgent) {
+        // If agent doesn't exist, find them in teamMembers to get their name
+        const agent = teamMembers.find(member => member.id === agentId);
+        const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
+        
+        return {
+          ...prev,
+          [agentId]: {
+            agentId,
+            agentName,
+            laptop: 'none',
+            headsets: 'none',
+            dongle: 'none',
+            date: new Date().toISOString().split('T')[0],
+            type: 'book_out',
+            [assetType]: status as 'none' | 'returned' | 'not_returned'
+          }
+        };
       }
-    }));
+      
+      return {
+        ...prev,
+        [agentId]: {
+          ...currentAgent,
+          [assetType]: status as 'none' | 'returned' | 'not_returned'
+        }
+      };
+    });
     
     const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'lost' : 'unmarked';
     toast({
@@ -217,23 +261,44 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   };
 
-  // Save current asset booking records to historical data
+  // Save current asset booking records to database
+  const saveAssetRecordsMutation = useMutation({
+    mutationFn: async () => {
+      const currentDate = new Date().toISOString().split('T')[0];
+      return apiRequest('/api/historical-asset-records', {
+        method: 'POST',
+        body: {
+          date: currentDate,
+          bookInRecords: assetBookingsBookIn,
+          bookOutRecords: assetBookingsBookOut,
+          lostAssets: lostAssets
+        }
+      });
+    },
+    onSuccess: () => {
+      const currentDate = new Date().toISOString().split('T')[0];
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/historical-asset-records', { date: currentDate }] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/historical-asset-records'] 
+      });
+      toast({
+        title: "Records Saved",
+        description: `Asset booking records for ${currentDate} have been saved successfully`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to save asset booking records",
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveAssetRecords = () => {
-    const recordId = `record-${Date.now()}`;
-    const currentDate = new Date().toISOString().split('T')[0];
-    
-    setHistoricalRecords(prev => [...prev, {
-      id: recordId,
-      date: currentDate,
-      bookInRecords: { ...assetBookingsBookIn },
-      bookOutRecords: { ...assetBookingsBookOut },
-      lostAssets: [...lostAssets]
-    }]);
-    
-    toast({
-      title: "Records Saved",
-      description: `Asset booking records for ${currentDate} have been saved successfully`,
-    });
+    saveAssetRecordsMutation.mutate();
   };
 
   // Get data for reports based on selected date
@@ -258,21 +323,30 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const agentsSet = new Set<string>();
     
     dateRecords.forEach(record => {
-      Object.values(record.bookInRecords).forEach(booking => {
+      const bookInRecords = record.bookInRecords as Record<string, AssetBookingBookIn>;
+      const bookOutRecords = record.bookOutRecords as Record<string, AssetBooking>;
+      const lostAssets = record.lostAssets as Array<{
+        agentId: string;
+        agentName: string;
+        assetType: string;
+        dateLost: string;
+      }>;
+      
+      Object.values(bookInRecords || {}).forEach(booking => {
         if (booking.laptop === 'collected') totalBookedIn++;
         if (booking.headsets === 'collected') totalBookedIn++;
         if (booking.dongle === 'collected') totalBookedIn++;
         agentsSet.add(booking.agentName);
       });
       
-      Object.values(record.bookOutRecords).forEach(booking => {
+      Object.values(bookOutRecords || {}).forEach(booking => {
         if (booking.laptop === 'returned') totalBookedOut++;
         if (booking.headsets === 'returned') totalBookedOut++;
         if (booking.dongle === 'returned') totalBookedOut++;
         agentsSet.add(booking.agentName);
       });
       
-      record.lostAssets.forEach(asset => {
+      (lostAssets || []).forEach(asset => {
         totalLost++;
         assetTypes[asset.assetType as keyof typeof assetTypes]++;
       });
