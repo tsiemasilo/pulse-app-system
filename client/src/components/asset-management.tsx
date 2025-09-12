@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Save } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Save, Loader2 } from "lucide-react";
 import type { User, Asset } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -38,8 +38,10 @@ interface AssetBookingBookIn {
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
   const [activeTab, setActiveTab] = useState('book_in');
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Dialog state for lost asset confirmation
   const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
@@ -358,8 +360,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         const previousLostAssets = localStorage.getItem(previousDayData.lostAssetsKey);
         
         if (previousBookIn || previousBookOut || previousLostAssets) {
-          // Save to database using the existing mutation
-          saveAssetRecordsMutation.mutate({
+          // Save to database using the auto-save mutation
+          autoSaveAssetRecordsMutation.mutate({
             date: lastKnownDate,
             bookInRecords: previousBookIn ? JSON.parse(previousBookIn) : {},
             bookOutRecords: previousBookOut ? JSON.parse(previousBookOut) : {},
@@ -552,14 +554,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   };
 
-  // Save current asset booking records to database
-  const saveAssetRecordsMutation = useMutation({
+  // Auto-save asset booking records to database
+  const autoSaveAssetRecordsMutation = useMutation({
     mutationFn: async (params?: {
       date?: string;
       bookInRecords?: Record<string, AssetBookingBookIn>;
       bookOutRecords?: Record<string, AssetBooking>;
       lostAssets?: Array<{agentId: string; agentName: string; assetType: string; dateLost: string;}>;
     }) => {
+      setIsAutoSaving(true);
       const currentDate = params?.date || getCurrentDateKey();
       const bookInData = params?.bookInRecords || assetBookingsBookIn;
       const bookOutData = params?.bookOutRecords || assetBookingsBookOut;
@@ -580,23 +583,43 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       queryClient.invalidateQueries({ 
         queryKey: ['/api/historical-asset-records'] 
       });
-      toast({
-        title: "Records Saved",
-        description: `Asset booking records for ${savedDate} have been saved successfully`,
-      });
+      setIsAutoSaving(false);
+      // No toast for auto-save to avoid interruptions
     },
     onError: (error) => {
+      setIsAutoSaving(false);
       toast({
-        title: "Error",
-        description: "Failed to save asset booking records",
+        title: "Auto-save Failed",
+        description: "Failed to automatically save changes. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const saveAssetRecords = () => {
-    saveAssetRecordsMutation.mutate(undefined);
-  };
+  // Debounced auto-save function
+  const debouncedAutoSave = useCallback(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveAssetRecordsMutation.mutate(undefined);
+    }, 1500); // Auto-save after 1.5 seconds of no changes
+  }, [autoSaveAssetRecordsMutation]);
+
+  // Auto-save when booking states change
+  useEffect(() => {
+    debouncedAutoSave();
+  }, [assetBookingsBookIn, assetBookingsBookOut, lostAssets, debouncedAutoSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
 
   const BookInTable = () => (
@@ -864,15 +887,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
               </TabsList>
               
-              {(activeTab === 'book_in' || activeTab === 'book_out') && (
-                <Button
-                  onClick={saveAssetRecords}
-                  className="flex items-center gap-2"
-                  data-testid="button-save-records"
-                >
-                  <Save className="h-4 w-4" />
-                  Save Records
-                </Button>
+              {(activeTab === 'book_in' || activeTab === 'book_out') && isAutoSaving && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="auto-save-indicator">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Auto-saving...
+                </div>
               )}
             </div>
             
