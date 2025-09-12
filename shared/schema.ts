@@ -147,6 +147,35 @@ export const assetLossRecords = pgTable("asset_loss_records", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Asset booking records (real-time daily tracking)
+export const assetBookings = pgTable("asset_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  bookingType: varchar("booking_type").notNull(), // book_in, book_out
+  laptop: varchar("laptop").notNull().default('none'), // none, collected, not_collected, returned, not_returned
+  headsets: varchar("headsets").notNull().default('none'),
+  dongle: varchar("dongle").notNull().default('none'),
+  agentName: varchar("agent_name"), // Cache for performance
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Asset details (comprehensive asset information)
+export const assetDetails = pgTable("asset_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  assetType: varchar("asset_type").notNull(), // laptop, headsets, dongle
+  assetId: varchar("asset_id").notNull(), // LP-001, HS-001, DG-001
+  serialNumber: varchar("serial_number"),
+  brandModel: varchar("brand_model"),
+  accessories: text("accessories").array(), // Array of accessories
+  condition: varchar("condition").notNull().default('good'), // good, fair, poor, damaged
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -214,6 +243,18 @@ export const insertHistoricalAssetRecordSchema = createInsertSchema(historicalAs
   createdAt: true,
 });
 
+export const insertAssetBookingSchema = createInsertSchema(assetBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssetDetailsSchema = createInsertSchema(assetDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -235,3 +276,7 @@ export type AssetLossRecord = typeof assetLossRecords.$inferSelect;
 export type InsertAssetLossRecord = z.infer<typeof insertAssetLossRecordSchema>;
 export type HistoricalAssetRecord = typeof historicalAssetRecords.$inferSelect;
 export type InsertHistoricalAssetRecord = z.infer<typeof insertHistoricalAssetRecordSchema>;
+export type AssetBooking = typeof assetBookings.$inferSelect;
+export type InsertAssetBooking = z.infer<typeof insertAssetBookingSchema>;
+export type AssetDetails = typeof assetDetails.$inferSelect;
+export type InsertAssetDetails = z.infer<typeof insertAssetDetailsSchema>;

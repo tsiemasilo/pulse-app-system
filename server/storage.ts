@@ -9,6 +9,8 @@ import {
   terminations,
   assetLossRecords,
   historicalAssetRecords,
+  assetBookings,
+  assetDetails,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -29,6 +31,10 @@ import {
   type InsertAssetLossRecord,
   type HistoricalAssetRecord,
   type InsertHistoricalAssetRecord,
+  type AssetBooking,
+  type InsertAssetBooking,
+  type AssetDetails,
+  type InsertAssetDetails,
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
@@ -91,6 +97,16 @@ export interface IStorage {
   getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]>;
   getHistoricalAssetRecordsByDate(date: string): Promise<HistoricalAssetRecord[]>;
   createHistoricalAssetRecord(record: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord>;
+  
+  // Asset booking management
+  getAssetBookingsByUserAndDate(userId: string, date: string): Promise<AssetBooking[]>;
+  upsertAssetBooking(booking: InsertAssetBooking): Promise<AssetBooking>;
+  getAllAssetBookingsByDate(date: string): Promise<AssetBooking[]>;
+  
+  // Asset details management
+  getAssetDetailsByUserId(userId: string): Promise<AssetDetails[]>;
+  upsertAssetDetails(details: InsertAssetDetails): Promise<AssetDetails>;
+  deleteAssetDetails(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -501,6 +517,109 @@ export class DatabaseStorage implements IStorage {
       // Create new record if none exists
       return await this.createHistoricalAssetRecord(recordData);
     }
+  }
+  
+  // Asset booking management
+  async getAssetBookingsByUserAndDate(userId: string, date: string): Promise<AssetBooking[]> {
+    return await db
+      .select()
+      .from(assetBookings)
+      .where(and(
+        eq(assetBookings.userId, userId),
+        eq(assetBookings.date, date)
+      ));
+  }
+  
+  async upsertAssetBooking(bookingData: InsertAssetBooking): Promise<AssetBooking> {
+    // Check if a booking already exists for this user, date, and booking type
+    const existingBookings = await db
+      .select()
+      .from(assetBookings)
+      .where(and(
+        eq(assetBookings.userId, bookingData.userId),
+        eq(assetBookings.date, bookingData.date),
+        eq(assetBookings.bookingType, bookingData.bookingType)
+      ));
+    
+    if (existingBookings.length > 0) {
+      // Update existing booking
+      const [updatedBooking] = await db
+        .update(assetBookings)
+        .set({
+          laptop: bookingData.laptop,
+          headsets: bookingData.headsets,
+          dongle: bookingData.dongle,
+          agentName: bookingData.agentName,
+          updatedAt: new Date(),
+        })
+        .where(eq(assetBookings.id, existingBookings[0].id))
+        .returning();
+      return updatedBooking;
+    } else {
+      // Create new booking
+      const [newBooking] = await db
+        .insert(assetBookings)
+        .values(bookingData)
+        .returning();
+      return newBooking;
+    }
+  }
+  
+  async getAllAssetBookingsByDate(date: string): Promise<AssetBooking[]> {
+    return await db
+      .select()
+      .from(assetBookings)
+      .where(eq(assetBookings.date, date))
+      .orderBy(assetBookings.bookingType);
+  }
+  
+  // Asset details management
+  async getAssetDetailsByUserId(userId: string): Promise<AssetDetails[]> {
+    return await db
+      .select()
+      .from(assetDetails)
+      .where(eq(assetDetails.userId, userId))
+      .orderBy(assetDetails.assetType);
+  }
+  
+  async upsertAssetDetails(detailsData: InsertAssetDetails): Promise<AssetDetails> {
+    // Check if asset details already exist for this user and asset type
+    const existingDetails = await db
+      .select()
+      .from(assetDetails)
+      .where(and(
+        eq(assetDetails.userId, detailsData.userId),
+        eq(assetDetails.assetType, detailsData.assetType)
+      ));
+    
+    if (existingDetails.length > 0) {
+      // Update existing details
+      const [updatedDetails] = await db
+        .update(assetDetails)
+        .set({
+          assetId: detailsData.assetId,
+          serialNumber: detailsData.serialNumber,
+          brandModel: detailsData.brandModel,
+          accessories: detailsData.accessories,
+          condition: detailsData.condition,
+          notes: detailsData.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(assetDetails.id, existingDetails[0].id))
+        .returning();
+      return updatedDetails;
+    } else {
+      // Create new details
+      const [newDetails] = await db
+        .insert(assetDetails)
+        .values(detailsData)
+        .returning();
+      return newDetails;
+    }
+  }
+  
+  async deleteAssetDetails(id: string): Promise<void> {
+    await db.delete(assetDetails).where(eq(assetDetails.id, id));
   }
 }
 

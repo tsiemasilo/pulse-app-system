@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, users } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetBookingSchema, insertAssetDetailsSchema, users } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -317,6 +317,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching asset loss records:", error);
       res.status(500).json({ message: "Failed to fetch asset loss records" });
+    }
+  });
+
+  // Asset booking routes
+  app.get('/api/asset-bookings/date/:date', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const bookings = await storage.getAllAssetBookingsByDate(req.params.date);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching asset bookings:", error);
+      res.status(500).json({ message: "Failed to fetch asset bookings" });
+    }
+  });
+
+  app.get('/api/asset-bookings/user/:userId/date/:date', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== req.params.userId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const bookings = await storage.getAssetBookingsByUserAndDate(req.params.userId, req.params.date);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching user asset bookings:", error);
+      res.status(500).json({ message: "Failed to fetch user asset bookings" });
+    }
+  });
+
+  app.post('/api/asset-bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const bookingData = insertAssetBookingSchema.parse(req.body);
+      const booking = await storage.upsertAssetBooking(bookingData);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating/updating asset booking:", error);
+      res.status(500).json({ message: "Failed to create/update asset booking" });
+    }
+  });
+
+  // Asset details routes
+  app.get('/api/asset-details/user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== req.params.userId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const assetDetails = await storage.getAssetDetailsByUserId(req.params.userId);
+      res.json(assetDetails);
+    } catch (error) {
+      console.error("Error fetching asset details:", error);
+      res.status(500).json({ message: "Failed to fetch asset details" });
+    }
+  });
+
+  app.post('/api/asset-details', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const detailsData = insertAssetDetailsSchema.parse(req.body);
+      const assetDetails = await storage.upsertAssetDetails(detailsData);
+      res.json(assetDetails);
+    } catch (error) {
+      console.error("Error creating/updating asset details:", error);
+      res.status(500).json({ message: "Failed to create/update asset details" });
+    }
+  });
+
+  app.delete('/api/asset-details/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteAssetDetails(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting asset details:", error);
+      res.status(500).json({ message: "Failed to delete asset details" });
     }
   });
 
