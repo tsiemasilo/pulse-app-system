@@ -247,39 +247,10 @@ export default function Reports() {
 
   // Function to get agent asset status with precedence: Lost > Booked Out > Booked In
   const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
-    // Check for lost assets first (highest precedence) - check actual asset loss records
-    const isLost = assetLossRecords.some(asset => {
-      // Convert dateLost to string format for comparison
-      const assetDateString = asset.dateLost instanceof Date 
-        ? asset.dateLost.toISOString().split('T')[0]
-        : (typeof asset.dateLost === 'string' ? asset.dateLost.split('T')[0] : asset.dateLost);
-      
-      const matches = asset.userId === agentId && 
-                     asset.assetType === assetType && 
-                     assetDateString === selectedDate;
-      
-      // Debug logging
-      if (asset.userId === agentId && asset.assetType === assetType) {
-        console.log('Asset Loss Check:', {
-          userId: asset.userId,
-          agentId,
-          assetType: asset.assetType,
-          assetDateString,
-          selectedDate,
-          matches
-        });
-      }
-      
-      return matches;
-    });
-    
-    if (isLost) {
-      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
-    }
-    
-    // Check booking status from historical records for all dates
+    // Check booking status from historical records first
     let bookInStatus = 'none';
     let bookOutStatus = 'none';
+    let latestBookingDate = null;
     
     const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
     
@@ -287,9 +258,36 @@ export default function Reports() {
       const bookInRecord = record.bookInRecords?.[agentId];
       const bookOutRecord = record.bookOutRecords?.[agentId];
       
-      if (bookInRecord?.[assetType]) bookInStatus = bookInRecord[assetType];
-      if (bookOutRecord?.[assetType]) bookOutStatus = bookOutRecord[assetType];
+      if (bookInRecord?.[assetType]) {
+        bookInStatus = bookInRecord[assetType];
+        // Use the record's date as the latest booking date
+        latestBookingDate = record.date;
+      }
+      if (bookOutRecord?.[assetType]) {
+        bookOutStatus = bookOutRecord[assetType];
+        // Use the record's date as the latest booking date
+        latestBookingDate = record.date;
+      }
     });
+    
+    // Check for lost assets and compare with booking timestamps
+    const lostAsset = assetLossRecords.find(asset => {
+      const assetDateString = asset.dateLost instanceof Date 
+        ? asset.dateLost.toISOString().split('T')[0]
+        : (typeof asset.dateLost === 'string' ? asset.dateLost.split('T')[0] : asset.dateLost);
+      
+      return asset.userId === agentId && 
+             asset.assetType === assetType && 
+             assetDateString === selectedDate;
+    });
+    
+    // If asset was marked as lost but then status changed to returned/collected, honor the latest status
+    if (lostAsset && (bookOutStatus === 'returned' || bookInStatus === 'collected')) {
+      // Asset was lost but then returned/collected - show the current status instead of lost
+    } else if (lostAsset) {
+      // Asset is lost and no subsequent return recorded
+      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
     
     // Apply status precedence
     if (bookOutStatus === 'not_returned') {
