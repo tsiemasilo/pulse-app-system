@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Save, Loader2 } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings } from "lucide-react";
 import type { User, Asset } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -40,6 +41,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [activeTab, setActiveTab] = useState('book_in');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showBookingHistoryDialog, setShowBookingHistoryDialog] = useState(false);
+  const [showAssetDetailsDialog, setShowAssetDetailsDialog] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<{id: string; name: string} | null>(null);
+  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<{type: string; agentId: string} | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -660,12 +665,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 Dongle
               </div>
             </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="bg-card divide-y divide-border">
           {teamMembers.length === 0 ? (
             <tr>
-              <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                 No team members found
               </td>
             </tr>
@@ -714,6 +722,51 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                         agentId={member.id}
                         tabType="book_in"
                       />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const agentName = booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
+                              setSelectedAgent({id: member.id, name: agentName});
+                              setShowBookingHistoryDialog(true);
+                            }}
+                            className="h-9 w-9 p-0"
+                            aria-label="View booking history"
+                            data-testid={`button-view-history-${member.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View booking history</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAssetForDetails({type: 'all', agentId: member.id});
+                              setShowAssetDetailsDialog(true);
+                            }}
+                            className="h-9 w-9 p-0"
+                            aria-label="Manage asset details"
+                            data-testid={`button-asset-details-${member.id}`}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Manage asset details</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -806,12 +859,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 Dongle
               </div>
             </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="bg-card divide-y divide-border">
           {teamMembers.length === 0 ? (
             <tr>
-              <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                 No team members found
               </td>
             </tr>
@@ -862,6 +918,51 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       />
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const agentName = booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
+                              setSelectedAgent({id: member.id, name: agentName});
+                              setShowBookingHistoryDialog(true);
+                            }}
+                            className="h-9 w-9 p-0"
+                            aria-label="View booking history"
+                            data-testid={`button-view-history-${member.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View booking history</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAssetForDetails({type: 'all', agentId: member.id});
+                              setShowAssetDetailsDialog(true);
+                            }}
+                            className="h-9 w-9 p-0"
+                            aria-label="Manage asset details"
+                            data-testid={`button-asset-details-${member.id}`}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Manage asset details</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </td>
                 </tr>
               );
             })
@@ -873,7 +974,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1015,6 +1117,209 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </CardContent>
       </Card>
 
+      {/* Booking History Dialog */}
+      <Dialog open={showBookingHistoryDialog} onOpenChange={setShowBookingHistoryDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle data-testid="dialog-title-booking-history">Booking History - {selectedAgent?.name}</DialogTitle>
+            <DialogDescription>
+              View detailed booking history showing when and what time assets were booked in and out
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto">
+            <div className="space-y-4">
+              {/* Today's Bookings */}
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-2">Today's Activity</h4>
+                <div className="space-y-2">
+                  {selectedAgent && assetBookingsBookIn[selectedAgent.id] && (
+                    <div className="p-3 border rounded-lg">
+                      <div className="text-sm font-medium">Book In - {getCurrentDateKey()}</div>
+                      <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Laptop className="h-3 w-3" />
+                          <span>{assetBookingsBookIn[selectedAgent.id].laptop === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].laptop === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Headphones className="h-3 w-3" />
+                          <span>{assetBookingsBookIn[selectedAgent.id].headsets === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].headsets === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Usb className="h-3 w-3" />
+                          <span>{assetBookingsBookIn[selectedAgent.id].dongle === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].dongle === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {selectedAgent && assetBookingsBookOut[selectedAgent.id] && (
+                    <div className="p-3 border rounded-lg">
+                      <div className="text-sm font-medium">Book Out - {getCurrentDateKey()}</div>
+                      <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Laptop className="h-3 w-3" />
+                          <span>{assetBookingsBookOut[selectedAgent.id].laptop === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].laptop === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Headphones className="h-3 w-3" />
+                          <span>{assetBookingsBookOut[selectedAgent.id].headsets === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].headsets === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Usb className="h-3 w-3" />
+                          <span>{assetBookingsBookOut[selectedAgent.id].dongle === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].dongle === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Historical Data would go here */}
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-2">Historical Records</h4>
+                <div className="text-sm text-muted-foreground">
+                  Historical booking records will be displayed here once available from the database.
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowBookingHistoryDialog(false)}
+              data-testid="button-close-booking-history"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Details Management Dialog */}
+      <Dialog open={showAssetDetailsDialog} onOpenChange={(open) => {
+        setShowAssetDetailsDialog(open);
+        if (!open) {
+          setSelectedAssetForDetails(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle data-testid="dialog-title-asset-details">Asset Details Management</DialogTitle>
+            <DialogDescription>
+              View and manage detailed asset information including serial numbers, models, and conditions
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[500px] overflow-y-auto">
+            <div className="space-y-6">
+              {/* Asset Type Tabs */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Laptop className="h-5 w-5" />
+                    <h4 className="font-medium">Laptop</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="text-muted-foreground">Asset ID:</label>
+                      <div className="font-medium">LP-001</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Serial Number:</label>
+                      <div className="font-medium">DL5420-ABC123</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Model & Brand:</label>
+                      <div className="font-medium">Dell Latitude 5420</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Accessories:</label>
+                      <div className="font-medium">Charger, Laptop Bag</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Condition:</label>
+                      <div className="font-medium text-green-600">Good</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Headphones className="h-5 w-5" />
+                    <h4 className="font-medium">Headset</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="text-muted-foreground">Asset ID:</label>
+                      <div className="font-medium">HS-001</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Serial Number:</label>
+                      <div className="font-medium">LGT-H390-XYZ789</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Model & Brand:</label>
+                      <div className="font-medium">Logitech H390</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Accessories:</label>
+                      <div className="font-medium">USB Cable</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Condition:</label>
+                      <div className="font-medium text-green-600">Good</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Usb className="h-5 w-5" />
+                    <h4 className="font-medium">Dongle</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="text-muted-foreground">Asset ID:</label>
+                      <div className="font-medium">DG-001</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Serial Number:</label>
+                      <div className="font-medium">HW-USBC-DEF456</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Model & Brand:</label>
+                      <div className="font-medium">Huawei USB-C Dongle</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Accessories:</label>
+                      <div className="font-medium">None</div>
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground">Condition:</label>
+                      <div className="font-medium text-green-600">Good</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                Note: This is placeholder data. In the full implementation, asset details would be stored in the database and editable through forms.
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAssetDetailsDialog(false)}
+              data-testid="button-close-asset-details"
+            >
+              Close
+            </Button>
+            <Button data-testid="button-edit-asset-details">
+              Edit Details
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Lost Asset Confirmation Dialog */}
       <Dialog open={showLostAssetDialog} onOpenChange={setShowLostAssetDialog}>
         <DialogContent className="sm:max-w-[425px]">
@@ -1053,6 +1358,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </DialogContent>
       </Dialog>
       
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
