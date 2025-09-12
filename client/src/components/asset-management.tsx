@@ -10,32 +10,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings } from "lucide-react";
-import type { User, Asset } from "@shared/schema";
+import type { User, Asset, AssetBooking, AssetDetails, InsertAssetBooking, InsertAssetDetails } from "@shared/schema";
 
 interface AssetManagementProps {
   userId?: string;
   showActions?: boolean;
 }
 
-interface AssetBooking {
-  agentId: string;
-  agentName: string;
-  laptop: 'none' | 'returned' | 'not_returned';
-  headsets: 'none' | 'returned' | 'not_returned';
-  dongle: 'none' | 'returned' | 'not_returned';
-  date: string;
-  type: 'book_in' | 'book_out';
-}
-
-interface AssetBookingBookIn {
-  agentId: string;
-  agentName: string;
-  laptop: 'none' | 'collected' | 'not_collected';
-  headsets: 'none' | 'collected' | 'not_collected';
-  dongle: 'none' | 'collected' | 'not_collected';
-  date: string;
-  type: 'book_in';
-}
+// Using AssetBooking and AssetDetails types from shared schema
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
   const [activeTab, setActiveTab] = useState('book_in');
@@ -44,7 +26,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [showBookingHistoryDialog, setShowBookingHistoryDialog] = useState(false);
   const [showAssetDetailsDialog, setShowAssetDetailsDialog] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<{id: string; name: string} | null>(null);
-  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<{type: string; agentId: string} | null>(null);
+  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<{type: string; userId: string} | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,12 +34,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Dialog state for lost asset confirmation
   const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
   const [pendingAssetAction, setPendingAssetAction] = useState<{
-    agentId: string;
+    userId: string;
     assetType: string;
     agentName: string;
   } | null>(null);
   
-  // Helper functions for localStorage persistence (moved to top)
+  // Helper function to get current date
   const getCurrentDateKey = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -65,82 +47,37 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-  
-  const loadFromLocalStorage = () => {
-    const currentDate = getCurrentDateKey();
-    const bookInKey = `assetBookings_bookIn_${currentDate}`;
-    const bookOutKey = `assetBookings_bookOut_${currentDate}`;
-    const lostAssetsKey = `lostAssets_${currentDate}`;
-    
-    try {
-      const bookInData = localStorage.getItem(bookInKey);
-      const bookOutData = localStorage.getItem(bookOutKey);
-      const lostAssetsData = localStorage.getItem(lostAssetsKey);
-      
-      return {
-        bookIn: bookInData ? JSON.parse(bookInData) : {},
-        bookOut: bookOutData ? JSON.parse(bookOutData) : {},
-        lostAssets: lostAssetsData ? JSON.parse(lostAssetsData) : []
-      };
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
-      return {
-        bookIn: {},
-        bookOut: {},
-        lostAssets: []
-      };
-    }
-  };
-  
-  const saveToLocalStorage = (bookIn: Record<string, AssetBookingBookIn>, bookOut: Record<string, AssetBooking>, lostAssetsData: any[]) => {
-    const currentDate = getCurrentDateKey();
-    const bookInKey = `assetBookings_bookIn_${currentDate}`;
-    const bookOutKey = `assetBookings_bookOut_${currentDate}`;
-    const lostAssetsKey = `lostAssets_${currentDate}`;
-    
-    try {
-      localStorage.setItem(bookInKey, JSON.stringify(bookIn));
-      localStorage.setItem(bookOutKey, JSON.stringify(bookOut));
-      localStorage.setItem(lostAssetsKey, JSON.stringify(lostAssetsData));
-    } catch (error) {
-      console.error('Error saving to localStorage:', error);
-    }
-  };
 
-  // Load initial data from localStorage
-  const initialData = loadFromLocalStorage();
-  
-  // Lost assets tracking with localStorage persistence
-  const [lostAssets, setLostAssets] = useState<Array<{
-    agentId: string;
-    agentName: string;
-    assetType: string;
-    dateLost: string;
-  }>>(initialData.lostAssets);
+  // Fetch today's booking data for all users
+  const { data: todayBookings = [], isLoading: bookingsLoading } = useQuery<AssetBooking[]>({
+    queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`],
+  });
+
+  // Fetch asset loss records
+  const { data: assetLossRecords = [], isLoading: lossRecordsLoading } = useQuery<any[]>({
+    queryKey: ['/api/asset-loss'],
+  });
 
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
     const { data: userAssets = [], isLoading } = useQuery<Asset[]>({
-      queryKey: ["/api/assets/user", userId],
+      queryKey: [`/api/assets/user/${userId}`],
     });
 
-    // Load booking status from localStorage for this agent
-    const getAgentBookingStatus = () => {
-      const currentData = loadFromLocalStorage();
-      const agentBookOut = currentData.bookOut[userId];
-      const agentBookIn = currentData.bookIn[userId];
-      
-      return {
-        bookOut: agentBookOut,
-        bookIn: agentBookIn,
-        lostAssets: currentData.lostAssets.filter((asset: any) => asset.agentId === userId)
-      };
+    // Fetch user's booking data from database
+    const { data: userBookings = [], isLoading: userBookingsLoading } = useQuery<AssetBooking[]>({
+      queryKey: [`/api/asset-bookings/user/${userId}/date/${getCurrentDateKey()}`],
+    });
+
+    // Transform bookings data for easier access
+    const bookingStatus = {
+      bookOut: userBookings.find(b => b.bookingType === 'book_out'),
+      bookIn: userBookings.find(b => b.bookingType === 'book_in'),
+      lostAssets: (assetLossRecords as any[]).filter((record: any) => record.userId === userId)
     };
 
-    const bookingStatus = getAgentBookingStatus();
-
-    if (isLoading) {
+    if (isLoading || userBookingsLoading) {
       return <div className="text-center py-8">Loading assets...</div>;
     }
 
@@ -159,8 +96,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
     // Helper function to get booking status for an asset type
     const getAssetBookingStatus = (assetType: string, defaultStatus: string) => {
-      const bookOutStatus = bookingStatus.bookOut?.[assetType as keyof typeof bookingStatus.bookOut];
-      const bookInStatus = bookingStatus.bookIn?.[assetType as keyof typeof bookingStatus.bookIn];
+      const bookOutStatus = bookingStatus.bookOut?.[assetType as keyof AssetBooking];
+      const bookInStatus = bookingStatus.bookIn?.[assetType as keyof AssetBooking];
       const isLost = bookingStatus.lostAssets.some((lostAsset: any) => lostAsset.assetType === assetType);
       
       if (isLost) return { status: 'Lost', color: 'bg-red-100 text-red-800' };
@@ -234,14 +171,17 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     select: (users) => users.filter(user => user.role === 'agent'),
   });
 
-  // Initialize booking states with localStorage data
-  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>(initialData.bookIn);
-  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>(initialData.bookOut);
+  // Transform booking data for easier access by user ID
+  const bookingsByUser = todayBookings.reduce((acc, booking) => {
+    if (!acc[booking.userId]) acc[booking.userId] = {};
+    acc[booking.userId][booking.bookingType] = booking;
+    return acc;
+  }, {} as Record<string, Record<string, AssetBooking>>);
 
   // Function to get all unreturned assets (both lost and not returned)
   const getUnreturnedAssets = () => {
     const unreturnedAssets: Array<{
-      agentId: string;
+      userId: string;
       agentName: string;
       assetType: string;
       status: string;
@@ -249,187 +189,113 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       date: string;
     }> = [];
 
-    // Add lost assets
-    lostAssets.forEach(lostAsset => {
+    // Add lost assets from asset loss records
+    (assetLossRecords as any[]).forEach((lossRecord: any) => {
       unreturnedAssets.push({
-        ...lostAsset,
+        userId: lossRecord.userId,
+        agentName: lossRecord.agentName || 'Unknown',
+        assetType: lossRecord.assetType,
         status: 'Lost',
         statusColor: 'bg-red-100 text-red-800',
-        date: lostAsset.dateLost
+        date: lossRecord.dateLost ? new Date(lossRecord.dateLost).toISOString().split('T')[0] : getCurrentDateKey()
       });
     });
 
-    // Add assets marked as not returned
-    Object.entries(assetBookingsBookOut).forEach(([agentId, booking]) => {
-      const agentName = booking.agentName;
-      
-      // Check each asset type for not_returned status
-      ['laptop', 'headsets', 'dongle'].forEach(assetType => {
-        if (booking[assetType as keyof typeof booking] === 'not_returned') {
-          // Only add if it's not already in lost assets
-          const isAlreadyLost = lostAssets.some(
-            lostAsset => lostAsset.agentId === agentId && lostAsset.assetType === assetType
-          );
-          
-          if (!isAlreadyLost) {
-            unreturnedAssets.push({
-              agentId,
-              agentName,
-              assetType,
-              status: 'Not Returned Yet',
-              statusColor: 'bg-orange-100 text-orange-800',
-              date: booking.date
-            });
+    // Add assets marked as not returned from today's bookings
+    todayBookings
+      .filter(booking => booking.bookingType === 'book_out')
+      .forEach(booking => {
+        const agentName = booking.agentName || 'Unknown';
+        
+        // Check each asset type for not_returned status
+        ['laptop', 'headsets', 'dongle'].forEach(assetType => {
+          if (booking[assetType as keyof typeof booking] === 'not_returned') {
+            // Only add if it's not already in lost assets
+            const isAlreadyLost = (assetLossRecords as any[]).some(
+              (lossRecord: any) => lossRecord.userId === booking.userId && lossRecord.assetType === assetType
+            );
+            
+            if (!isAlreadyLost) {
+              unreturnedAssets.push({
+                userId: booking.userId,
+                agentName,
+                assetType,
+                status: 'Not Returned Yet',
+                statusColor: 'bg-orange-100 text-orange-800',
+                date: booking.date
+              });
+            }
           }
-        }
+        });
       });
-    });
 
     return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
   };
 
-  // Initialize booking states when teamMembers data becomes available
-  // Only initialize new agents, preserve existing selections
-  useEffect(() => {
-    if (teamMembers.length > 0) {
-      setAssetBookingsBookIn(prev => {
-        const updated = { ...prev };
-        
-        teamMembers.forEach(member => {
-          // Only initialize if agent doesn't already exist
-          if (!updated[member.id]) {
-            const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
-            const currentDate = getCurrentDateKey();
-            
-            updated[member.id] = {
-              agentId: member.id,
-              agentName,
-              laptop: 'none',
-              headsets: 'none',
-              dongle: 'none',
-              date: currentDate,
-              type: 'book_in' as const
-            };
-          }
-        });
-        
-        return updated;
-      });
-      
-      setAssetBookingsBookOut(prev => {
-        const updated = { ...prev };
-        
-        teamMembers.forEach(member => {
-          // Only initialize if agent doesn't already exist
-          if (!updated[member.id]) {
-            const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
-            const currentDate = getCurrentDateKey();
-            
-            updated[member.id] = {
-              agentId: member.id,
-              agentName,
-              laptop: 'none',
-              headsets: 'none',
-              dongle: 'none',
-              date: currentDate,
-              type: 'book_out' as const
-            };
-          }
-        });
-        
-        return updated;
-      });
-    }
-  }, [teamMembers]);
-
-  // Auto-save to localStorage whenever states change
-  useEffect(() => {
-    saveToLocalStorage(assetBookingsBookIn, assetBookingsBookOut, lostAssets);
-  }, [assetBookingsBookIn, assetBookingsBookOut, lostAssets]);
-
-  // Day persistence - save previous day's data when new day starts
-  useEffect(() => {
-    const currentDate = getCurrentDateKey();
-    const lastKnownDate = localStorage.getItem('lastKnownDate');
-    
-    if (lastKnownDate && lastKnownDate !== currentDate) {
-      // New day detected - save previous day's data to database
-      const previousDayData = {
-        bookInKey: `assetBookings_bookIn_${lastKnownDate}`,
-        bookOutKey: `assetBookings_bookOut_${lastKnownDate}`,
-        lostAssetsKey: `lostAssets_${lastKnownDate}`
-      };
-      
-      try {
-        const previousBookIn = localStorage.getItem(previousDayData.bookInKey);
-        const previousBookOut = localStorage.getItem(previousDayData.bookOutKey);
-        const previousLostAssets = localStorage.getItem(previousDayData.lostAssetsKey);
-        
-        if (previousBookIn || previousBookOut || previousLostAssets) {
-          // Save to database using the auto-save mutation
-          autoSaveAssetRecordsMutation.mutate({
-            date: lastKnownDate,
-            bookInRecords: previousBookIn ? JSON.parse(previousBookIn) : {},
-            bookOutRecords: previousBookOut ? JSON.parse(previousBookOut) : {},
-            lostAssets: previousLostAssets ? JSON.parse(previousLostAssets) : []
-          });
-          
-          console.log(`Auto-saved data for ${lastKnownDate} to database`);
+  // Mutation to create/update asset bookings
+  const updateAssetBookingMutation = useMutation({
+    mutationFn: async (booking: InsertAssetBooking) => {
+      return await apiRequest('POST', '/api/asset-bookings', booking);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch booking data
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/asset-bookings');
         }
-      } catch (error) {
-        console.error('Error auto-saving previous day data:', error);
-      }
-    }
-    
-    // Update the last known date
-    localStorage.setItem('lastKnownDate', currentDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      });
+      setHasUnsavedChanges(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update asset booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation to create asset loss records
+  const createAssetLossMutation = useMutation({
+    mutationFn: async (lossData: { userId: string; assetType: string; reason: string; dateLost: Date }) => {
+      return await apiRequest('POST', '/api/asset-loss', lossData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Recording Asset Loss",
+        description: "Failed to record asset loss. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const updateAssetBookingBookIn = (agentId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
-    setAssetBookingsBookIn(prev => {
-      const currentAgent = prev[agentId];
-      let updated;
-      
-      if (!currentAgent) {
-        // If agent doesn't exist, find them in teamMembers to get their name
-        const agent = teamMembers.find(member => member.id === agentId);
-        const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
-        
-        updated = {
-          ...prev,
-          [agentId]: {
-            agentId,
-            agentName,
-            laptop: assetType === 'laptop' ? status : 'none',
-            headsets: assetType === 'headsets' ? status : 'none',
-            dongle: assetType === 'dongle' ? status : 'none',
-            date: getCurrentDateKey(),
-            type: 'book_in' as const
-          }
-        };
-      } else {
-        const updatedAgent = { ...currentAgent };
-        if (assetType === 'laptop') updatedAgent.laptop = status;
-        else if (assetType === 'headsets') updatedAgent.headsets = status;
-        else if (assetType === 'dongle') updatedAgent.dongle = status;
-        
-        updated = {
-          ...prev,
-          [agentId]: updatedAgent
-        };
-      }
-      
-      
-      return updated;
-    });
+  const updateAssetBookingBookIn = (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
+    const agent = teamMembers.find(member => member.id === userId);
+    const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
     
-    setHasUnsavedChanges(true);
+    // Get current booking or create a new one
+    const currentBooking = bookingsByUser[userId]?.['book_in'];
+    
+    const bookingData: InsertAssetBooking = {
+      userId,
+      date: getCurrentDateKey(),
+      bookingType: 'book_in',
+      laptop: assetType === 'laptop' ? status : (currentBooking?.laptop || 'none'),
+      headsets: assetType === 'headsets' ? status : (currentBooking?.headsets || 'none'),
+      dongle: assetType === 'dongle' ? status : (currentBooking?.dongle || 'none'),
+      agentName,
+    };
+    
+    updateAssetBookingMutation.mutate(bookingData);
     
     const statusText = status === 'collected' ? 'collected' : status === 'not_collected' ? 'not collected' : 'unmarked';
     toast({
       title: "Asset Updated",
-      description: `${assetType} marked as ${statusText} for agent`,
+      description: `${assetType} marked as ${statusText} for ${agentName}`,
     });
   };
 
@@ -437,27 +303,19 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleLostAssetResponse = (isLost: boolean) => {
     if (!pendingAssetAction) return;
     
-    const { agentId, assetType, agentName } = pendingAssetAction;
+    const { userId, assetType, agentName } = pendingAssetAction;
     
     if (isLost) {
-      // Mark as lost asset - add to lost assets and mark as not_returned
-      setLostAssets(prev => {
-        const exists = prev.some(item => item.agentId === agentId && item.assetType === assetType);
-        if (!exists) {
-          return [...prev, {
-            agentId,
-            agentName,
-            assetType,
-            dateLost: getCurrentDateKey()
-          }];
-        }
-        return prev;
+      // Create asset loss record
+      createAssetLossMutation.mutate({
+        userId,
+        assetType,
+        reason: 'Asset reported as lost during book out process',
+        dateLost: new Date()
       });
       
       // Update the booking status to not_returned
-      updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
-      
-      setHasUnsavedChanges(true);
+      updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
       
       toast({
         title: "Asset Marked as Lost",
@@ -465,9 +323,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       });
     } else {
       // Just mark as not returned (without adding to lost assets)
-      updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
-      
-      setHasUnsavedChanges(true);
+      updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
       
       toast({
         title: "Asset Not Returned",
@@ -480,163 +336,95 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     setPendingAssetAction(null);
   };
 
-  const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+  const updateAssetBookingBookOut = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
     // If marking as not_returned, show the lost asset dialog
     if (status === 'not_returned') {
-      const agent = teamMembers.find(member => member.id === agentId);
+      const agent = teamMembers.find(member => member.id === userId);
       const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
       
-      setPendingAssetAction({ agentId, assetType, agentName });
+      setPendingAssetAction({ userId, assetType, agentName });
       setShowLostAssetDialog(true);
       return; // Exit early, dialog will handle the actual update
     }
     
     // For other statuses, proceed normally
-    updateAssetBookingBookOutDirect(agentId, assetType, status);
+    updateAssetBookingBookOutDirect(userId, assetType, status);
   };
 
-  const updateAssetBookingBookOutDirect = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned', autoAddToLost: boolean = true) => {
-    // Get current status to check if we're changing from 'not_returned' to something else
-    const currentStatus = (assetBookingsBookOut[agentId]?.[assetType as keyof typeof assetBookingsBookOut[string]] || 'none') as 'none' | 'returned' | 'not_returned';
+  const updateAssetBookingBookOutDirect = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    const agent = teamMembers.find(member => member.id === userId);
+    const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
     
-    if (status === 'not_returned' && autoAddToLost) {
-      // Find the agent's name
-      const agent = teamMembers.find(member => member.id === agentId);
-      const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
-      
-      // Add to lost assets records (avoid duplicates)
-      setLostAssets(prev => {
-        const exists = prev.some(item => item.agentId === agentId && item.assetType === assetType);
-        if (!exists) {
-          return [...prev, {
-            agentId,
-            agentName,
-            assetType,
-            dateLost: getCurrentDateKey()
-          }];
-        }
-        return prev;
-      });
-    } else if (currentStatus === 'not_returned' && (status === 'none' || status === 'returned')) {
-      // Remove from lost assets records when changing away from 'not_returned'
-      setLostAssets(prev => prev.filter(item => !(item.agentId === agentId && item.assetType === assetType)));
-    }
+    // Get current booking or create a new one
+    const currentBooking = bookingsByUser[userId]?.['book_out'];
     
-    setAssetBookingsBookOut(prev => {
-      const currentAgent = prev[agentId];
-      let updated;
-      
-      if (!currentAgent) {
-        // If agent doesn't exist, find them in teamMembers to get their name
-        const agent = teamMembers.find(member => member.id === agentId);
-        const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
-        
-        updated = {
-          ...prev,
-          [agentId]: {
-            agentId,
-            agentName,
-            laptop: assetType === 'laptop' ? status : 'none',
-            headsets: assetType === 'headsets' ? status : 'none',
-            dongle: assetType === 'dongle' ? status : 'none',
-            date: getCurrentDateKey(),
-            type: 'book_out' as const
-          }
-        };
-      } else {
-        const updatedAgent = { ...currentAgent };
-        if (assetType === 'laptop') updatedAgent.laptop = status;
-        else if (assetType === 'headsets') updatedAgent.headsets = status;
-        else if (assetType === 'dongle') updatedAgent.dongle = status;
-        
-        updated = {
-          ...prev,
-          [agentId]: updatedAgent
-        };
-      }
-      
-      
-      return updated;
-    });
+    const bookingData: InsertAssetBooking = {
+      userId,
+      date: getCurrentDateKey(),
+      bookingType: 'book_out',
+      laptop: assetType === 'laptop' ? status : (currentBooking?.laptop || 'none'),
+      headsets: assetType === 'headsets' ? status : (currentBooking?.headsets || 'none'),
+      dongle: assetType === 'dongle' ? status : (currentBooking?.dongle || 'none'),
+      agentName,
+    };
     
-    setHasUnsavedChanges(true);
+    updateAssetBookingMutation.mutate(bookingData);
     
-    const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'lost' : 'unmarked';
+    const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'not returned' : 'unmarked';
     toast({
       title: "Asset Updated", 
-      description: `${assetType} marked as ${statusText} for ${teamMembers.find(m => m.id === agentId)?.username || 'agent'}`,
+      description: `${assetType} marked as ${statusText} for ${agentName}`,
     });
   };
 
-  // Auto-save asset booking records to database
-  const autoSaveAssetRecordsMutation = useMutation({
-    mutationFn: async (params?: {
-      date?: string;
-      bookInRecords?: Record<string, AssetBookingBookIn>;
-      bookOutRecords?: Record<string, AssetBooking>;
-      lostAssets?: Array<{agentId: string; agentName: string; assetType: string; dateLost: string;}>;
-    }) => {
-      setIsAutoSaving(true);
-      const currentDate = params?.date || getCurrentDateKey();
-      const bookInData = params?.bookInRecords || assetBookingsBookIn;
-      const bookOutData = params?.bookOutRecords || assetBookingsBookOut;
-      const lostAssetsData = params?.lostAssets || lostAssets;
-      
-      return await apiRequest("POST", "/api/historical-asset-records", {
-        date: currentDate,
-        bookInRecords: bookInData,
-        bookOutRecords: bookOutData,
-        lostAssets: lostAssetsData
+  // Show booking history dialog
+  const showBookingHistory = (agent: { id: string; name: string }) => {
+    setSelectedAgent(agent);
+    setShowBookingHistoryDialog(true);
+  };
+
+  // Fetch asset details for selected user
+  const { data: selectedUserAssetDetails, isLoading: assetDetailsLoading } = useQuery<any[]>({
+    queryKey: [`/api/asset-details/user/${selectedAssetForDetails?.userId}`],
+    enabled: !!selectedAssetForDetails?.userId,
+  });
+
+  // Mutation for updating asset details
+  const updateAssetDetailsMutation = useMutation({
+    mutationFn: async (assetDetails: any) => {
+      return apiRequest('/api/asset-details', {
+        method: 'POST',
+        body: JSON.stringify(assetDetails),
       });
     },
-    onSuccess: (_, params) => {
-      const savedDate = params?.date || getCurrentDateKey();
+    onSuccess: () => {
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/historical-asset-records', { date: savedDate }] 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/asset-details/user');
+        }
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/historical-asset-records'] 
-      });
-      setIsAutoSaving(false);
-      setHasUnsavedChanges(false);
-      // No toast for auto-save to avoid interruptions
-    },
-    onError: (error) => {
-      setIsAutoSaving(false);
       toast({
-        title: "Auto-save Failed",
-        description: "Failed to automatically save changes. Please try again.",
+        title: "Success",
+        description: "Asset details updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update asset details.",
         variant: "destructive",
       });
     },
   });
 
-  // Debounced auto-save function
-  const debouncedAutoSave = useCallback(() => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      autoSaveAssetRecordsMutation.mutate(undefined);
-    }, 1500); // Auto-save after 1.5 seconds of no changes
-  }, [autoSaveAssetRecordsMutation]);
+  // Show asset details dialog
+  const showAssetDetails = (assetType: string, userId: string) => {
+    setSelectedAssetForDetails({ type: assetType, userId });
+    setShowAssetDetailsDialog(true);
+  };
 
-  // Auto-save only when there are unsaved changes
-  useEffect(() => {
-    if (hasUnsavedChanges) {
-      debouncedAutoSave();
-    }
-  }, [hasUnsavedChanges, debouncedAutoSave]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-    };
-  }, []);
+  // Auto-save is now handled by mutations directly
 
 
   const BookInTable = () => (
@@ -679,13 +467,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             </tr>
           ) : (
             teamMembers.map((member) => {
-              const booking = assetBookingsBookIn[member.id];
+              const booking = bookingsByUser[member.id]?.['book_in'];
               
               return (
                 <tr key={member.id} data-testid={`row-agent-${member.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
-                      {booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
+                      { `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       @{member.username}
@@ -732,7 +520,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const agentName = booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
+                              const agentName =  `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
                               setSelectedAgent({id: member.id, name: agentName});
                               setShowBookingHistoryDialog(true);
                             }}
@@ -753,7 +541,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedAssetForDetails({type: 'all', agentId: member.id});
+                              setSelectedAssetForDetails({type: 'all', userId: member.id});
                               setShowAssetDetailsDialog(true);
                             }}
                             className="h-9 w-9 p-0"
@@ -873,13 +661,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             </tr>
           ) : (
             teamMembers.map((member) => {
-              const booking = assetBookingsBookOut[member.id];
+              const booking = bookingsByUser[member.id]?.['book_out'];
               
               return (
                 <tr key={member.id} data-testid={`row-agent-${member.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
-                      {booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
+                      { `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       @{member.username}
@@ -926,7 +714,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const agentName = booking?.agentName || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
+                              const agentName =  `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent';
                               setSelectedAgent({id: member.id, name: agentName});
                               setShowBookingHistoryDialog(true);
                             }}
@@ -947,7 +735,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedAssetForDetails({type: 'all', agentId: member.id});
+                              setSelectedAssetForDetails({type: 'all', userId: member.id});
                               setShowAssetDetailsDialog(true);
                             }}
                             className="h-9 w-9 p-0"
@@ -1079,7 +867,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
                           {unreturnedAssets.map((asset, index) => (
-                            <tr key={`${asset.agentId}-${asset.assetType}-${index}`} data-testid={`row-unreturned-asset-${index}`}>
+                            <tr key={`${asset.userId}-${asset.assetType}-${index}`} data-testid={`row-unreturned-asset-${index}`}>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-medium text-foreground" data-testid={`text-unreturned-agent-name-${index}`}>
                                   {asset.agentName}
@@ -1138,15 +926,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
                         <div className="flex items-center gap-2">
                           <Laptop className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id]?.laptop === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.laptop === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_in']?.laptop === 'collected' ? 'Collected' : bookingsByUser[selectedAgent.id]?.['book_in']?.laptop === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Headphones className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id]?.headsets === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.headsets === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_in']?.headsets === 'collected' ? 'Collected' : bookingsByUser[selectedAgent.id]?.['book_in']?.headsets === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Usb className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id]?.dongle === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.dongle === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_in']?.dongle === 'collected' ? 'Collected' : bookingsByUser[selectedAgent.id]?.['book_in']?.dongle === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                       </div>
                     </div>
@@ -1157,15 +945,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
                         <div className="flex items-center gap-2">
                           <Laptop className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id]?.laptop === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.laptop === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_out']?.laptop === 'returned' ? 'Returned' : bookingsByUser[selectedAgent.id]?.['book_out']?.laptop === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Headphones className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id]?.headsets === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.headsets === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_out']?.headsets === 'returned' ? 'Returned' : bookingsByUser[selectedAgent.id]?.['book_out']?.headsets === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Usb className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id]?.dongle === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.dongle === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{bookingsByUser[selectedAgent.id]?.['book_out']?.dongle === 'returned' ? 'Returned' : bookingsByUser[selectedAgent.id]?.['book_out']?.dongle === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                       </div>
                     </div>
@@ -1220,7 +1008,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <div className="space-y-2 text-sm">
                     <div>
                       <label className="text-muted-foreground">Asset ID:</label>
-                      <div className="font-medium">LP-001</div>
+                      <div className="font-medium">{selectedUserAssetDetails?.find((asset: any) => asset.assetType === 'laptop')?.assetId || 'Not assigned'}</div>
                     </div>
                     <div>
                       <label className="text-muted-foreground">Serial Number:</label>
@@ -1316,7 +1104,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             <Button 
               onClick={() => {
                 // TODO: Implement edit functionality
-                console.log('Edit asset details for agent:', selectedAssetForDetails?.agentId);
+                console.log('Edit asset details for agent:', selectedAssetForDetails?.userId);
                 alert('Edit functionality will be implemented with backend database support. For now, this shows the planned structure.');
               }}
               data-testid="button-edit-asset-details"
