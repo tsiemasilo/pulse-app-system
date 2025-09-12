@@ -392,10 +392,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Mutation for updating asset details
   const updateAssetDetailsMutation = useMutation({
     mutationFn: async (assetDetails: any) => {
-      return apiRequest('/api/asset-details', {
-        method: 'POST',
-        body: JSON.stringify(assetDetails),
-      });
+      return apiRequest('POST', '/api/asset-details', assetDetails);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -482,7 +479,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.laptop || 'none'}
+                        status={(booking?.laptop || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'laptop', status)}
                         assetType="laptop"
                         agentId={member.id}
@@ -493,7 +490,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.headsets || 'none'}
+                        status={(booking?.headsets || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'headsets', status)}
                         assetType="headsets"
                         agentId={member.id}
@@ -504,7 +501,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.dongle || 'none'}
+                        status={(booking?.dongle || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'dongle', status)}
                         assetType="dongle"
                         agentId={member.id}
@@ -568,11 +565,28 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   const AssetStatusButtons = ({ status, onStatusChange, assetType, agentId, tabType }: {
     status: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected';
-    onStatusChange: (newStatus: any) => void;
+    onStatusChange: (newStatus: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected') => void;
     assetType: string;
     agentId: string;
     tabType: 'book_in' | 'book_out';
   }) => {
+    // Check if this asset is lost first (highest precedence)
+    const isLost = assetLossRecords.some((lossRecord: any) => 
+      lossRecord.userId === agentId && 
+      lossRecord.assetType === assetType
+    );
+    
+    // If asset is lost, show lost badge instead of buttons
+    if (isLost) {
+      return (
+        <div className="flex items-center justify-center">
+          <Badge variant="destructive" className="bg-red-100 text-red-800 text-xs">
+            Lost
+          </Badge>
+        </div>
+      );
+    }
+    
     const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
     const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
     
@@ -676,7 +690,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.laptop || 'none'}
+                        status={(booking?.laptop || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'laptop', status)}
                         assetType="laptop"
                         agentId={member.id}
@@ -687,7 +701,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.headsets || 'none'}
+                        status={(booking?.headsets || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'headsets', status)}
                         assetType="headsets"
                         agentId={member.id}
@@ -698,7 +712,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
-                        status={booking?.dongle || 'none'}
+                        status={(booking?.dongle || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
                         onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'dongle', status)}
                         assetType="dongle"
                         agentId={member.id}
