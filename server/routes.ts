@@ -320,29 +320,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const assetLossRecords = await storage.getAllAssetLossRecords();
-      res.json(assetLossRecords);
+      const { date } = req.query;
+      
+      if (date) {
+        // Get asset loss records for specific date
+        const assetLossRecords = await storage.getAssetLossRecordsByDate(date as string);
+        res.json(assetLossRecords);
+      } else {
+        // Get all asset loss records (backward compatibility)
+        const assetLossRecords = await storage.getAllAssetLossRecords();
+        res.json(assetLossRecords);
+      }
     } catch (error) {
       console.error("Error fetching asset loss records:", error);
       res.status(500).json({ message: "Failed to fetch asset loss records" });
     }
   });
 
-  app.delete('/api/asset-loss/:userId/:assetType', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/asset-loss', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const { userId, assetType } = req.params;
-      await storage.deleteAssetLossRecord(userId, assetType);
-      res.json({ message: "Asset loss record deleted successfully" });
+      const { userId, assetType, date } = req.body;
+      
+      if (!userId || !assetType || !date) {
+        return res.status(400).json({ message: "Missing required fields: userId, assetType, date" });
+      }
+
+      await storage.deleteAssetLossRecord(userId, assetType, date);
+      
+      // Sync historical records to remove the cleared loss record
+      await storage.syncHistoricalRecordsFromBookings(date);
+      
+      res.json({ success: true });
     } catch (error) {
       console.error("Error deleting asset loss record:", error);
       res.status(500).json({ message: "Failed to delete asset loss record" });
     }
   });
+
 
   // Asset booking routes
   app.get('/api/asset-bookings/date/:date', isAuthenticated, async (req: any, res) => {

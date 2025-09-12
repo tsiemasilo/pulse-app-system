@@ -91,7 +91,9 @@ export interface IStorage {
   
   // Asset loss record management
   getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
+  getAssetLossRecordsByDate(date: string): Promise<AssetLossRecord[]>;
   createAssetLossRecord(assetLossRecord: InsertAssetLossRecord): Promise<AssetLossRecord>;
+  deleteAssetLossRecord(userId: string, assetType: string, date?: string): Promise<void>;
 
   // Historical asset records management  
   getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]>;
@@ -486,17 +488,29 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(assetLossRecords).orderBy(desc(assetLossRecords.createdAt));
   }
 
+  async getAssetLossRecordsByDate(date: string): Promise<AssetLossRecord[]> {
+    return await db.select().from(assetLossRecords)
+      .where(sql`DATE(${assetLossRecords.dateLost}) = ${date}`)
+      .orderBy(desc(assetLossRecords.createdAt));
+  }
+
   async createAssetLossRecord(assetLossData: InsertAssetLossRecord): Promise<AssetLossRecord> {
     const [assetLossRecord] = await db.insert(assetLossRecords).values(assetLossData).returning();
     return assetLossRecord;
   }
 
-  async deleteAssetLossRecord(userId: string, assetType: string): Promise<void> {
+  async deleteAssetLossRecord(userId: string, assetType: string, date?: string): Promise<void> {
+    const conditions = [
+      eq(assetLossRecords.userId, userId),
+      eq(assetLossRecords.assetType, assetType)
+    ];
+    
+    if (date) {
+      conditions.push(sql`DATE(${assetLossRecords.dateLost}) = ${date}`);
+    }
+    
     await db.delete(assetLossRecords)
-      .where(and(
-        eq(assetLossRecords.userId, userId),
-        eq(assetLossRecords.assetType, assetType)
-      ));
+      .where(and(...conditions));
   }
 
   // Historical asset records management
