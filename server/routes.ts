@@ -320,6 +320,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/asset-loss/:userId/:assetType', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { userId, assetType } = req.params;
+      await storage.deleteAssetLossRecord(userId, assetType);
+      res.json({ message: "Asset loss record deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting asset loss record:", error);
+      res.status(500).json({ message: "Failed to delete asset loss record" });
+    }
+  });
+
   // Asset booking routes
   app.get('/api/asset-bookings/date/:date', isAuthenticated, async (req: any, res) => {
     try {

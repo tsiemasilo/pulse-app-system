@@ -482,6 +482,14 @@ export class DatabaseStorage implements IStorage {
     return assetLossRecord;
   }
 
+  async deleteAssetLossRecord(userId: string, assetType: string): Promise<void> {
+    await db.delete(assetLossRecords)
+      .where(and(
+        eq(assetLossRecords.userId, userId),
+        eq(assetLossRecords.assetType, assetType)
+      ));
+  }
+
   // Historical asset records management
   async getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]> {
     return await db.select().from(historicalAssetRecords).orderBy(desc(historicalAssetRecords.createdAt));
@@ -554,6 +562,18 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(assetBookings.id, existingBookings[0].id))
         .returning();
+
+      // Auto-remove lost asset records when assets are marked as returned
+      if (bookingData.laptop === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'laptop');
+      }
+      if (bookingData.headsets === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'headsets');
+      }
+      if (bookingData.dongle === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
+      }
+
       return updatedBooking;
     } else {
       // Create new booking
@@ -561,6 +581,18 @@ export class DatabaseStorage implements IStorage {
         .insert(assetBookings)
         .values(bookingData)
         .returning();
+
+      // Auto-remove lost asset records when assets are marked as returned (for new bookings too)
+      if (bookingData.laptop === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'laptop');
+      }
+      if (bookingData.headsets === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'headsets');
+      }
+      if (bookingData.dongle === 'returned') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
+      }
+
       return newBooking;
     }
   }
