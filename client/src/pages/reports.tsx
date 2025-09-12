@@ -30,7 +30,15 @@ export default function Reports() {
   const queryClient = useQueryClient();
   
   // Selected date for reports
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
   
   // Local storage data for current asset control
   const [localStorageData, setLocalStorageData] = useState<{

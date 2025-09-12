@@ -41,7 +41,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const queryClient = useQueryClient();
   
   // Helper functions for localStorage persistence (moved to top)
-  const getCurrentDateKey = () => new Date().toISOString().split('T')[0];
+  const getCurrentDateKey = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
   const loadFromLocalStorage = () => {
     const currentDate = getCurrentDateKey();
