@@ -117,6 +117,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       queryKey: ["/api/assets/user", userId],
     });
 
+    // Load booking status from localStorage for this agent
+    const getAgentBookingStatus = () => {
+      const currentData = loadFromLocalStorage();
+      const agentBookOut = currentData.bookOut[userId];
+      const agentBookIn = currentData.bookIn[userId];
+      
+      return {
+        bookOut: agentBookOut,
+        bookIn: agentBookIn,
+        lostAssets: currentData.lostAssets.filter((asset: any) => asset.agentId === userId)
+      };
+    };
+
+    const bookingStatus = getAgentBookingStatus();
+
     if (isLoading) {
       return <div className="text-center py-8">Loading assets...</div>;
     }
@@ -134,6 +149,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       );
     }
 
+    // Helper function to get booking status for an asset type
+    const getAssetBookingStatus = (assetType: string, defaultStatus: string) => {
+      const bookOutStatus = bookingStatus.bookOut?.[assetType as keyof typeof bookingStatus.bookOut];
+      const bookInStatus = bookingStatus.bookIn?.[assetType as keyof typeof bookingStatus.bookIn];
+      const isLost = bookingStatus.lostAssets.some((lostAsset: any) => lostAsset.assetType === assetType);
+      
+      if (isLost) return { status: 'Lost', color: 'bg-red-100 text-red-800' };
+      if (bookOutStatus === 'not_returned') return { status: 'Not Returned', color: 'bg-red-100 text-red-800' };
+      if (bookOutStatus === 'returned') return { status: 'Returned', color: 'bg-green-100 text-green-800' };
+      if (bookInStatus === 'not_collected') return { status: 'Not Collected', color: 'bg-yellow-100 text-yellow-800' };
+      if (bookInStatus === 'collected') return { status: 'Collected', color: 'bg-green-100 text-green-800' };
+      
+      return { status: defaultStatus, color: 'bg-blue-100 text-blue-800' };
+    };
+
     return (
       <Card>
         <CardHeader>
@@ -141,25 +171,49 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {userAssets.map((asset) => (
-              <div 
-                key={asset.id} 
-                className="flex justify-between items-center p-3 bg-muted rounded-lg"
-                data-testid={`asset-card-${asset.id}`}
-              >
-                <div>
-                  <div className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.id}`}>
-                    {asset.name}
+            {userAssets.map((asset) => {
+              // Map asset names to booking system asset types
+              const assetTypeMapping: Record<string, string> = {
+                'laptop': 'laptop',
+                'headset': 'headsets',
+                'headsets': 'headsets',
+                'dongle': 'dongle',
+                'usb dongle': 'dongle'
+              };
+              
+              const bookingAssetType = assetTypeMapping[asset.name.toLowerCase()] || asset.name.toLowerCase();
+              const statusInfo = getAssetBookingStatus(bookingAssetType, asset.status);
+              
+              return (
+                <div 
+                  key={asset.id} 
+                  className="flex justify-between items-center p-3 bg-muted rounded-lg"
+                  data-testid={`asset-card-${asset.id}`}
+                >
+                  <div>
+                    <div className="text-sm font-medium text-foreground" data-testid={`text-asset-name-${asset.id}`}>
+                      {asset.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground" data-testid={`text-asset-id-${asset.id}`}>
+                      Asset ID: {asset.id.slice(-8)}
+                    </div>
+                    {statusInfo.status === 'Not Returned' && (
+                      <div className="text-xs text-red-600 font-medium mt-1">
+                        ⚠️ This asset has not been returned
+                      </div>
+                    )}
+                    {statusInfo.status === 'Lost' && (
+                      <div className="text-xs text-red-600 font-medium mt-1">
+                        ❌ This asset is marked as lost
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground" data-testid={`text-asset-id-${asset.id}`}>
-                    Asset ID: {asset.id.slice(-8)}
-                  </div>
+                  <Badge className={statusInfo.color} data-testid={`badge-asset-status-${asset.id}`}>
+                    {statusInfo.status}
+                  </Badge>
                 </div>
-                <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-asset-status-${asset.id}`}>
-                  {asset.status}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
