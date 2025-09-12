@@ -570,23 +570,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     agentId: string;
     tabType: 'book_in' | 'book_out';
   }) => {
-    // Check if this asset is lost first (highest precedence)
-    const isLost = assetLossRecords.some((lossRecord: any) => 
-      lossRecord.userId === agentId && 
-      lossRecord.assetType === assetType
-    );
-    
-    // If asset is lost, show lost badge instead of buttons
-    if (isLost) {
-      return (
-        <div className="flex items-center justify-center">
-          <Badge variant="destructive" className="bg-red-100 text-red-800 text-xs">
-            Lost
-          </Badge>
-        </div>
-      );
-    }
-    
     const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
     const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
     
