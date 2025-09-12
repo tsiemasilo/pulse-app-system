@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Save } from "lucide-react";
@@ -39,6 +40,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [activeTab, setActiveTab] = useState('book_in');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Dialog state for lost asset confirmation
+  const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
+  const [pendingAssetAction, setPendingAssetAction] = useState<{
+    agentId: string;
+    assetType: string;
+    agentName: string;
+  } | null>(null);
   
   // Helper functions for localStorage persistence (moved to top)
   const getCurrentDateKey = () => {
@@ -226,6 +235,45 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     saveToLocalStorage(assetBookingsBookIn, assetBookingsBookOut, lostAssets);
   }, [assetBookingsBookIn, assetBookingsBookOut, lostAssets]);
 
+  // Day persistence - save previous day's data when new day starts
+  useEffect(() => {
+    const currentDate = getCurrentDateKey();
+    const lastKnownDate = localStorage.getItem('lastKnownDate');
+    
+    if (lastKnownDate && lastKnownDate !== currentDate) {
+      // New day detected - save previous day's data to database
+      const previousDayData = {
+        bookInKey: `assetBookings_bookIn_${lastKnownDate}`,
+        bookOutKey: `assetBookings_bookOut_${lastKnownDate}`,
+        lostAssetsKey: `lostAssets_${lastKnownDate}`
+      };
+      
+      try {
+        const previousBookIn = localStorage.getItem(previousDayData.bookInKey);
+        const previousBookOut = localStorage.getItem(previousDayData.bookOutKey);
+        const previousLostAssets = localStorage.getItem(previousDayData.lostAssetsKey);
+        
+        if (previousBookIn || previousBookOut || previousLostAssets) {
+          // Save to database using the existing mutation
+          saveAssetRecordsMutation.mutate({
+            date: lastKnownDate,
+            bookInRecords: previousBookIn ? JSON.parse(previousBookIn) : {},
+            bookOutRecords: previousBookOut ? JSON.parse(previousBookOut) : {},
+            lostAssets: previousLostAssets ? JSON.parse(previousLostAssets) : []
+          });
+          
+          console.log(`Auto-saved data for ${lastKnownDate} to database`);
+        }
+      } catch (error) {
+        console.error('Error auto-saving previous day data:', error);
+      }
+    }
+    
+    // Update the last known date
+    localStorage.setItem('lastKnownDate', currentDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const updateAssetBookingBookIn = (agentId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
     setAssetBookingsBookIn(prev => {
       const currentAgent = prev[agentId];
@@ -271,11 +319,69 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   };
 
+  // Function to handle lost asset dialog responses
+  const handleLostAssetResponse = (isLost: boolean) => {
+    if (!pendingAssetAction) return;
+    
+    const { agentId, assetType, agentName } = pendingAssetAction;
+    
+    if (isLost) {
+      // Mark as lost asset - add to lost assets and mark as not_returned
+      setLostAssets(prev => {
+        const exists = prev.some(item => item.agentId === agentId && item.assetType === assetType);
+        if (!exists) {
+          return [...prev, {
+            agentId,
+            agentName,
+            assetType,
+            dateLost: getCurrentDateKey()
+          }];
+        }
+        return prev;
+      });
+      
+      // Update the booking status to not_returned
+      updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
+      
+      toast({
+        title: "Asset Marked as Lost",
+        description: `${assetType} marked as lost for ${agentName}`,
+      });
+    } else {
+      // Just mark as not returned (without adding to lost assets)
+      updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
+      
+      toast({
+        title: "Asset Not Returned",
+        description: `${assetType} marked as not returned for ${agentName}`,
+      });
+    }
+    
+    // Close dialog and clear pending action
+    setShowLostAssetDialog(false);
+    setPendingAssetAction(null);
+  };
+
   const updateAssetBookingBookOut = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    // If marking as not_returned, show the lost asset dialog
+    if (status === 'not_returned') {
+      const agent = teamMembers.find(member => member.id === agentId);
+      const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
+      
+      setPendingAssetAction({ agentId, assetType, agentName });
+      setShowLostAssetDialog(true);
+      return; // Exit early, dialog will handle the actual update
+    }
+    
+    // For other statuses, proceed normally
+    updateAssetBookingBookOutDirect(agentId, assetType, status);
+  };
+
+  const updateAssetBookingBookOutDirect = (agentId: string, assetType: string, status: 'none' | 'returned' | 'not_returned', autoAddToLost: boolean = true) => {
     // Get current status to check if we're changing from 'not_returned' to something else
     const currentStatus = (assetBookingsBookOut[agentId]?.[assetType as keyof typeof assetBookingsBookOut[string]] || 'none') as 'none' | 'returned' | 'not_returned';
     
-    if (status === 'not_returned') {
+    if (status === 'not_returned' && autoAddToLost) {
       // Find the agent's name
       const agent = teamMembers.find(member => member.id === agentId);
       const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
@@ -344,26 +450,35 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Save current asset booking records to database
   const saveAssetRecordsMutation = useMutation({
-    mutationFn: async () => {
-      const currentDate = getCurrentDateKey();
+    mutationFn: async (params?: {
+      date?: string;
+      bookInRecords?: Record<string, AssetBookingBookIn>;
+      bookOutRecords?: Record<string, AssetBooking>;
+      lostAssets?: Array<{agentId: string; agentName: string; assetType: string; dateLost: string;}>;
+    }) => {
+      const currentDate = params?.date || getCurrentDateKey();
+      const bookInData = params?.bookInRecords || assetBookingsBookIn;
+      const bookOutData = params?.bookOutRecords || assetBookingsBookOut;
+      const lostAssetsData = params?.lostAssets || lostAssets;
+      
       return await apiRequest("POST", "/api/historical-asset-records", {
         date: currentDate,
-        bookInRecords: assetBookingsBookIn,
-        bookOutRecords: assetBookingsBookOut,
-        lostAssets: lostAssets
+        bookInRecords: bookInData,
+        bookOutRecords: bookOutData,
+        lostAssets: lostAssetsData
       });
     },
-    onSuccess: () => {
-      const currentDate = getCurrentDateKey();
+    onSuccess: (_, params) => {
+      const savedDate = params?.date || getCurrentDateKey();
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/historical-asset-records', { date: currentDate }] 
+        queryKey: ['/api/historical-asset-records', { date: savedDate }] 
       });
       queryClient.invalidateQueries({ 
         queryKey: ['/api/historical-asset-records'] 
       });
       toast({
         title: "Records Saved",
-        description: `Asset booking records for ${currentDate} have been saved successfully`,
+        description: `Asset booking records for ${savedDate} have been saved successfully`,
       });
     },
     onError: (error) => {
@@ -376,7 +491,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   });
 
   const saveAssetRecords = () => {
-    saveAssetRecordsMutation.mutate();
+    saveAssetRecordsMutation.mutate(undefined);
   };
 
 
@@ -760,6 +875,44 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Lost Asset Confirmation Dialog */}
+      <Dialog open={showLostAssetDialog} onOpenChange={setShowLostAssetDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Asset Status Confirmation</DialogTitle>
+            <DialogDescription>
+              Was this {pendingAssetAction?.assetType} asset lost or just not returned by {pendingAssetAction?.agentName}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="destructive"
+              onClick={() => handleLostAssetResponse(true)}
+              data-testid="button-asset-lost"
+            >
+              Asset was Lost
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleLostAssetResponse(false)}
+              data-testid="button-not-returned"
+            >
+              Just Not Returned
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowLostAssetDialog(false);
+                setPendingAssetAction(null);
+              }}
+              data-testid="button-cancel"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
     </div>
   );
