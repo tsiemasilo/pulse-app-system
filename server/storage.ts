@@ -558,6 +558,8 @@ export class DatabaseStorage implements IStorage {
         eq(assetBookings.bookingType, bookingData.bookingType)
       ));
     
+    let resultBooking: AssetBooking;
+    
     if (existingBookings.length > 0) {
       // Update existing booking
       const [updatedBooking] = await db
@@ -583,7 +585,7 @@ export class DatabaseStorage implements IStorage {
         await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
       }
 
-      return updatedBooking;
+      resultBooking = updatedBooking;
     } else {
       // Create new booking
       const [newBooking] = await db
@@ -602,8 +604,13 @@ export class DatabaseStorage implements IStorage {
         await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
       }
 
-      return newBooking;
+      resultBooking = newBooking;
     }
+
+    // CRITICAL FIX: Sync historical asset records with current asset bookings
+    await this.syncHistoricalRecordsFromBookings(bookingData.date);
+
+    return resultBooking;
   }
   
   async getAllAssetBookingsByDate(date: string): Promise<AssetBooking[]> {
@@ -612,6 +619,78 @@ export class DatabaseStorage implements IStorage {
       .from(assetBookings)
       .where(eq(assetBookings.date, date))
       .orderBy(assetBookings.bookingType);
+  }
+
+  // Helper method to sync historical records from current asset bookings
+  async syncHistoricalRecordsFromBookings(date: string): Promise<void> {
+    try {
+      // Get all asset bookings for this date
+      const allBookings = await this.getAllAssetBookingsByDate(date);
+      
+      // Group bookings by user and type
+      const bookingsByUser: Record<string, Record<string, AssetBooking>> = {};
+      for (const booking of allBookings) {
+        if (!bookingsByUser[booking.userId]) {
+          bookingsByUser[booking.userId] = {};
+        }
+        bookingsByUser[booking.userId][booking.bookingType] = booking;
+      }
+
+      // Build historical record format (JSON snapshots)
+      const bookInRecords: Record<string, any> = {};
+      const bookOutRecords: Record<string, any> = {};
+
+      for (const [userId, userBookings] of Object.entries(bookingsByUser)) {
+        // Build book-in record
+        if (userBookings.book_in) {
+          const booking = userBookings.book_in;
+          bookInRecords[userId] = {
+            agentId: userId,
+            agentName: booking.agentName,
+            date: booking.date,
+            type: 'book_in',
+            laptop: booking.laptop,
+            headsets: booking.headsets,
+            dongle: booking.dongle,
+          };
+        }
+
+        // Build book-out record
+        if (userBookings.book_out) {
+          const booking = userBookings.book_out;
+          bookOutRecords[userId] = {
+            agentId: userId,
+            agentName: booking.agentName,
+            date: booking.date,
+            type: 'book_out',
+            laptop: booking.laptop,
+            headsets: booking.headsets,
+            dongle: booking.dongle,
+          };
+        }
+      }
+
+      // Get current lost assets for this date
+      const lostAssets = await this.getAllAssetLossRecords();
+      const todayLostAssets = lostAssets.filter(asset => {
+        // Convert dateLost to string format for comparison
+        const assetDateString = asset.dateLost instanceof Date 
+          ? asset.dateLost.toISOString().split('T')[0]
+          : asset.dateLost;
+        return assetDateString === date;
+      });
+
+      // Update or create historical record
+      await this.upsertHistoricalAssetRecord({
+        date: date,
+        bookInRecords: bookInRecords,
+        bookOutRecords: bookOutRecords,
+        lostAssets: todayLostAssets,
+      });
+    } catch (error) {
+      console.error('Error syncing historical records from bookings:', error);
+      // Don't throw error to avoid breaking the main booking operation
+    }
   }
   
   // Asset details management
