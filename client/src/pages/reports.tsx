@@ -281,6 +281,20 @@ export default function Reports() {
              assetDateString === selectedDate;
     });
     
+    // Debug logging for status determination
+    if (agentId === '7acc2b11-e452-403b-83e2-a72da2c9e1e4' && assetType === 'dongle') {
+      console.log('Status Debug:', {
+        agentId,
+        assetType,
+        selectedDate,
+        lostAsset: !!lostAsset,
+        bookOutStatus,
+        bookInStatus,
+        hasLostAsset: !!lostAsset,
+        shouldShowLost: lostAsset && !(bookOutStatus === 'returned' || bookInStatus === 'collected')
+      });
+    }
+    
     // If asset was marked as lost but then status changed to returned/collected, honor the latest status
     if (lostAsset && (bookOutStatus === 'returned' || bookInStatus === 'collected')) {
       // Asset was lost but then returned/collected - show the current status instead of lost
