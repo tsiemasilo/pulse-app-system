@@ -282,7 +282,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   });
 
   const deleteAssetLossMutation = useMutation({
-    mutationFn: async (deleteData: { userId: string; assetType: string; dateLost: string }) => {
+    mutationFn: async (deleteData: { userId: string; assetType: string; date: string }) => {
       return await apiRequest('DELETE', '/api/asset-loss', deleteData);
     },
     onSuccess: () => {
@@ -353,7 +353,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       deleteAssetLossMutation.mutate({
         userId,
         assetType,
-        dateLost: getCurrentDateKey()
+        date: getCurrentDateKey()
       });
       
       // Mark as not returned (without adding to lost assets)
