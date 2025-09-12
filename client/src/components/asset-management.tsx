@@ -337,11 +337,36 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     setPendingAssetAction(null);
   };
 
+  // Helper function to resolve agent name properly
+  const getAgentName = (userId: string): string => {
+    const agent = teamMembers.find(member => member.id === userId);
+    
+    if (agent) {
+      // Try full name first
+      const fullName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim();
+      if (fullName) {
+        return fullName;
+      }
+      
+      // Fall back to username if no full name
+      if (agent.username) {
+        return agent.username;
+      }
+      
+      // Fall back to email if available
+      if (agent.email) {
+        return agent.email;
+      }
+    }
+    
+    // If no agent data available, use just the user ID instead of "Unknown Agent"
+    return `Agent ${userId.substring(0, 8)}`;
+  };
+
   const updateAssetBookingBookOut = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
     // If marking as not_returned, show the lost asset dialog
     if (status === 'not_returned') {
-      const agent = teamMembers.find(member => member.id === userId);
-      const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username : 'Unknown Agent';
+      const agentName = getAgentName(userId);
       
       setPendingAssetAction({ userId, assetType, agentName });
       setShowLostAssetDialog(true);
@@ -353,8 +378,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOutDirect = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
-    const agent = teamMembers.find(member => member.id === userId);
-    const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
+    const agentName = getAgentName(userId);
     
     // Get current booking or create a new one
     const currentBooking = bookingsByUser[userId]?.['book_out'];
