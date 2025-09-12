@@ -39,6 +39,7 @@ interface AssetBookingBookIn {
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
   const [activeTab, setActiveTab] = useState('book_in');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -418,6 +419,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return updated;
     });
     
+    setHasUnsavedChanges(true);
+    
     const statusText = status === 'collected' ? 'collected' : status === 'not_collected' ? 'not collected' : 'unmarked';
     toast({
       title: "Asset Updated",
@@ -449,6 +452,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       // Update the booking status to not_returned
       updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
       
+      setHasUnsavedChanges(true);
+      
       toast({
         title: "Asset Marked as Lost",
         description: `${assetType} marked as lost for ${agentName}`,
@@ -456,6 +461,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     } else {
       // Just mark as not returned (without adding to lost assets)
       updateAssetBookingBookOutDirect(agentId, assetType, 'not_returned', false); // Don't auto-add to lost
+      
+      setHasUnsavedChanges(true);
       
       toast({
         title: "Asset Not Returned",
@@ -547,6 +554,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return updated;
     });
     
+    setHasUnsavedChanges(true);
+    
     const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'lost' : 'unmarked';
     toast({
       title: "Asset Updated", 
@@ -584,6 +593,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         queryKey: ['/api/historical-asset-records'] 
       });
       setIsAutoSaving(false);
+      setHasUnsavedChanges(false);
       // No toast for auto-save to avoid interruptions
     },
     onError: (error) => {
@@ -607,10 +617,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }, 1500); // Auto-save after 1.5 seconds of no changes
   }, [autoSaveAssetRecordsMutation]);
 
-  // Auto-save when booking states change
+  // Auto-save only when there are unsaved changes
   useEffect(() => {
-    debouncedAutoSave();
-  }, [assetBookingsBookIn, assetBookingsBookOut, lostAssets, debouncedAutoSave]);
+    if (hasUnsavedChanges) {
+      debouncedAutoSave();
+    }
+  }, [hasUnsavedChanges, debouncedAutoSave]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -887,7 +899,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
               </TabsList>
               
-              {(activeTab === 'book_in' || activeTab === 'book_out') && isAutoSaving && (
+              {(activeTab === 'book_in' || activeTab === 'book_out') && isAutoSaving && hasUnsavedChanges && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="auto-save-indicator">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Auto-saving...
