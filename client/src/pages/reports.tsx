@@ -65,6 +65,15 @@ export default function Reports() {
     },
   });
 
+  // Fetch asset loss records directly from database
+  const { data: assetLossRecords = [] } = useQuery<any[]>({
+    queryKey: ['/api/asset-loss'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/asset-loss");
+      return response.json();
+    },
+  });
+
   // Fetch team members for agent names
   const { data: teamMembers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
@@ -238,13 +247,17 @@ export default function Reports() {
 
   // Function to get agent asset status with precedence: Lost > Booked Out > Booked In
   const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
-    // Check for lost assets first (highest precedence) - always from historical records
-    const lostAssets = historicalRecords.flatMap(record => record.lostAssets || []);
-    const isLost = lostAssets.some(asset => 
-      asset.agentId === agentId && 
-      asset.assetType === assetType && 
-      asset.dateLost === selectedDate
-    );
+    // Check for lost assets first (highest precedence) - check actual asset loss records
+    const isLost = assetLossRecords.some(asset => {
+      // Convert dateLost to string format for comparison
+      const assetDateString = asset.dateLost instanceof Date 
+        ? asset.dateLost.toISOString().split('T')[0]
+        : asset.dateLost;
+      
+      return asset.userId === agentId && 
+             asset.assetType === assetType && 
+             assetDateString === selectedDate;
+    });
     
     if (isLost) {
       return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
@@ -290,6 +303,17 @@ export default function Reports() {
       Object.keys(record.bookInRecords || {}).forEach(agentId => agentSet.add(agentId));
       Object.keys(record.bookOutRecords || {}).forEach(agentId => agentSet.add(agentId));
       (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.agentId));
+    });
+
+    // Also include agents from asset loss records for the selected date
+    assetLossRecords.forEach(asset => {
+      const assetDateString = asset.dateLost instanceof Date 
+        ? asset.dateLost.toISOString().split('T')[0]
+        : asset.dateLost;
+      
+      if (assetDateString === selectedDate) {
+        agentSet.add(asset.userId);
+      }
     });
     
     return Array.from(agentSet).map(agentId => {

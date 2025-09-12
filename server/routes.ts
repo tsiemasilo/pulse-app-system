@@ -298,6 +298,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assetLossData = insertAssetLossRecordSchema.parse(requestData);
       
       const assetLossRecord = await storage.createAssetLossRecord(assetLossData);
+      
+      // Sync historical records to include the new loss record
+      const lossDateString = assetLossData.dateLost instanceof Date 
+        ? assetLossData.dateLost.toISOString().split('T')[0]
+        : assetLossData.dateLost;
+      
+      await storage.syncHistoricalRecordsFromBookings(lossDateString);
+      
       res.json(assetLossRecord);
     } catch (error) {
       console.error("Error creating asset loss record:", error);
