@@ -178,7 +178,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           // Only initialize if agent doesn't already exist
           if (!updated[member.id]) {
             const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
-            const currentDate = new Date().toISOString().split('T')[0];
+            const currentDate = getCurrentDateKey();
             
             updated[member.id] = {
               agentId: member.id,
@@ -187,7 +187,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               headsets: 'none',
               dongle: 'none',
               date: currentDate,
-              type: 'book_in'
+              type: 'book_in' as const
             };
           }
         });
@@ -202,7 +202,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           // Only initialize if agent doesn't already exist
           if (!updated[member.id]) {
             const agentName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown';
-            const currentDate = new Date().toISOString().split('T')[0];
+            const currentDate = getCurrentDateKey();
             
             updated[member.id] = {
               agentId: member.id,
@@ -211,7 +211,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               headsets: 'none',
               dongle: 'none',
               date: currentDate,
-              type: 'book_out'
+              type: 'book_out' as const
             };
           }
         });
@@ -244,8 +244,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             laptop: assetType === 'laptop' ? status : 'none',
             headsets: assetType === 'headsets' ? status : 'none',
             dongle: assetType === 'dongle' ? status : 'none',
-            date: new Date().toISOString().split('T')[0],
-            type: 'book_in'
+            date: getCurrentDateKey(),
+            type: 'book_in' as const
           }
         };
       } else {
@@ -288,7 +288,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             agentId,
             agentName,
             assetType,
-            dateLost: new Date().toISOString().split('T')[0]
+            dateLost: getCurrentDateKey()
           }];
         }
         return prev;
@@ -315,8 +315,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             laptop: assetType === 'laptop' ? status : 'none',
             headsets: assetType === 'headsets' ? status : 'none',
             dongle: assetType === 'dongle' ? status : 'none',
-            date: new Date().toISOString().split('T')[0],
-            type: 'book_out'
+            date: getCurrentDateKey(),
+            type: 'book_out' as const
           }
         };
       } else {
@@ -345,7 +345,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Save current asset booking records to database
   const saveAssetRecordsMutation = useMutation({
     mutationFn: async () => {
-      const currentDate = new Date().toISOString().split('T')[0];
+      const currentDate = getCurrentDateKey();
       return await apiRequest("POST", "/api/historical-asset-records", {
         date: currentDate,
         bookInRecords: assetBookingsBookIn,
@@ -354,7 +354,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       });
     },
     onSuccess: () => {
-      const currentDate = new Date().toISOString().split('T')[0];
+      const currentDate = getCurrentDateKey();
       queryClient.invalidateQueries({ 
         queryKey: ['/api/historical-asset-records', { date: currentDate }] 
       });
