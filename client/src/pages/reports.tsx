@@ -238,12 +238,8 @@ export default function Reports() {
 
   // Function to get agent asset status with precedence: Lost > Booked Out > Booked In
   const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
-    const today = new Date().toISOString().split('T')[0];
-    const isToday = selectedDate === today;
-    
-    // Check for lost assets first (highest precedence)
-    const lostAssets = isToday ? localStorageData.lostAssets : 
-      historicalRecords.flatMap(record => record.lostAssets || []);
+    // Check for lost assets first (highest precedence) - always from historical records
+    const lostAssets = historicalRecords.flatMap(record => record.lostAssets || []);
     const isLost = lostAssets.some(asset => 
       asset.agentId === agentId && 
       asset.assetType === assetType && 
@@ -254,29 +250,19 @@ export default function Reports() {
       return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
     }
     
-    // Check booking status from localStorage (for today) or historical records
+    // Check booking status from historical records for all dates
     let bookInStatus = 'none';
     let bookOutStatus = 'none';
     
-    if (isToday) {
-      // Use localStorage for current day
-      const bookInRecord = localStorageData.bookIn[agentId];
-      const bookOutRecord = localStorageData.bookOut[agentId];
+    const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+    
+    dayRecords.forEach(record => {
+      const bookInRecord = record.bookInRecords?.[agentId];
+      const bookOutRecord = record.bookOutRecords?.[agentId];
       
-      bookInStatus = bookInRecord?.[assetType] || 'none';
-      bookOutStatus = bookOutRecord?.[assetType] || 'none';
-    } else {
-      // Use historical records for other dates
-      const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
-      
-      dayRecords.forEach(record => {
-        const bookInRecord = record.bookInRecords?.[agentId];
-        const bookOutRecord = record.bookOutRecords?.[agentId];
-        
-        if (bookInRecord?.[assetType]) bookInStatus = bookInRecord[assetType];
-        if (bookOutRecord?.[assetType]) bookOutStatus = bookOutRecord[assetType];
-      });
-    }
+      if (bookInRecord?.[assetType]) bookInStatus = bookInRecord[assetType];
+      if (bookOutRecord?.[assetType]) bookOutStatus = bookOutRecord[assetType];
+    });
     
     // Apply status precedence
     if (bookOutStatus === 'not_returned') {
@@ -296,24 +282,15 @@ export default function Reports() {
   
   // Function to get all agents with asset records
   const getAgentAssetRecords = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const isToday = selectedDate === today;
     const agentSet = new Set<string>();
     
-    if (isToday) {
-      // For today, get agents from localStorage
-      Object.keys(localStorageData.bookIn).forEach(agentId => agentSet.add(agentId));
-      Object.keys(localStorageData.bookOut).forEach(agentId => agentSet.add(agentId));
-      localStorageData.lostAssets.forEach(asset => agentSet.add(asset.agentId));
-    } else {
-      // For other dates, get agents from historical records
-      const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
-      dayRecords.forEach(record => {
-        Object.keys(record.bookInRecords || {}).forEach(agentId => agentSet.add(agentId));
-        Object.keys(record.bookOutRecords || {}).forEach(agentId => agentSet.add(agentId));
-        (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.agentId));
-      });
-    }
+    // Always get agents from historical records (database) for all dates
+    const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+    dayRecords.forEach(record => {
+      Object.keys(record.bookInRecords || {}).forEach(agentId => agentSet.add(agentId));
+      Object.keys(record.bookOutRecords || {}).forEach(agentId => agentSet.add(agentId));
+      (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.agentId));
+    });
     
     return Array.from(agentSet).map(agentId => {
       // Get agent name from team members or booking records
@@ -323,12 +300,20 @@ export default function Reports() {
       if (teamMember) {
         agentName = `${teamMember.firstName || ''} ${teamMember.lastName || ''}`.trim() || teamMember.username || 'Unknown';
       } else {
-        // Fallback to name from booking records
-        const bookInRecord = isToday ? localStorageData.bookIn[agentId] : null;
-        const bookOutRecord = isToday ? localStorageData.bookOut[agentId] : null;
-        
-        if (bookInRecord?.agentName) agentName = bookInRecord.agentName;
-        else if (bookOutRecord?.agentName) agentName = bookOutRecord.agentName;
+        // Fallback to name from historical booking records
+        const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+        for (const record of dayRecords) {
+          const bookInRecord = record.bookInRecords?.[agentId];
+          const bookOutRecord = record.bookOutRecords?.[agentId];
+          
+          if (bookInRecord?.agentName) {
+            agentName = bookInRecord.agentName;
+            break;
+          } else if (bookOutRecord?.agentName) {
+            agentName = bookOutRecord.agentName;
+            break;
+          }
+        }
       }
       
       return {
