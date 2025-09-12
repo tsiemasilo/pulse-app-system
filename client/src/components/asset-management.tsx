@@ -281,6 +281,26 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     },
   });
 
+  const deleteAssetLossMutation = useMutation({
+    mutationFn: async (deleteData: { userId: string; assetType: string; dateLost: string }) => {
+      return await apiRequest('DELETE', '/api/asset-loss', deleteData);
+    },
+    onSuccess: () => {
+      // Invalidate both asset loss records and historical records for proper cache sync
+      queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/historical-asset-records');
+        }
+      });
+    },
+    onError: (error) => {
+      console.error("Error deleting asset loss record:", error);
+      // Don't show error toast for delete operations as they are cleanup
+    },
+  });
+
   const updateAssetBookingBookIn = (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
     const agentName = getAgentName(userId);
     
@@ -329,7 +349,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         description: `${assetType} marked as lost for ${agentName}`,
       });
     } else {
-      // Just mark as not returned (without adding to lost assets)
+      // Clear any existing lost record for this user/asset/date
+      deleteAssetLossMutation.mutate({
+        userId,
+        assetType,
+        dateLost: getCurrentDateKey()
+      });
+      
+      // Mark as not returned (without adding to lost assets)
       updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
       
       toast({
