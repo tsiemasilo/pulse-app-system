@@ -302,7 +302,7 @@ export default function Reports() {
     dayRecords.forEach(record => {
       Object.keys(record.bookInRecords || {}).forEach(agentId => agentSet.add(agentId));
       Object.keys(record.bookOutRecords || {}).forEach(agentId => agentSet.add(agentId));
-      (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.agentId));
+      (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.userId || asset.agentId));
     });
 
     // Also include agents from asset loss records for the selected date

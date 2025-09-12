@@ -193,7 +193,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     (assetLossRecords as any[]).forEach((lossRecord: any) => {
       unreturnedAssets.push({
         userId: lossRecord.userId,
-        agentName: lossRecord.agentName || 'Unknown',
+        agentName: getAgentName(lossRecord.userId),
         assetType: lossRecord.assetType,
         status: 'Lost',
         statusColor: 'bg-red-100 text-red-800',
@@ -205,7 +205,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     todayBookings
       .filter(booking => booking.bookingType === 'book_out')
       .forEach(booking => {
-        const agentName = booking.agentName || 'Unknown';
+        const agentName = getAgentName(booking.userId);
         
         // Check each asset type for not_returned status
         ['laptop', 'headsets', 'dongle'].forEach(assetType => {
@@ -263,7 +263,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-loss', lossData);
     },
     onSuccess: () => {
+      // Invalidate both asset loss records and historical records for proper cache sync
       queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/historical-asset-records');
+        }
+      });
     },
     onError: (error) => {
       toast({
@@ -275,8 +282,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   });
 
   const updateAssetBookingBookIn = (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
-    const agent = teamMembers.find(member => member.id === userId);
-    const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username || 'Unknown' : 'Unknown Agent';
+    const agentName = getAgentName(userId);
     
     // Get current booking or create a new one
     const currentBooking = bookingsByUser[userId]?.['book_in'];
