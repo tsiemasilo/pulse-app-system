@@ -538,7 +538,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.laptop || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'laptop', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'collected' || status === 'not_collected') {
+                            updateAssetBookingBookIn(member.id, 'laptop', status);
+                          }
+                        }}
                         assetType="laptop"
                         agentId={member.id}
                         tabType="book_in"
@@ -549,7 +553,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.headsets || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'headsets', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'collected' || status === 'not_collected') {
+                            updateAssetBookingBookIn(member.id, 'headsets', status);
+                          }
+                        }}
                         assetType="headsets"
                         agentId={member.id}
                         tabType="book_in"
@@ -560,7 +568,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.dongle || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookIn(member.id, 'dongle', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'collected' || status === 'not_collected') {
+                            updateAssetBookingBookIn(member.id, 'dongle', status);
+                          }
+                        }}
                         assetType="dongle"
                         agentId={member.id}
                         tabType="book_in"
@@ -732,7 +744,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.laptop || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'laptop', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'returned' || status === 'not_returned') {
+                            updateAssetBookingBookOut(member.id, 'laptop', status);
+                          }
+                        }}
                         assetType="laptop"
                         agentId={member.id}
                         tabType="book_out"
@@ -743,7 +759,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.headsets || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'headsets', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'returned' || status === 'not_returned') {
+                            updateAssetBookingBookOut(member.id, 'headsets', status);
+                          }
+                        }}
                         assetType="headsets"
                         agentId={member.id}
                         tabType="book_out"
@@ -754,7 +774,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     <div className="flex items-center justify-center">
                       <AssetStatusButtons
                         status={(booking?.dongle || 'none') as 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected'}
-                        onStatusChange={(status) => updateAssetBookingBookOut(member.id, 'dongle', status)}
+                        onStatusChange={(status) => {
+                          if (status === 'none' || status === 'returned' || status === 'not_returned') {
+                            updateAssetBookingBookOut(member.id, 'dongle', status);
+                          }
+                        }}
                         assetType="dongle"
                         agentId={member.id}
                         tabType="book_out"
