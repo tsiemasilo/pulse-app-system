@@ -1132,40 +1132,40 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-2">Today's Activity</h4>
                 <div className="space-y-2">
-                  {selectedAgent && assetBookingsBookIn[selectedAgent.id] && (
+                  {selectedAgent && (
                     <div className="p-3 border rounded-lg">
                       <div className="text-sm font-medium">Book In - {getCurrentDateKey()}</div>
                       <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
                         <div className="flex items-center gap-2">
                           <Laptop className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id].laptop === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].laptop === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{assetBookingsBookIn[selectedAgent.id]?.laptop === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.laptop === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Headphones className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id].headsets === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].headsets === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{assetBookingsBookIn[selectedAgent.id]?.headsets === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.headsets === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Usb className="h-3 w-3" />
-                          <span>{assetBookingsBookIn[selectedAgent.id].dongle === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id].dongle === 'not_collected' ? 'Not Collected' : 'None'}</span>
+                          <span>{assetBookingsBookIn[selectedAgent.id]?.dongle === 'collected' ? 'Collected' : assetBookingsBookIn[selectedAgent.id]?.dongle === 'not_collected' ? 'Not Collected' : 'None'}</span>
                         </div>
                       </div>
                     </div>
                   )}
-                  {selectedAgent && assetBookingsBookOut[selectedAgent.id] && (
+                  {selectedAgent && (
                     <div className="p-3 border rounded-lg">
                       <div className="text-sm font-medium">Book Out - {getCurrentDateKey()}</div>
                       <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
                         <div className="flex items-center gap-2">
                           <Laptop className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id].laptop === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].laptop === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{assetBookingsBookOut[selectedAgent.id]?.laptop === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.laptop === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Headphones className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id].headsets === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].headsets === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{assetBookingsBookOut[selectedAgent.id]?.headsets === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.headsets === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Usb className="h-3 w-3" />
-                          <span>{assetBookingsBookOut[selectedAgent.id].dongle === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id].dongle === 'not_returned' ? 'Not Returned' : 'None'}</span>
+                          <span>{assetBookingsBookOut[selectedAgent.id]?.dongle === 'returned' ? 'Returned' : assetBookingsBookOut[selectedAgent.id]?.dongle === 'not_returned' ? 'Not Returned' : 'None'}</span>
                         </div>
                       </div>
                     </div>
@@ -1313,7 +1313,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             >
               Close
             </Button>
-            <Button data-testid="button-edit-asset-details">
+            <Button 
+              onClick={() => {
+                // TODO: Implement edit functionality
+                console.log('Edit asset details for agent:', selectedAssetForDetails?.agentId);
+                alert('Edit functionality will be implemented with backend database support. For now, this shows the planned structure.');
+              }}
+              data-testid="button-edit-asset-details"
+            >
               Edit Details
             </Button>
           </DialogFooter>
