@@ -252,11 +252,25 @@ export default function Reports() {
       // Convert dateLost to string format for comparison
       const assetDateString = asset.dateLost instanceof Date 
         ? asset.dateLost.toISOString().split('T')[0]
-        : asset.dateLost;
+        : (typeof asset.dateLost === 'string' ? asset.dateLost.split('T')[0] : asset.dateLost);
       
-      return asset.userId === agentId && 
-             asset.assetType === assetType && 
-             assetDateString === selectedDate;
+      const matches = asset.userId === agentId && 
+                     asset.assetType === assetType && 
+                     assetDateString === selectedDate;
+      
+      // Debug logging
+      if (asset.userId === agentId && asset.assetType === assetType) {
+        console.log('Asset Loss Check:', {
+          userId: asset.userId,
+          agentId,
+          assetType: asset.assetType,
+          assetDateString,
+          selectedDate,
+          matches
+        });
+      }
+      
+      return matches;
     });
     
     if (isLost) {
