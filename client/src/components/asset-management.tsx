@@ -230,6 +230,56 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<Record<string, AssetBookingBookIn>>(initialData.bookIn);
   const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<Record<string, AssetBooking>>(initialData.bookOut);
 
+  // Function to get all unreturned assets (both lost and not returned)
+  const getUnreturnedAssets = () => {
+    const unreturnedAssets: Array<{
+      agentId: string;
+      agentName: string;
+      assetType: string;
+      status: string;
+      statusColor: string;
+      date: string;
+    }> = [];
+
+    // Add lost assets
+    lostAssets.forEach(lostAsset => {
+      unreturnedAssets.push({
+        ...lostAsset,
+        status: 'Lost',
+        statusColor: 'bg-red-100 text-red-800',
+        date: lostAsset.dateLost
+      });
+    });
+
+    // Add assets marked as not returned
+    Object.entries(assetBookingsBookOut).forEach(([agentId, booking]) => {
+      const agentName = booking.agentName;
+      
+      // Check each asset type for not_returned status
+      ['laptop', 'headsets', 'dongle'].forEach(assetType => {
+        if (booking[assetType as keyof typeof booking] === 'not_returned') {
+          // Only add if it's not already in lost assets
+          const isAlreadyLost = lostAssets.some(
+            lostAsset => lostAsset.agentId === agentId && lostAsset.assetType === assetType
+          );
+          
+          if (!isAlreadyLost) {
+            unreturnedAssets.push({
+              agentId,
+              agentName,
+              assetType,
+              status: 'Not Returned Yet',
+              statusColor: 'bg-orange-100 text-orange-800',
+              date: booking.date
+            });
+          }
+        }
+      });
+    });
+
+    return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
+  };
+
   // Initialize booking states when teamMembers data becomes available
   // Only initialize new agents, preserve existing selections
   useEffect(() => {
@@ -809,8 +859,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 <TabsTrigger value="book_out" data-testid="tab-book-out">
                   Book Out
                 </TabsTrigger>
-                <TabsTrigger value="lost_assets" data-testid="tab-lost-assets">
-                  Lost Assets
+                <TabsTrigger value="lost_assets" data-testid="tab-unreturned-assets">
+                  Unreturned Assets
                 </TabsTrigger>
               </TabsList>
               
@@ -861,68 +911,72 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                   <X className="h-5 w-5 text-red-600" />
                   <div>
-                    <h3 className="font-medium text-red-800 dark:text-red-200">Lost Assets Records</h3>
+                    <h3 className="font-medium text-red-800 dark:text-red-200">Unreturned Assets Records</h3>
                     <p className="text-sm text-red-600 dark:text-red-300">
-                      Track assets that have been reported as lost or missing
+                      Track assets that are lost or haven't been returned yet
                     </p>
                   </div>
                 </div>
                 
-                {lostAssets.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No lost assets recorded
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Agent
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Asset Type
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Date Lost
-                          </th>
-                          <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-card divide-y divide-border">
-                        {lostAssets.map((lostAsset, index) => (
-                          <tr key={`${lostAsset.agentId}-${lostAsset.assetType}-${index}`} data-testid={`row-lost-asset-${index}`}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-foreground" data-testid={`text-lost-agent-name-${index}`}>
-                                {lostAsset.agentName}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                {lostAsset.assetType === 'laptop' && <Laptop className="h-4 w-4 text-muted-foreground" />}
-                                {lostAsset.assetType === 'headsets' && <Headphones className="h-4 w-4 text-muted-foreground" />}
-                                {lostAsset.assetType === 'dongle' && <Usb className="h-4 w-4 text-muted-foreground" />}
-                                <span className="text-sm text-foreground capitalize" data-testid={`text-lost-asset-type-${index}`}>
-                                  {lostAsset.assetType}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-lost-date-${index}`}>
-                              {lostAsset.dateLost}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                              <Badge className="bg-red-100 text-red-800" data-testid={`badge-lost-status-${index}`}>
-                                Lost
-                              </Badge>
-                            </td>
+                {(() => {
+                  const unreturnedAssets = getUnreturnedAssets();
+                  
+                  return unreturnedAssets.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No unreturned assets recorded
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Agent
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Asset Type
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Status
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-card divide-y divide-border">
+                          {unreturnedAssets.map((asset, index) => (
+                            <tr key={`${asset.agentId}-${asset.assetType}-${index}`} data-testid={`row-unreturned-asset-${index}`}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-foreground" data-testid={`text-unreturned-agent-name-${index}`}>
+                                  {asset.agentName}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  {asset.assetType === 'laptop' && <Laptop className="h-4 w-4 text-muted-foreground" />}
+                                  {asset.assetType === 'headsets' && <Headphones className="h-4 w-4 text-muted-foreground" />}
+                                  {asset.assetType === 'dongle' && <Usb className="h-4 w-4 text-muted-foreground" />}
+                                  <span className="text-sm text-foreground capitalize" data-testid={`text-unreturned-asset-type-${index}`}>
+                                    {asset.assetType}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-unreturned-date-${index}`}>
+                                {asset.date}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
+                                <Badge className={asset.statusColor} data-testid={`badge-unreturned-status-${index}`}>
+                                  {asset.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               </div>
             </TabsContent>
             
