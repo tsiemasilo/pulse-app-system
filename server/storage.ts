@@ -555,7 +555,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(assetBookings.userId, bookingData.userId),
         eq(assetBookings.date, bookingData.date),
-        eq(assetBookings.bookingType, bookingData.bookingType)
+        eq(assetBookings.bookingType, bookingData.bookingType as string)
       ));
     
     let resultBooking: AssetBooking;
@@ -565,9 +565,9 @@ export class DatabaseStorage implements IStorage {
       const [updatedBooking] = await db
         .update(assetBookings)
         .set({
-          laptop: bookingData.laptop,
-          headsets: bookingData.headsets,
-          dongle: bookingData.dongle,
+          laptop: bookingData.laptop as string,
+          headsets: bookingData.headsets as string,
+          dongle: bookingData.dongle as string,
           agentName: bookingData.agentName,
           updatedAt: new Date(),
         })
@@ -590,7 +590,13 @@ export class DatabaseStorage implements IStorage {
       // Create new booking
       const [newBooking] = await db
         .insert(assetBookings)
-        .values(bookingData)
+        .values({
+          ...bookingData,
+          bookingType: bookingData.bookingType as string,
+          laptop: bookingData.laptop as string,
+          headsets: bookingData.headsets as string,
+          dongle: bookingData.dongle as string,
+        })
         .returning();
 
       // Auto-remove lost asset records when assets are marked as returned (for new bookings too)

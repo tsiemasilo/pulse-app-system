@@ -238,11 +238,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-bookings', booking);
     },
     onSuccess: () => {
-      // Invalidate and refetch booking data
+      // Invalidate and refetch booking data AND historical records for Reports tab sync
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
-          return queryKey?.startsWith('/api/asset-bookings');
+          return queryKey?.startsWith('/api/asset-bookings') || 
+                 queryKey?.startsWith('/api/historical-asset-records');
         }
       });
       setHasUnsavedChanges(false);

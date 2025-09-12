@@ -161,6 +161,10 @@ export const assetBookings = pgTable("asset_bookings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Define asset status types for type safety
+export type AssetStatus = 'none' | 'collected' | 'not_collected' | 'returned' | 'not_returned';
+export type BookingType = 'book_in' | 'book_out';
+
 // Asset details (comprehensive asset information)
 export const assetDetails = pgTable("asset_details", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
