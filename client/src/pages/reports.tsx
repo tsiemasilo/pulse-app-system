@@ -67,9 +67,9 @@ export default function Reports() {
 
   // Fetch asset loss records directly from database
   const { data: assetLossRecords = [] } = useQuery<any[]>({
-    queryKey: ['/api/asset-loss'],
+    queryKey: ['/api/asset-loss', selectedDate],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/asset-loss");
+      const response = await apiRequest("GET", `/api/asset-loss?date=${selectedDate}`);
       return response.json();
     },
   });
@@ -117,11 +117,16 @@ export default function Reports() {
     },
     onSuccess: () => {
       const currentDate = new Date().toISOString().split('T')[0];
+      // Fix cache invalidation keys to match actual query keys
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/historical-asset-records', { date: currentDate }] 
+        queryKey: ['/api/historical-asset-records', currentDate] 
       });
       queryClient.invalidateQueries({ 
         queryKey: ['/api/historical-asset-records'] 
+      });
+      // Also invalidate asset loss records for the current date
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/asset-loss', currentDate] 
       });
       toast({
         title: "Records Saved",
@@ -182,19 +187,17 @@ export default function Reports() {
         if (booking.dongle === 'returned') totalBookedOut++;
       });
 
-      // Count lost assets
+      // Count lost assets from historical records
       (record.lostAssets || []).forEach((lostAsset: any) => {
         totalLost++;
         assetTypes[lostAsset.assetType as keyof typeof assetTypes]++;
       });
     });
 
-    // Also include current day's lost assets that might not be saved yet
-    lostAssets.forEach(lostAsset => {
-      if (lostAsset.dateLost === selectedDate) {
-        totalLost++;
-        assetTypes[lostAsset.assetType as keyof typeof assetTypes]++;
-      }
+    // Count lost assets from date-scoped server data (replaces local state mixing)
+    assetLossRecords.forEach(lostAsset => {
+      totalLost++;
+      assetTypes[lostAsset.assetType as keyof typeof assetTypes]++;
     });
 
     return {
@@ -245,12 +248,11 @@ export default function Reports() {
     return Array.from(agentMap.values());
   };
 
-  // Function to get agent asset status with precedence: Lost > Booked Out > Booked In
+  // Function to get agent asset status with proper precedence: Collected > Returned > Lost > Not Returned
   const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
-    // Check booking status from historical records first
+    // Check booking status from historical records for the selected date
     let bookInStatus = 'none';
     let bookOutStatus = 'none';
-    let latestBookingDate = null;
     
     const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
     
@@ -260,43 +262,40 @@ export default function Reports() {
       
       if (bookInRecord?.[assetType]) {
         bookInStatus = bookInRecord[assetType];
-        // Use the record's date as the latest booking date
-        latestBookingDate = record.date;
       }
       if (bookOutRecord?.[assetType]) {
         bookOutStatus = bookOutRecord[assetType];
-        // Use the record's date as the latest booking date
-        latestBookingDate = record.date;
       }
     });
     
-    // Check for lost assets and compare with booking timestamps
-    const lostAsset = assetLossRecords.find(asset => {
-      const assetDateString = asset.dateLost instanceof Date 
-        ? asset.dateLost.toISOString().split('T')[0]
-        : (typeof asset.dateLost === 'string' ? asset.dateLost.split('T')[0] : asset.dateLost);
-      
-      return asset.userId === agentId && 
-             asset.assetType === assetType && 
-             assetDateString === selectedDate;
-    });
+    // Check for lost assets (data is already filtered by selected date)
+    const isLostOnSelectedDate = assetLossRecords.some(asset => 
+      asset.userId === agentId && asset.assetType === assetType
+    );
     
-    // Lost status has highest priority - if asset is marked as lost, show as lost
-    if (lostAsset) {
-      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    // Apply status precedence (latest actions override earlier ones)
+    // 1. If collected on this date, show collected (highest priority)
+    if (bookInStatus === 'collected') {
+      return { status: 'Booked In', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
     }
     
-    // Apply status precedence
-    if (bookOutStatus === 'not_returned') {
-      return { status: 'Not Returned Yet', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
-    }
-    
+    // 2. If returned on this date, show returned
     if (bookOutStatus === 'returned') {
       return { status: 'Booked Out', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
     }
     
-    if (bookInStatus === 'collected') {
-      return { status: 'Booked In', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+    // 3. If lost on this date (and not returned/collected), show lost
+    if (isLostOnSelectedDate) {
+      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    // 4. Handle remaining booking statuses  
+    if (bookOutStatus === 'not_returned') {
+      return { status: 'Not Returned Yet', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookInStatus === 'not_collected') {
+      return { status: 'Not Booked In', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
     }
     
     return { status: 'Not Booked In', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
@@ -314,15 +313,9 @@ export default function Reports() {
       (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.userId || asset.agentId));
     });
 
-    // Also include agents from asset loss records for the selected date
+    // Include agents from asset loss records (data is already filtered by selected date)
     assetLossRecords.forEach(asset => {
-      const assetDateString = asset.dateLost instanceof Date 
-        ? asset.dateLost.toISOString().split('T')[0]
-        : asset.dateLost;
-      
-      if (assetDateString === selectedDate) {
-        agentSet.add(asset.userId);
-      }
+      agentSet.add(asset.userId);
     });
     
     return Array.from(agentSet).map(agentId => {
