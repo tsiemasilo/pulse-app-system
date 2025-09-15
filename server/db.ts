@@ -11,7 +11,7 @@ if (typeof WebSocket === 'undefined') {
 }
 
 // Set additional configuration for better reliability
-neonConfig.useSecureWebSocket = false;
+neonConfig.useSecureWebSocket = true;
 neonConfig.pipelineConnect = "password";
 neonConfig.poolQueryViaFetch = true;
 
@@ -26,6 +26,9 @@ if (!databaseUrl) {
 
 export const pool = new Pool({ 
   connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 30000,
+  idleTimeoutMillis: 60000,
+  max: 20
 });
 export const db = drizzle({ client: pool, schema });
