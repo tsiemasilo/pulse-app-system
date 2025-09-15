@@ -75,6 +75,15 @@ export default function Navigation({ user }: NavigationProps) {
 
           </div>
           <div className="flex items-center space-x-4">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Welcome,</span>
+              <span className="font-medium text-foreground ml-1" data-testid="text-username">
+                {user?.firstName || user?.email || 'User'}
+              </span>
+            </div>
+            <div className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full" data-testid="text-user-role">
+              {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
+            </div>
             <Button
               variant="ghost"
               size="sm"
