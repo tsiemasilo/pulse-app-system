@@ -61,20 +61,20 @@ export default function Landing() {
       </div>
       
       <div className="relative z-10 max-w-md w-full space-y-8 p-8">
-        <div className="text-center">
-          <img 
-            src={alteramLogo} 
-            alt="Alteram Solutions" 
-            className="mx-auto h-16 w-auto mb-8"
-          />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Sign in to access the Pulse Workforce Management System
-          </p>
-        </div>
-        
         <Card className="shadow-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
           <CardContent className="p-8">
+            <div className="text-center mb-8">
+              <img 
+                src={alteramLogo} 
+                alt="Alteram Solutions" 
+                className="mx-auto h-16 w-auto mb-6"
+              />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Alteram Solutions</h2>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
+              <p className="text-gray-600 dark:text-gray-400 mb-8">
+                Sign in to access the Pulse Workforce Management System
+              </p>
+            </div>
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mb-8">
@@ -121,9 +121,7 @@ export default function Landing() {
               <h4 className="font-semibold text-gray-900 dark:text-white mb-4 text-center">Demo Credentials:</h4>
               <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm">
                 <div className="space-y-2">
-                  <div><strong>Admin:</strong> admin / admin1</div>
-                  <div><strong>Manager:</strong> mng / mng1</div>
-                  <div><strong>User:</strong> user / user1</div>
+                  <div><strong>Admin:</strong> admin / password123</div>
                 </div>
               </div>
             </div>
