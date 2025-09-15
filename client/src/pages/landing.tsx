@@ -69,7 +69,7 @@ export default function Landing() {
           />
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Sign in to access the Alteram CV Management System
+            Sign in to access the Pulse Workforce Management System
           </p>
         </div>
         
