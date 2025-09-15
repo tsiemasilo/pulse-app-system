@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { loginSchema } from "@shared/schema";
-import { Heart, Building2, Users, Shield, UserCheck, Headphones } from "lucide-react";
+import { Building2, Users, Shield, UserCheck, Headphones } from "lucide-react";
+import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { z } from "zod";
 
 export default function Landing() {
@@ -46,27 +47,34 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-      <div className="max-w-2xl w-full space-y-8 p-8">
+    <div className="min-h-screen flex items-center justify-center relative">
+      {/* Background with low opacity logo */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
+        <div 
+          className="absolute inset-0 bg-center bg-no-repeat opacity-5"
+          style={{
+            backgroundImage: `url(${alteramLogo})`,
+            backgroundSize: '800px 260px',
+            backgroundPosition: 'center center'
+          }}
+        />
+      </div>
+      
+      <div className="relative z-10 max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <div className="mx-auto h-20 w-20 bg-primary rounded-full flex items-center justify-center mb-6">
-            <Heart className="h-10 w-10 text-primary-foreground" />
-          </div>
-          <h1 className="text-5xl font-bold pulse-logo mb-4">Pulse</h1>
-          <h2 className="text-2xl font-semibold text-foreground mb-3">Workforce Management System</h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Streamline employee, asset, and operations management across your organization
+          <img 
+            src={alteramLogo} 
+            alt="Alteram Solutions" 
+            className="mx-auto h-16 w-auto mb-8"
+          />
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">
+            Sign in to access the Alteram CV Management System
           </p>
         </div>
         
-        <Card className="shadow-xl border-2">
+        <Card className="shadow-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
           <CardContent className="p-8">
-            <div className="text-center mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-2">Welcome to Pulse</h3>
-              <p className="text-muted-foreground">
-                Sign in to access your role-based dashboard
-              </p>
-            </div>
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mb-8">
@@ -101,82 +109,21 @@ export default function Landing() {
                 <Button 
                   type="submit"
                   disabled={loginMutation.isPending}
-                  className="w-full text-lg py-6"
+                  className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
                   data-testid="button-signin"
                 >
-                  <Heart className="h-5 w-5 mr-3" />
                   {loginMutation.isPending ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </Form>
             
-            <div className="border-t border-border pt-8">
-              <h4 className="font-semibold text-foreground mb-6 text-center">Demo Credentials</h4>
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                  <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">Admin</div>
-                    <div className="text-blue-700 dark:text-blue-300">admin / admin123</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">HR Manager</div>
-                    <div className="text-blue-700 dark:text-blue-300">hr / hr123</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">Contact Center Manager</div>
-                    <div className="text-blue-700 dark:text-blue-300">manager / manager123</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">Team Leader</div>
-                    <div className="text-blue-700 dark:text-blue-300">leader / leader123</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="font-medium text-blue-800 dark:text-blue-200">Agent</div>
-                    <div className="text-blue-700 dark:text-blue-300">agent / agent123</div>
-                  </div>
-                </div>
-              </div>
-              
-              <h4 className="font-semibold text-foreground mb-6 text-center">Role-Based Access</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                  <Shield className="h-5 w-5 text-purple-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-foreground">System Admin</div>
-                    <div className="text-sm text-muted-foreground">Complete system access and user management</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-foreground">HR Manager</div>
-                    <div className="text-sm text-muted-foreground">Employee lifecycle and workforce operations</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                  <Building2 className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-foreground">Contact Center Manager</div>
-                    <div className="text-sm text-muted-foreground">Operations oversight and team performance</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                  <UserCheck className="h-5 w-5 text-yellow-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-foreground">Team Leader</div>
-                    <div className="text-sm text-muted-foreground">Team attendance and asset management</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg md:col-span-2">
-                  <Headphones className="h-5 w-5 text-orange-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-foreground">Agent</div>
-                    <div className="text-sm text-muted-foreground">Personal workspace with time tracking and asset viewing</div>
-                  </div>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4 text-center">Demo Credentials:</h4>
+              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm">
+                <div className="space-y-2">
+                  <div><strong>Admin:</strong> admin / admin1</div>
+                  <div><strong>Manager:</strong> mng / mng1</div>
+                  <div><strong>User:</strong> user / user1</div>
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
-import { Heart, LogOut, Shield, Users, Headphones, UserCheck, Clock } from "lucide-react";
+import { LogOut, Shield, Users, Headphones, UserCheck, Clock } from "lucide-react";
+import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -44,10 +45,11 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-6">
             <div className="flex-shrink-0 flex items-center">
-              <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center mr-3">
-                <Heart className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold pulse-logo">Pulse</span>
+              <img 
+                src={alteramLogo} 
+                alt="Alteram Solutions" 
+                className="h-8 w-auto mr-3"
+              />
             </div>
             
             {/* Admin Role Navigation Buttons */}
