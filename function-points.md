@@ -144,7 +144,29 @@
 - **Historical Data Export** - Export time-based analytics
 - **Asset Inventory Export** - Complete asset listings
 
-## 20. Performance Features
+## 20. HCM Integration (Future Requirement)
+*Note: This integration will be implemented at a later stage after dashboard design and UI completion*
+
+- **HCM API Integration** - Connect to external Human Capital Management system
+- **Biometric Data Sync** - Pull employee clock in/out data from biometric systems
+- **Access Card Integration** - Retrieve attendance data from access card systems
+- **Real-time Employee Status** - Display live work status (at work/not at work) from HCM
+- **Employee Database Sync** - Synchronize employee information from HCM database
+- **Attendance Data Migration** - Import historical attendance records from HCM
+- **Live Status Dashboard** - Real-time employee presence monitoring from HCM data
+- **HCM Data Mapping** - Map HCM employee records to Pulse user profiles
+- **Automated Data Refresh** - Scheduled synchronization of HCM data
+- **Cross-System Reporting** - Combined reports using both Pulse and HCM data
+- **Data Validation & Reconciliation** - Ensure data consistency between systems
+- **HCM Authentication** - Secure API connections to HCM system
+- **Employee Photo Sync** - Import employee photos from HCM system
+- **Department Sync** - Synchronize organizational structure from HCM
+- **Position/Title Integration** - Import job titles and positions from HCM
+- **Employee Status Updates** - Real-time updates on employee work status
+- **Time & Attendance Integration** - Enhanced attendance tracking with HCM data
+- **Unified Employee View** - Single interface showing both Pulse and HCM data
+
+## 21. Performance Features
 - **Caching** - Optimized data retrieval
 - **Pagination** - Efficient large dataset handling
 - **Lazy Loading** - On-demand data loading
