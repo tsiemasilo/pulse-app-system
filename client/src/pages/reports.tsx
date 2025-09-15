@@ -492,29 +492,6 @@ export default function Reports() {
         );
       })()}
 
-      {/* Link to Asset Control for detailed records */}
-      <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
-        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-          <CardTitle className="flex items-center gap-2 text-xl font-semibold">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Agent Asset Records
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-8">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">View Agent Asset Records</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Detailed agent asset records have been moved to the Asset Control tab for better organization.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Navigate to <strong>Asset Control → Agent Records</strong> to view and manage agent asset records by date.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

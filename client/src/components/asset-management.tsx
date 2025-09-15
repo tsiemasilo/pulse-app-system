@@ -72,12 +72,20 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Historical records from database for agent records tab
   const { data: historicalRecords = [] } = useQuery<any[]>({
-    queryKey: ['/api/historical-asset-records', { date: selectedDate }],
+    queryKey: ['/api/historical-asset-records', selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/historical-asset-records?date=${selectedDate}`);
+      return response.json();
+    },
   });
 
   // Fetch asset loss records filtered by date for agent records tab
   const { data: selectedDateAssetLossRecords = [] } = useQuery<any[]>({
-    queryKey: ['/api/asset-loss', { date: selectedDate }],
+    queryKey: ['/api/asset-loss', selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/asset-loss?date=${selectedDate}`);
+      return response.json();
+    },
   });
 
 
