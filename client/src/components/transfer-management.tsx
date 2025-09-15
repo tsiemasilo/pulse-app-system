@@ -19,7 +19,9 @@ import type { Transfer, User as UserType, Department } from "@shared/schema";
 
 const transferFormSchema = insertTransferSchema.omit({ 
   userId: true, 
-  transferType: true 
+  transferType: true,
+  fromDepartmentId: true,
+  toDepartmentId: true 
 }).extend({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
@@ -38,6 +40,7 @@ export default function TransferManagement() {
     queryKey: ["/api/departments"],
   });
 
+
   const { data: transfers = [] } = useQuery<Transfer[]>({
     queryKey: ["/api/transfers"],
   });
@@ -45,8 +48,6 @@ export default function TransferManagement() {
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
-      fromDepartmentId: "",
-      toDepartmentId: "",
       fromRole: "",
       toRole: "",
       startDate: "",
@@ -134,57 +135,6 @@ export default function TransferManagement() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fromDepartmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>From Department</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-from-department">
-                              <SelectValue placeholder="Current department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="toDepartmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>To Department</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-to-department">
-                              <SelectValue placeholder="New department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
