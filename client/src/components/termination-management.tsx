@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { insertTerminationSchema } from "@shared/schema";
 import { UserX, Calendar, User, CheckCircle2, AlertCircle } from "lucide-react";
 import { z } from "zod";
-import type { Termination, User as UserType } from "@shared/schema";
+import type { Termination, User as UserType, Team } from "@shared/schema";
 
 const terminationFormSchema = insertTerminationSchema.omit({ exitInterviewCompleted: true }).extend({
   terminationDate: z.string().min(1, "Termination date is required"),
@@ -30,6 +30,18 @@ export default function TerminationManagement() {
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
+  });
+
+  // Fetch team leader's teams if current user is a team leader
+  const { data: leaderTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/leader", user?.id],
+    enabled: user?.role === 'team_leader',
+  });
+
+  // Fetch team members for team leaders
+  const { data: teamMembers = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/teams", leaderTeams[0]?.id, "members"],
+    enabled: user?.role === 'team_leader' && leaderTeams.length > 0,
   });
 
   const { data: terminations = [] } = useQuery<Termination[]>({
@@ -119,6 +131,19 @@ export default function TerminationManagement() {
     return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
   };
 
+  // Get available employees based on user role
+  const getAvailableEmployees = () => {
+    const activeUsers = users.filter(u => u.isActive);
+    
+    // If user is team leader, only show their team members (agents)
+    if (user?.role === 'team_leader') {
+      return teamMembers.filter(member => member.role === 'agent');
+    }
+    
+    // If user is admin or HR, show all active users
+    return activeUsers;
+  };
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -153,9 +178,9 @@ export default function TerminationManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {users.filter(u => u.isActive).map((user) => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.firstName} {user.lastName} ({user.username})
+                            {getAvailableEmployees().map((employee) => (
+                              <SelectItem key={employee.id} value={employee.id}>
+                                {employee.firstName} {employee.lastName} ({employee.username})
                               </SelectItem>
                             ))}
                           </SelectContent>
