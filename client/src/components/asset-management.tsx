@@ -31,8 +31,17 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to get current date - declared before usage
+  const getCurrentDateKey = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
-  // Agent Records functionality - date selection and state using shared date helper
+  // Agent Records functionality - date selection and state
   const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateKey());
   const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<{[key: string]: any}>({});
   const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<{[key: string]: any}>({});
@@ -51,15 +60,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     agentName: string;
   } | null>(null);
   
-  // Helper function to get current date
-  const getCurrentDateKey = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   // Fetch today's booking data for all users
   const { data: todayBookings = [], isLoading: bookingsLoading } = useQuery<AssetBooking[]>({
     queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`],
