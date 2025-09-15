@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings, Calendar, BarChart3 } from "lucide-react";
 import type { User, Asset, AssetBooking, AssetDetails, InsertAssetBooking, InsertAssetDetails } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -30,6 +31,17 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Agent Records functionality - date selection and state using shared date helper
+  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateKey());
+  const [assetBookingsBookIn, setAssetBookingsBookIn] = useState<{[key: string]: any}>({});
+  const [assetBookingsBookOut, setAssetBookingsBookOut] = useState<{[key: string]: any}>({});
+  const [lostAssets, setLostAssets] = useState<Array<{
+    agentId: string;
+    agentName: string;
+    assetType: string;
+    dateLost: string;
+  }>>([]);
 
   // Dialog state for lost asset confirmation
   const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
@@ -56,6 +68,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Fetch asset loss records
   const { data: assetLossRecords = [], isLoading: lossRecordsLoading } = useQuery<any[]>({
     queryKey: ['/api/asset-loss'],
+  });
+
+  // Historical records from database for agent records tab
+  const { data: historicalRecords = [] } = useQuery<any[]>({
+    queryKey: ['/api/historical-asset-records', { date: selectedDate }],
+  });
+
+  // Fetch asset loss records filtered by date for agent records tab
+  const { data: selectedDateAssetLossRecords = [] } = useQuery<any[]>({
+    queryKey: ['/api/asset-loss', { date: selectedDate }],
   });
 
 
@@ -300,6 +322,145 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       // Don't show error toast for delete operations as they are cleanup
     },
   });
+
+  // Save records mutation for agent records tab
+  const saveRecordsMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/historical-asset-records", data);
+    },
+    onSuccess: () => {
+      const currentDate = new Date().toISOString().split('T')[0];
+      // Use predicate to invalidate all related queries consistently
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/historical-asset-records') || 
+                 queryKey?.startsWith('/api/asset-loss');
+        }
+      });
+      toast({
+        title: "Records Saved",
+        description: `Asset booking records for ${currentDate} have been saved successfully`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Saving Records",
+        description: "Failed to save asset booking records. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to save records:", error);
+    }
+  });
+
+  // Save asset records function for agent records tab
+  const saveAssetRecords = () => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    const recordData = {
+      date: currentDate,
+      bookInRecords: assetBookingsBookIn,
+      bookOutRecords: assetBookingsBookOut,
+      lostAssets: lostAssets
+    };
+
+    saveRecordsMutation.mutate(recordData);
+  };
+
+  // Function to get agent asset status for agent records tab
+  const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
+    let bookInStatus = 'none';
+    let bookOutStatus = 'none';
+    
+    const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+    
+    dayRecords.forEach(record => {
+      const bookInRecord = record.bookInRecords?.[agentId];
+      const bookOutRecord = record.bookOutRecords?.[agentId];
+      
+      if (bookInRecord?.[assetType]) {
+        bookInStatus = bookInRecord[assetType];
+      }
+      if (bookOutRecord?.[assetType]) {
+        bookOutStatus = bookOutRecord[assetType];
+      }
+    });
+    
+    // Check for lost assets (data is already filtered by selected date)
+    const isLostOnSelectedDate = selectedDateAssetLossRecords.some(asset => 
+      asset.userId === agentId && asset.assetType === assetType
+    );
+    
+    // Apply status precedence (latest actions override earlier ones)
+    if (bookInStatus === 'collected') {
+      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+    }
+    
+    if (bookOutStatus === 'returned') {
+      return { status: 'Returned', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
+    }
+    
+    if (isLostOnSelectedDate) {
+      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookOutStatus === 'not_returned') {
+      return { status: 'Not Returned', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookInStatus === 'not_collected') {
+      return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    }
+    
+    return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+  };
+  
+  // Function to get all agents with asset records for agent records tab
+  const getAgentAssetRecords = () => {
+    const agentSet = new Set<string>();
+    
+    const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+    dayRecords.forEach(record => {
+      Object.keys(record.bookInRecords || {}).forEach(agentId => agentSet.add(agentId));
+      Object.keys(record.bookOutRecords || {}).forEach(agentId => agentSet.add(agentId));
+      (record.lostAssets || []).forEach((asset: any) => agentSet.add(asset.userId || asset.agentId));
+    });
+
+    selectedDateAssetLossRecords.forEach(asset => {
+      agentSet.add(asset.userId);
+    });
+    
+    return Array.from(agentSet).map(agentId => {
+      let agentName = 'Unknown Agent';
+      const teamMember = teamMembers.find(member => member.id === agentId);
+      
+      if (teamMember) {
+        agentName = `${teamMember.firstName || ''} ${teamMember.lastName || ''}`.trim() || teamMember.username || 'Unknown';
+      } else {
+        const dayRecords = historicalRecords.filter(record => record.date === selectedDate);
+        for (const record of dayRecords) {
+          const bookInRecord = record.bookInRecords?.[agentId];
+          const bookOutRecord = record.bookOutRecords?.[agentId];
+          
+          if (bookInRecord?.agentName) {
+            agentName = bookInRecord.agentName;
+            break;
+          } else if (bookOutRecord?.agentName) {
+            agentName = bookOutRecord.agentName;
+            break;
+          }
+        }
+      }
+      
+      return {
+        agentId,
+        agentName,
+        laptop: getAgentAssetStatus(agentId, 'laptop'),
+        headsets: getAgentAssetStatus(agentId, 'headsets'),
+        dongle: getAgentAssetStatus(agentId, 'dongle')
+      };
+    }).sort((a, b) => a.agentName.localeCompare(b.agentName));
+  };
 
   const updateAssetBookingBookIn = (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
     const agentName = getAgentName(userId);
@@ -856,7 +1017,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex items-center justify-between mb-4">
-              <TabsList className="grid grid-cols-3 w-fit">
+              <TabsList className="grid grid-cols-4 w-fit">
                 <TabsTrigger value="book_in" data-testid="tab-book-in">
                   Book In
                 </TabsTrigger>
@@ -865,6 +1026,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
                 <TabsTrigger value="lost_assets" data-testid="tab-unreturned-assets">
                   Unreturned Assets
+                </TabsTrigger>
+                <TabsTrigger value="records" data-testid="tab-records">
+                  Agent Records
                 </TabsTrigger>
               </TabsList>
               
@@ -977,6 +1141,146 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                     </div>
                   );
                 })()}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="records" className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h3 className="font-medium text-blue-800 dark:text-blue-200">Agent Asset Records</h3>
+                    <p className="text-sm text-blue-600 dark:text-blue-300">
+                      View and manage historical asset records for all agents by date
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date Picker */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Select Date for Records
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="p-2 border rounded-md"
+                        data-testid="date-picker-records"
+                      />
+                      <Button 
+                        onClick={saveAssetRecords}
+                        disabled={saveRecordsMutation.isPending}
+                        className="flex items-center gap-2"
+                        data-testid="button-save-records"
+                      >
+                        <Save className="h-4 w-4" />
+                        {saveRecordsMutation.isPending ? 'Saving...' : 'Save Records'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Agent Records Table */}
+                <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
+                  <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                    <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      Agent Asset Records - {selectedDate}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {(() => {
+                      const rows = getAgentAssetRecords();
+                      if (rows.length === 0) return (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                            <Calendar className="h-8 w-8" />
+                          </div>
+                          <h3 className="text-lg font-medium mb-2">No Records Found</h3>
+                          <p className="text-sm">No agent asset records were found for this date.</p>
+                        </div>
+                      );
+                      return (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/30">
+                                <TableHead className="w-[250px] font-semibold">Agent Name</TableHead>
+                                <TableHead className="text-center font-semibold">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Laptop className="h-4 w-4"/>
+                                    Laptop
+                                  </div>
+                                </TableHead>
+                                <TableHead className="text-center font-semibold">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Headphones className="h-4 w-4"/>
+                                    Headsets
+                                  </div>
+                                </TableHead>
+                                <TableHead className="text-center font-semibold">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Usb className="h-4 w-4"/>
+                                    Dongle
+                                  </div>
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {rows.map((row, idx) => (
+                                <TableRow key={`${row.agentId}-${idx}`} className="hover:bg-muted/30 transition-colors duration-200" data-testid={`row-agent-record-${idx}`}>
+                                  <TableCell className="px-6 py-4" data-testid={`text-agent-name-${idx}`}>
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                        <span className="text-sm font-medium text-primary">
+                                          {row.agentName.charAt(0).toUpperCase()}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <div className="text-sm font-medium text-foreground">{row.agentName}</div>
+                                        <div className="text-xs text-muted-foreground">Agent ID: {row.agentId}</div>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`badge-laptop-${idx}`}>
+                                    <Badge 
+                                      variant={row.laptop.variant} 
+                                      className={`${row.laptop.color} text-xs font-medium`}
+                                    >
+                                      {row.laptop.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`badge-headsets-${idx}`}>
+                                    <Badge 
+                                      variant={row.headsets.variant} 
+                                      className={`${row.headsets.color} text-xs font-medium`}
+                                    >
+                                      {row.headsets.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`badge-dongle-${idx}`}>
+                                    <Badge 
+                                      variant={row.dongle.variant} 
+                                      className={`${row.dongle.color} text-xs font-medium`}
+                                    >
+                                      {row.dongle.status}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
             

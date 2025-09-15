@@ -492,99 +492,27 @@ export default function Reports() {
         );
       })()}
 
-      {/* Agent Records Table */}
+      {/* Link to Asset Control for detailed records */}
       <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
         <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
           <CardTitle className="flex items-center gap-2 text-xl font-semibold">
             <BarChart3 className="h-5 w-5 text-primary" />
-            Agent Asset Records - {selectedDate}
+            Agent Asset Records
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          {(() => {
-            const rows = getAgentAssetRecords();
-            if (rows.length === 0) return (
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <Calendar className="h-8 w-8" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">No Records Found</h3>
-                <p className="text-sm">No agent asset records were found for this date.</p>
-              </div>
-            );
-            return (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="w-[250px] font-semibold">Agent Name</TableHead>
-                      <TableHead className="text-center font-semibold">
-                        <div className="flex items-center justify-center gap-2">
-                          <Laptop className="h-4 w-4"/>
-                          Laptop
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-center font-semibold">
-                        <div className="flex items-center justify-center gap-2">
-                          <Headphones className="h-4 w-4"/>
-                          Headsets
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-center font-semibold">
-                        <div className="flex items-center justify-center gap-2">
-                          <Usb className="h-4 w-4"/>
-                          Dongle
-                        </div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((row, idx) => (
-                      <TableRow key={`${row.agentId}-${idx}`} className="hover:bg-muted/30 transition-colors duration-200" data-testid={`row-agent-record-${idx}`}>
-                        <TableCell className="px-6 py-4" data-testid={`text-agent-name-${idx}`}>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-primary">
-                                {row.agentName.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-foreground">{row.agentName}</div>
-                              <div className="text-xs text-muted-foreground">Agent ID: {row.agentId}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center" data-testid={`badge-laptop-${idx}`}>
-                          <Badge 
-                            variant={row.laptop.variant} 
-                            className={`${row.laptop.color} text-xs font-medium`}
-                          >
-                            {row.laptop.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center" data-testid={`badge-headsets-${idx}`}>
-                          <Badge 
-                            variant={row.headsets.variant} 
-                            className={`${row.headsets.color} text-xs font-medium`}
-                          >
-                            {row.headsets.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center" data-testid={`badge-dongle-${idx}`}>
-                          <Badge 
-                            variant={row.dongle.variant} 
-                            className={`${row.dongle.color} text-xs font-medium`}
-                          >
-                            {row.dongle.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            );
-          })()}
+        <CardContent className="p-8">
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <BarChart3 className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">View Agent Asset Records</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Detailed agent asset records have been moved to the Asset Control tab for better organization.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Navigate to <strong>Asset Control → Agent Records</strong> to view and manage agent asset records by date.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
