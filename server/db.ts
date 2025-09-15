@@ -1,31 +1,18 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-// Configure WebSocket for both development and production
-if (typeof WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws;
-} else {
-  neonConfig.webSocketConstructor = WebSocket;
-}
-
-// Set additional configuration for better reliability
-neonConfig.useSecureWebSocket = false;
-neonConfig.pipelineConnect = "password";
-neonConfig.poolQueryViaFetch = true;
-
-// Use NETLIFY_DATABASE_URL for production or DATABASE_URL for development
-const databaseUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+// Use DATABASE_URL for Replit environment
+const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
-    "Either NETLIFY_DATABASE_URL or DATABASE_URL must be set. Did you forget to provision a database?",
+    "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
 export const pool = new Pool({ 
   connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle(pool, { schema });
