@@ -11,6 +11,7 @@ import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
 import Navigation from "@/components/navigation";
+import { SidebarProvider, Sidebar, SidebarContent } from "@/components/ui/sidebar";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -28,10 +29,15 @@ function Router() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation user={user || null} />
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <Switch>
+    <SidebarProvider>
+      <div className="min-h-screen flex bg-background">
+        <Sidebar>
+          <SidebarContent>
+            <Navigation user={user || null} />
+          </SidebarContent>
+        </Sidebar>
+        <main className="flex-1 p-6">
+          <Switch>
           <Route path="/" component={() => {
             if (!user?.role) {
               return <div>Loading user role...</div>;
@@ -73,9 +79,10 @@ function Router() {
           <Route path="/team-leader" component={() => user?.role === 'team_leader' ? <TeamLeaderDashboard /> : <NotFound />} />
           
           <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+          </Switch>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
 
