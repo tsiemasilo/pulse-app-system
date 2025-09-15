@@ -332,7 +332,7 @@ export default function TeamLeaderDashboard() {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700">
+      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -388,7 +388,10 @@ export default function TeamLeaderDashboard() {
               </div>
             ))}
           </nav>
-          
+        </div>
+        
+        {/* Bottom section with Notification Tab and Profile */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           {/* Notification Tab */}
           <div className="mb-4">
             <button
@@ -401,22 +404,20 @@ export default function TeamLeaderDashboard() {
             </button>
           </div>
           
-          {/* Profile Section at Bottom */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <UserIcon className="h-4 w-4" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate text-gray-900 dark:text-white" data-testid="text-username">
-                  {user?.firstName || user?.email || 'User'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate" data-testid="text-user-role">
-                  Team Leader
-                </p>
-              </div>
+          {/* Profile Section at Very Bottom */}
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                <UserIcon className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate text-gray-900 dark:text-white" data-testid="text-username">
+                {user?.firstName || user?.email || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" data-testid="text-user-role">
+                Team Leader
+              </p>
             </div>
           </div>
         </div>
