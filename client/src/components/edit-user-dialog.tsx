@@ -71,10 +71,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     enabled: open,
   });
 
-  // Get current team assignment for agents
+  // Get current team assignment for agents only
   const { data: userTeams = [] } = useQuery<Team[]>({
     queryKey: ["/api/users", user?.id, "teams"],
-    enabled: open && !!user?.id && (user?.role === 'agent' || form.watch("role") === 'agent'),
+    enabled: open && !!user?.id && user?.role === 'agent',
   });
 
   useEffect(() => {
@@ -106,8 +106,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       
       const updatedUser = await apiRequest("PATCH", `/api/users/${user.id}`, updatePayload) as any;
 
-      // If user is an agent and team leader changed, reassign
-      if ((data.role === 'agent' || user.role === 'agent') && selectedTeamLeader !== (userTeams[0]?.leaderId || "none")) {
+      // Only allow team assignment for agents - remove team assignment if role changes from agent
+      if (user.role === 'agent' && data.role !== 'agent') {
+        // Remove from team when role changes from agent to something else
+        await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
+          teamLeaderId: null,
+        });
+      } else if (data.role === 'agent' && selectedTeamLeader !== (userTeams[0]?.leaderId || "none")) {
+        // Only assign team if user is/becomes an agent
         if (selectedTeamLeader && selectedTeamLeader !== "none") {
           await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
             teamLeaderId: selectedTeamLeader,
@@ -295,8 +301,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               />
             </div>
 
-            {/* Team Leader Assignment for Agents */}
-            {(form.watch("role") === "agent" || user?.role === "agent") && (
+            {/* Team Leader Assignment for Agents Only */}
+            {form.watch("role") === "agent" && (
               <div>
                 <Label htmlFor="teamLeader">Assign to Team Leader</Label>
                 <Select 

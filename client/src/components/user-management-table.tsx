@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { User } from "@shared/schema";
+import type { User, Team } from "@shared/schema";
 
 export default function UserManagementTable() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -31,6 +31,9 @@ export default function UserManagementTable() {
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
+
+  // For now, we'll show basic role information
+  // TODO: Enhance to show actual team leader names for agents
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -75,6 +78,25 @@ export default function UserManagementTable() {
       deleteUserMutation.mutate(userToDelete.id);
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
+    }
+  };
+
+  const getTeamInfo = (user: User) => {
+    switch (user.role) {
+      case 'admin':
+        return 'Admin';
+      case 'team_leader':
+        return 'Team Leader';
+      case 'agent':
+        return 'Agent';
+      case 'hr':
+        return 'HR';
+      case 'contact_center_ops_manager':
+        return 'CC Ops Manager';
+      case 'contact_center_manager':
+        return 'CC Manager';
+      default:
+        return 'Unknown Role';
     }
   };
 
@@ -151,7 +173,7 @@ export default function UserManagementTable() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-muted-foreground" data-testid={`text-team-${user.id}`}>
-                    {user.role === 'agent' ? 'Agent' : user.role === 'team_leader' ? 'Team Leader' : '-'}
+                    {getTeamInfo(user)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
