@@ -31,7 +31,9 @@ import {
   Search,
   Bell,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  User as UserIcon,
+  LogOut
 } from "lucide-react";
 import type { User, Attendance, Asset, Team } from "@shared/schema";
 
@@ -343,7 +345,7 @@ export default function TeamLeaderDashboard() {
           </div>
         </div>
         
-        <div className="p-4">
+        <div className="p-4 flex-1 flex flex-col">
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input 
@@ -352,7 +354,7 @@ export default function TeamLeaderDashboard() {
             />
           </div>
           
-          <nav className="space-y-6">
+          <nav className="space-y-6 flex-1">
             {sidebarItems.map((section) => (
               <div key={section.title}>
                 <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
@@ -386,6 +388,37 @@ export default function TeamLeaderDashboard() {
               </div>
             ))}
           </nav>
+          
+          {/* Notification Tab */}
+          <div className="mb-4">
+            <button
+              className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+              data-testid="button-notifications"
+            >
+              <Bell className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
+              Notifications
+              <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+            </button>
+          </div>
+          
+          {/* Profile Section at Bottom */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  <UserIcon className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate text-gray-900 dark:text-white" data-testid="text-username">
+                  {user?.firstName || user?.email || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate" data-testid="text-user-role">
+                  Team Leader
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
