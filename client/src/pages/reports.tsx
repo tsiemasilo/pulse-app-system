@@ -187,11 +187,8 @@ export default function Reports() {
         if (booking.dongle === 'returned') totalBookedOut++;
       });
 
-      // Count lost assets from historical records
-      (record.lostAssets || []).forEach((lostAsset: any) => {
-        totalLost++;
-        assetTypes[lostAsset.assetType as keyof typeof assetTypes]++;
-      });
+      // Skip counting lost assets from historical records to avoid double counting
+      // Lost assets are counted from assetLossRecords below
     });
 
     // Count lost assets from date-scoped server data (replaces local state mixing)
