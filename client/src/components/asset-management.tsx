@@ -474,8 +474,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }).sort((a, b) => a.agentName.localeCompare(b.agentName));
   };
 
-  const updateAssetBookingBookIn = (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
+  const updateAssetBookingBookIn = async (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
     const agentName = getAgentName(userId);
+    
+    // Only delete lost asset record if one exists for this user/asset/date and we're marking as collected
+    const hasLostRecord = (assetLossRecords as any[]).some((record: any) => 
+      record.userId === userId && record.assetType === assetType
+    );
+    
+    if (hasLostRecord && status === 'collected') {
+      await deleteAssetLossMutation.mutateAsync({
+        userId,
+        assetType,
+        date: getCurrentDateKey()
+      });
+    }
     
     // Get current booking or create a new one
     const currentBooking = bookingsByUser[userId]?.['book_in'];
@@ -583,8 +596,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     updateAssetBookingBookOutDirect(userId, assetType, status);
   };
 
-  const updateAssetBookingBookOutDirect = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+  const updateAssetBookingBookOutDirect = async (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
     const agentName = getAgentName(userId);
+    
+    // Only delete lost asset record if one exists for this user/asset/date and we're marking as returned
+    const hasLostRecord = (assetLossRecords as any[]).some((record: any) => 
+      record.userId === userId && record.assetType === assetType
+    );
+    
+    if (hasLostRecord && status === 'returned') {
+      await deleteAssetLossMutation.mutateAsync({
+        userId,
+        assetType,
+        date: getCurrentDateKey()
+      });
+    }
     
     // Get current booking or create a new one
     const currentBooking = bookingsByUser[userId]?.['book_out'];

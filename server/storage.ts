@@ -588,15 +588,15 @@ export class DatabaseStorage implements IStorage {
         .where(eq(assetBookings.id, existingBookings[0].id))
         .returning();
 
-      // Auto-remove lost asset records when assets are marked as returned
-      if (bookingData.laptop === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'laptop');
+      // Auto-remove lost asset records when assets are marked as returned or collected (date-scoped)
+      if (bookingData.laptop === 'returned' || bookingData.laptop === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'laptop', bookingData.date);
       }
-      if (bookingData.headsets === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'headsets');
+      if (bookingData.headsets === 'returned' || bookingData.headsets === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'headsets', bookingData.date);
       }
-      if (bookingData.dongle === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
+      if (bookingData.dongle === 'returned' || bookingData.dongle === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'dongle', bookingData.date);
       }
 
       resultBooking = updatedBooking;
@@ -613,15 +613,15 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
-      // Auto-remove lost asset records when assets are marked as returned (for new bookings too)
-      if (bookingData.laptop === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'laptop');
+      // Auto-remove lost asset records when assets are marked as returned or collected (date-scoped, for new bookings too)
+      if (bookingData.laptop === 'returned' || bookingData.laptop === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'laptop', bookingData.date);
       }
-      if (bookingData.headsets === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'headsets');
+      if (bookingData.headsets === 'returned' || bookingData.headsets === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'headsets', bookingData.date);
       }
-      if (bookingData.dongle === 'returned') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'dongle');
+      if (bookingData.dongle === 'returned' || bookingData.dongle === 'collected') {
+        await this.deleteAssetLossRecord(bookingData.userId, 'dongle', bookingData.date);
       }
 
       resultBooking = newBooking;
