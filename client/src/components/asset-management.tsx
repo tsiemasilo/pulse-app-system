@@ -399,21 +399,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       asset.userId === agentId && asset.assetType === assetType
     );
     
-    // Apply status precedence (latest actions override earlier ones)
-    if (bookInStatus === 'collected') {
-      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+    // Apply status precedence (book out selections override book in selections)
+    if (isLostOnSelectedDate) {
+      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
     }
     
     if (bookOutStatus === 'returned') {
       return { status: 'Returned', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
     }
     
-    if (isLostOnSelectedDate) {
-      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
-    }
-    
     if (bookOutStatus === 'not_returned') {
       return { status: 'Not Returned', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookInStatus === 'collected') {
+      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
     }
     
     if (bookInStatus === 'not_collected') {
