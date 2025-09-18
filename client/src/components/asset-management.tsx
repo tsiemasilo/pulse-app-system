@@ -652,6 +652,128 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Auto-save is now handled by mutations directly
 
+  const UnifiedAssetBookingTable = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-muted">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Agent
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Laptop className="h-4 w-4" />
+                Laptop
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Headphones className="h-4 w-4" />
+                Headsets
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2">
+                <Usb className="h-4 w-4" />
+                Dongle
+              </div>
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-card divide-y divide-border">
+          {teamMembers.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                No team members found
+              </td>
+            </tr>
+          ) : (
+            teamMembers.map((member) => {
+              const bookingType = bookingMode === 'collect' ? 'book_in' : 'book_out';
+              const booking = bookingsByUser[member.id]?.[bookingType];
+              
+              return (
+                <tr key={member.id} data-testid={`row-agent-${member.id}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
+                      { `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      ID: {member.id}
+                    </div>
+                  </td>
+                  {['laptop', 'headsets', 'dongle'].map((assetType) => {
+                    const status = booking?.[assetType as keyof typeof booking] || 'none';
+                    return (
+                      <td key={assetType} className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center">
+                          <AssetStatusButtons
+                            status={status}
+                            onStatusChange={(newStatus) => {
+                              if (bookingMode === 'collect') {
+                                updateAssetBookingBookIn(member.id, assetType, newStatus as 'none' | 'collected' | 'not_collected');
+                              } else {
+                                updateAssetBookingBookOut(member.id, assetType, newStatus as 'none' | 'returned' | 'not_returned');
+                              }
+                            }}
+                            assetType={assetType}
+                            agentId={member.id}
+                            tabType={bookingType}
+                          />
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAgent({ id: member.id, name: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent' });
+                              setShowBookingHistoryDialog(true);
+                            }}
+                            className="h-8 w-8 p-0"
+                            data-testid={`button-view-${member.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View booking history</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => showAssetDetails('laptop', member.id)}
+                            className="h-8 w-8 p-0"
+                            data-testid={`button-asset-details-${member.id}`}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Manage asset details</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const BookInTable = () => (
     <div className="overflow-x-auto">
