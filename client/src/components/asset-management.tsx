@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings, Calendar, BarChart3 } from "lucide-react";
@@ -21,7 +22,8 @@ interface AssetManagementProps {
 // Using AssetBooking and AssetDetails types from shared schema
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
-  const [activeTab, setActiveTab] = useState('book_in');
+  const [activeTab, setActiveTab] = useState('asset_booking');
+  const [bookingMode, setBookingMode] = useState<'collect' | 'return'>('collect');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showBookingHistoryDialog, setShowBookingHistoryDialog] = useState(false);
@@ -1025,12 +1027,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex items-center justify-between mb-4">
-              <TabsList className="grid grid-cols-4 w-fit">
-                <TabsTrigger value="book_in" data-testid="tab-book-in">
-                  Book In
-                </TabsTrigger>
-                <TabsTrigger value="book_out" data-testid="tab-book-out">
-                  Book Out
+              <TabsList className="grid grid-cols-3 w-fit">
+                <TabsTrigger value="asset_booking" data-testid="tab-asset-booking">
+                  Asset Booking
                 </TabsTrigger>
                 <TabsTrigger value="lost_assets" data-testid="tab-unreturned-assets">
                   Unreturned Assets
@@ -1040,7 +1039,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
               </TabsList>
               
-              {(activeTab === 'book_in' || activeTab === 'book_out') && isAutoSaving && hasUnsavedChanges && (
+              {activeTab === 'asset_booking' && isAutoSaving && hasUnsavedChanges && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="auto-save-indicator">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Auto-saving...
@@ -1048,33 +1047,70 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               )}
             </div>
             
-            <TabsContent value="book_in" className="mt-6">
+            <TabsContent value="asset_booking" className="mt-6">
               <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <Check className="h-5 w-5 text-green-600" />
-                  <div>
-                    <h3 className="font-medium text-green-800 dark:text-green-200">Book In Assets</h3>
-                    <p className="text-sm text-green-600 dark:text-green-300">
-                      Mark which assets each agent has collected for their shift
-                    </p>
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className={`flex items-center gap-4 p-4 rounded-lg border flex-1 ${
+                    bookingMode === 'collect' 
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                  }`}>
+                    {bookingMode === 'collect' ? (
+                      <>
+                        <Check className="h-5 w-5 text-green-600" />
+                        <div>
+                          <h3 className="font-medium text-green-800 dark:text-green-200">Collect Assets</h3>
+                          <p className="text-sm text-green-600 dark:text-green-300">
+                            Mark which assets each agent has collected for their shift
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <X className="h-5 w-5 text-orange-600" />
+                        <div>
+                          <h3 className="font-medium text-orange-800 dark:text-orange-200">Return Assets</h3>
+                          <p className="text-sm text-orange-600 dark:text-orange-300">
+                            Mark which assets each agent has returned after their shift
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="ml-4">
+                    <ToggleGroup 
+                      type="single" 
+                      value={bookingMode} 
+                      onValueChange={(value) => value && setBookingMode(value as 'collect' | 'return')}
+                      className="bg-card border rounded-lg p-1"
+                    >
+                      <ToggleGroupItem 
+                        value="collect" 
+                        className={`px-4 py-2 text-sm ${
+                          bookingMode === 'collect' 
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'hover:bg-muted'
+                        }`}
+                        data-testid="toggle-collect"
+                      >
+                        Collect
+                      </ToggleGroupItem>
+                      <ToggleGroupItem 
+                        value="return" 
+                        className={`px-4 py-2 text-sm ${
+                          bookingMode === 'return' 
+                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                            : 'hover:bg-muted'
+                        }`}
+                        data-testid="toggle-return"
+                      >
+                        Return
+                      </ToggleGroupItem>
+                    </ToggleGroup>
                   </div>
                 </div>
-                <BookInTable />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="book_out" className="mt-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                  <X className="h-5 w-5 text-orange-600" />
-                  <div>
-                    <h3 className="font-medium text-orange-800 dark:text-orange-200">Book Out Assets</h3>
-                    <p className="text-sm text-orange-600 dark:text-orange-300">
-                      Mark which assets each agent has returned after their shift
-                    </p>
-                  </div>
-                </div>
-                <BookOutTable />
+                <UnifiedAssetBookingTable />
               </div>
             </TabsContent>
             
