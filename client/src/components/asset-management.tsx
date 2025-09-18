@@ -711,7 +711,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       <td key={assetType} className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center">
                           <AssetStatusButtons
-                            status={status}
+                            status={status as 'none' | 'collected' | 'not_collected' | 'returned' | 'not_returned'}
                             onStatusChange={(newStatus) => {
                               if (bookingMode === 'collect') {
                                 updateAssetBookingBookIn(member.id, assetType, newStatus as 'none' | 'collected' | 'not_collected');
