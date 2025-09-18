@@ -1025,7 +1025,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex items-center justify-between mb-4">
-              <TabsList className="grid grid-cols-4 w-fit">
+              <TabsList className="grid grid-cols-3 w-fit">
                 <TabsTrigger value="book_in" data-testid="tab-book-in">
                   Book In
                 </TabsTrigger>
@@ -1034,9 +1034,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
                 <TabsTrigger value="lost_assets" data-testid="tab-unreturned-assets">
                   Unreturned Assets
-                </TabsTrigger>
-                <TabsTrigger value="records" data-testid="tab-records">
-                  Agent Records
                 </TabsTrigger>
               </TabsList>
               
@@ -1060,6 +1057,145 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </div>
                 </div>
                 <BookInTable />
+                
+                {/* Agent Records for Book In */}
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <h3 className="font-medium text-blue-800 dark:text-blue-200">Agent Asset Records</h3>
+                      <p className="text-sm text-blue-600 dark:text-blue-300">
+                        View and manage historical asset records for all agents by date
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Date Picker */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Select Date for Records
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="p-2 border rounded-md"
+                          data-testid="date-picker-records"
+                        />
+                        <Button 
+                          onClick={saveAssetRecords}
+                          disabled={saveRecordsMutation.isPending}
+                          className="flex items-center gap-2"
+                          data-testid="button-save-records"
+                        >
+                          <Save className="h-4 w-4" />
+                          {saveRecordsMutation.isPending ? 'Saving...' : 'Save Records'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Agent Records Table */}
+                  <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
+                    <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                      <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                        Agent Asset Records - {selectedDate}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {(() => {
+                        const rows = getAgentAssetRecords();
+                        if (rows.length === 0) return (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                              <Calendar className="h-8 w-8" />
+                            </div>
+                            <h3 className="text-lg font-medium mb-2">No Records Found</h3>
+                            <p className="text-sm">No agent asset records were found for this date.</p>
+                          </div>
+                        );
+                        return (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/30">
+                                  <TableHead className="w-[250px] font-semibold">Agent Name</TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Laptop className="h-4 w-4"/>
+                                      Laptop
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Headphones className="h-4 w-4"/>
+                                      Headsets
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Usb className="h-4 w-4"/>
+                                      Dongle
+                                    </div>
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rows.map((row, idx) => (
+                                  <TableRow key={`${row.agentId}-${idx}`} className="hover:bg-muted/30 transition-colors duration-200" data-testid={`row-agent-record-${idx}`}>
+                                    <TableCell className="px-6 py-4" data-testid={`text-agent-name-${idx}`}>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                          <span className="text-sm font-medium text-primary">
+                                            {row.agentName.charAt(0).toUpperCase()}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <div className="text-sm font-medium text-foreground">{row.agentName}</div>
+                                          <div className="text-xs text-muted-foreground">Agent ID: {row.agentId}</div>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-laptop-${idx}`}>
+                                      <Badge 
+                                        variant={row.laptop.variant} 
+                                        className={`${row.laptop.color} text-xs font-medium`}
+                                      >
+                                        {row.laptop.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-headsets-${idx}`}>
+                                      <Badge 
+                                        variant={row.headsets.variant} 
+                                        className={`${row.headsets.color} text-xs font-medium`}
+                                      >
+                                        {row.headsets.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-dongle-${idx}`}>
+                                      <Badge 
+                                        variant={row.dongle.variant} 
+                                        className={`${row.dongle.color} text-xs font-medium`}
+                                      >
+                                        {row.dongle.status}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </TabsContent>
             
@@ -1075,6 +1211,145 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </div>
                 </div>
                 <BookOutTable />
+                
+                {/* Agent Records for Book Out */}
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <h3 className="font-medium text-blue-800 dark:text-blue-200">Agent Asset Records</h3>
+                      <p className="text-sm text-blue-600 dark:text-blue-300">
+                        View and manage historical asset records for all agents by date
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Date Picker */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Select Date for Records
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="p-2 border rounded-md"
+                          data-testid="date-picker-records-bookout"
+                        />
+                        <Button 
+                          onClick={saveAssetRecords}
+                          disabled={saveRecordsMutation.isPending}
+                          className="flex items-center gap-2"
+                          data-testid="button-save-records-bookout"
+                        >
+                          <Save className="h-4 w-4" />
+                          {saveRecordsMutation.isPending ? 'Saving...' : 'Save Records'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Agent Records Table */}
+                  <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
+                    <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                      <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                        Agent Asset Records - {selectedDate}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {(() => {
+                        const rows = getAgentAssetRecords();
+                        if (rows.length === 0) return (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                              <Calendar className="h-8 w-8" />
+                            </div>
+                            <h3 className="text-lg font-medium mb-2">No Records Found</h3>
+                            <p className="text-sm">No agent asset records were found for this date.</p>
+                          </div>
+                        );
+                        return (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/30">
+                                  <TableHead className="w-[250px] font-semibold">Agent Name</TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Laptop className="h-4 w-4"/>
+                                      Laptop
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Headphones className="h-4 w-4"/>
+                                      Headsets
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center font-semibold">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Usb className="h-4 w-4"/>
+                                      Dongle
+                                    </div>
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rows.map((row, idx) => (
+                                  <TableRow key={`${row.agentId}-${idx}`} className="hover:bg-muted/30 transition-colors duration-200" data-testid={`row-agent-record-bookout-${idx}`}>
+                                    <TableCell className="px-6 py-4" data-testid={`text-agent-name-bookout-${idx}`}>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                          <span className="text-sm font-medium text-primary">
+                                            {row.agentName.charAt(0).toUpperCase()}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <div className="text-sm font-medium text-foreground">{row.agentName}</div>
+                                          <div className="text-xs text-muted-foreground">Agent ID: {row.agentId}</div>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-laptop-bookout-${idx}`}>
+                                      <Badge 
+                                        variant={row.laptop.variant} 
+                                        className={`${row.laptop.color} text-xs font-medium`}
+                                      >
+                                        {row.laptop.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-headsets-bookout-${idx}`}>
+                                      <Badge 
+                                        variant={row.headsets.variant} 
+                                        className={`${row.headsets.color} text-xs font-medium`}
+                                      >
+                                        {row.headsets.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center" data-testid={`badge-dongle-bookout-${idx}`}>
+                                      <Badge 
+                                        variant={row.dongle.variant} 
+                                        className={`${row.dongle.color} text-xs font-medium`}
+                                      >
+                                        {row.dongle.status}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </TabsContent>
             
@@ -1152,145 +1427,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               </div>
             </TabsContent>
 
-            <TabsContent value="records" className="mt-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h3 className="font-medium text-blue-800 dark:text-blue-200">Agent Asset Records</h3>
-                    <p className="text-sm text-blue-600 dark:text-blue-300">
-                      View and manage historical asset records for all agents by date
-                    </p>
-                  </div>
-                </div>
-
-                {/* Date Picker */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Select Date for Records
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="p-2 border rounded-md"
-                        data-testid="date-picker-records"
-                      />
-                      <Button 
-                        onClick={saveAssetRecords}
-                        disabled={saveRecordsMutation.isPending}
-                        className="flex items-center gap-2"
-                        data-testid="button-save-records"
-                      >
-                        <Save className="h-4 w-4" />
-                        {saveRecordsMutation.isPending ? 'Saving...' : 'Save Records'}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Agent Records Table */}
-                <Card className="shadow-lg border-0 bg-gradient-to-br from-background to-muted/20">
-                  <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                    <CardTitle className="flex items-center gap-2 text-xl font-semibold">
-                      <BarChart3 className="h-5 w-5 text-primary" />
-                      Agent Asset Records - {selectedDate}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {(() => {
-                      const rows = getAgentAssetRecords();
-                      if (rows.length === 0) return (
-                        <div className="text-center py-12 text-muted-foreground">
-                          <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                            <Calendar className="h-8 w-8" />
-                          </div>
-                          <h3 className="text-lg font-medium mb-2">No Records Found</h3>
-                          <p className="text-sm">No agent asset records were found for this date.</p>
-                        </div>
-                      );
-                      return (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="bg-muted/30">
-                                <TableHead className="w-[250px] font-semibold">Agent Name</TableHead>
-                                <TableHead className="text-center font-semibold">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Laptop className="h-4 w-4"/>
-                                    Laptop
-                                  </div>
-                                </TableHead>
-                                <TableHead className="text-center font-semibold">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Headphones className="h-4 w-4"/>
-                                    Headsets
-                                  </div>
-                                </TableHead>
-                                <TableHead className="text-center font-semibold">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Usb className="h-4 w-4"/>
-                                    Dongle
-                                  </div>
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {rows.map((row, idx) => (
-                                <TableRow key={`${row.agentId}-${idx}`} className="hover:bg-muted/30 transition-colors duration-200" data-testid={`row-agent-record-${idx}`}>
-                                  <TableCell className="px-6 py-4" data-testid={`text-agent-name-${idx}`}>
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                        <span className="text-sm font-medium text-primary">
-                                          {row.agentName.charAt(0).toUpperCase()}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <div className="text-sm font-medium text-foreground">{row.agentName}</div>
-                                        <div className="text-xs text-muted-foreground">Agent ID: {row.agentId}</div>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`badge-laptop-${idx}`}>
-                                    <Badge 
-                                      variant={row.laptop.variant} 
-                                      className={`${row.laptop.color} text-xs font-medium`}
-                                    >
-                                      {row.laptop.status}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`badge-headsets-${idx}`}>
-                                    <Badge 
-                                      variant={row.headsets.variant} 
-                                      className={`${row.headsets.color} text-xs font-medium`}
-                                    >
-                                      {row.headsets.status}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`badge-dongle-${idx}`}>
-                                    <Badge 
-                                      variant={row.dongle.variant} 
-                                      className={`${row.dongle.color} text-xs font-medium`}
-                                    >
-                                      {row.dongle.status}
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
             
           </Tabs>
         </CardContent>
