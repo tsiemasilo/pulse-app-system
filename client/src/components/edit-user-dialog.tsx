@@ -22,6 +22,7 @@ const editUserSchema = z.object({
   role: z.enum(['admin', 'hr', 'contact_center_ops_manager', 'contact_center_manager', 'team_leader', 'agent']),
   isActive: z.boolean(),
   password: z.string().optional().or(z.literal("")),
+  reportsTo: z.string().optional().or(z.literal("")),
 });
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -34,6 +35,7 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const [selectedTeamLeader, setSelectedTeamLeader] = useState<string>("none");
+  const [selectedReportsTo, setSelectedReportsTo] = useState<string>("none");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -47,6 +49,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       role: "agent",
       isActive: true,
       password: "",
+      reportsTo: "",
     },
   });
 
@@ -61,13 +64,29 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         role: user.role as any,
         isActive: user.isActive,
         password: "",
+        reportsTo: user.reportsTo || "",
       });
+      setSelectedReportsTo(user.reportsTo || "none");
     }
   }, [user, form]);
 
   // Get team leaders for reassignment
   const { data: teamLeaders = [] } = useQuery<User[]>({
     queryKey: ["/api/team-leaders"],
+    enabled: open,
+  });
+
+  // Get managers for team leader reporting (contact center managers and ops managers)
+  const { data: managers = [] } = useQuery<User[]>({
+    queryKey: ["/api/managers"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/users");
+      const users = await response.json() as User[];
+      return users.filter(u => 
+        u.role === 'contact_center_ops_manager' || 
+        u.role === 'contact_center_manager'
+      );
+    },
     enabled: open,
   });
 
@@ -97,6 +116,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         lastName: data.lastName,
         role: data.role,
         isActive: data.isActive,
+        reportsTo: data.role === 'team_leader' && selectedReportsTo !== 'none' ? selectedReportsTo : null,
       };
       
       // Only include password if it's provided and not empty
@@ -324,6 +344,33 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 </Select>
                 <div className="text-sm text-muted-foreground mt-1">
                   Current team leaders available: {teamLeaders.length}
+                </div>
+              </div>
+            )}
+
+            {/* Manager Assignment for Team Leaders Only */}
+            {form.watch("role") === "team_leader" && (
+              <div>
+                <Label htmlFor="reportsTo">Team Leader Reports To</Label>
+                <Select 
+                  value={selectedReportsTo} 
+                  onValueChange={setSelectedReportsTo}
+                  data-testid="select-reports-to"
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Manager</SelectItem>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.firstName} {manager.lastName} ({manager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Available managers: {managers.length}
                 </div>
               </div>
             )}

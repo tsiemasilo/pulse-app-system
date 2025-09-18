@@ -75,6 +75,17 @@ export default function TeamLeaderDashboard() {
     enabled: leaderTeams.length > 0,
   });
 
+  // Fetch reporting manager information
+  const { data: reportingManager = null } = useQuery<User | null>({
+    queryKey: ["/api/users", user?.reportsTo],
+    queryFn: async () => {
+      if (!user?.reportsTo) return null;
+      const response = await apiRequest("GET", `/api/users/${user.reportsTo}`);
+      return await response.json() as User;
+    },
+    enabled: !!user?.reportsTo,
+  });
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast({
@@ -134,6 +145,28 @@ export default function TeamLeaderDashboard() {
               <h1 className="text-3xl font-bold text-foreground">Team Attendance</h1>
               <p className="text-muted-foreground">Manage your team's attendance, assets, and performance</p>
             </div>
+
+            {/* Reporting Manager Info */}
+            {reportingManager && (
+              <Card className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Reports To
+                      </p>
+                      <p className="font-semibold text-blue-800 dark:text-blue-200">
+                        {reportingManager.firstName} {reportingManager.lastName}
+                        <span className="ml-2 text-sm font-normal text-blue-600 dark:text-blue-400">
+                          ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* TL Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

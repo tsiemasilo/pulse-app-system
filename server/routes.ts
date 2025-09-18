@@ -118,11 +118,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updateData = z.object({
         username: z.string().optional(),
-        email: z.string().email().optional(),
+        email: z.string().email().nullable().optional(),
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         role: z.string().optional(),
         departmentId: z.string().optional(),
+        reportsTo: z.string().nullable().optional(),
         isActive: z.boolean().optional(),
         password: z.string().min(1, "Password must not be empty").optional(),
       }).parse(req.body);
@@ -171,6 +172,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  app.get('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow admins, team leaders, and managers to access individual user data
+      if (!user?.role || !['admin', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const targetUser = await storage.getUser(req.params.userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // For non-admins, return only safe fields
+      if (user.role !== 'admin') {
+        const safeUser = {
+          id: targetUser.id,
+          username: targetUser.username,
+          firstName: targetUser.firstName,
+          lastName: targetUser.lastName,
+          role: targetUser.role,
+          departmentId: targetUser.departmentId,
+          reportsTo: targetUser.reportsTo,
+          isActive: targetUser.isActive
+        };
+        res.json(safeUser);
+      } else {
+        res.json(targetUser);
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
