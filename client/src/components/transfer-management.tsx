@@ -75,7 +75,7 @@ export default function TransferManagement() {
       form.reset();
       toast({
         title: "Transfer Created",
-        description: "Team leader transfer has been submitted for approval.",
+        description: "Agent transfer has been submitted for approval.",
       });
     },
     onError: (error: Error) => {
@@ -119,7 +119,7 @@ export default function TransferManagement() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center">
           <ArrowRightLeft className="h-5 w-5 mr-2" />
-          Team Leader Transfers
+          Agent Transfers
         </CardTitle>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -130,7 +130,7 @@ export default function TransferManagement() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Team Leader Transfer</DialogTitle>
+              <DialogTitle>Create Agent Transfer</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -267,7 +267,7 @@ export default function TransferManagement() {
         <div className="space-y-4">
           {transfers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No team leader transfers found. Create a new transfer to get started.
+              No agent transfers found. Create a new transfer to get started.
             </div>
           ) : (
             transfers.map((transfer) => (
