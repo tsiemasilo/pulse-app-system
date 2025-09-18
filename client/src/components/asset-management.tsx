@@ -65,9 +65,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`],
   });
 
-  // Fetch asset loss records
+  // Fetch today's asset loss records
   const { data: assetLossRecords = [], isLoading: lossRecordsLoading } = useQuery<any[]>({
-    queryKey: ['/api/asset-loss'],
+    queryKey: ['/api/asset-loss', getCurrentDateKey()],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/asset-loss?date=${getCurrentDateKey()}`);
+      return response.json();
+    },
   });
 
   // Historical records from database for agent records tab
