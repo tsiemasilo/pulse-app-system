@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings, Calendar, BarChart3 } from "lucide-react";
@@ -22,8 +21,7 @@ interface AssetManagementProps {
 // Using AssetBooking and AssetDetails types from shared schema
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
-  const [activeTab, setActiveTab] = useState('asset_booking');
-  const [bookingMode, setBookingMode] = useState<'collect' | 'return'>('collect');
+  const [activeTab, setActiveTab] = useState('book_in');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showBookingHistoryDialog, setShowBookingHistoryDialog] = useState(false);
@@ -652,128 +650,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Auto-save is now handled by mutations directly
 
-  const UnifiedAssetBookingTable = () => (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-muted">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Agent
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              <div className="flex items-center justify-center gap-2">
-                <Laptop className="h-4 w-4" />
-                Laptop
-              </div>
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              <div className="flex items-center justify-center gap-2">
-                <Headphones className="h-4 w-4" />
-                Headsets
-              </div>
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              <div className="flex items-center justify-center gap-2">
-                <Usb className="h-4 w-4" />
-                Dongle
-              </div>
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-card divide-y divide-border">
-          {teamMembers.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                No team members found
-              </td>
-            </tr>
-          ) : (
-            teamMembers.map((member) => {
-              const bookingType = bookingMode === 'collect' ? 'book_in' : 'book_out';
-              const booking = bookingsByUser[member.id]?.[bookingType];
-              
-              return (
-                <tr key={member.id} data-testid={`row-agent-${member.id}`}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-foreground" data-testid={`text-agent-name-${member.id}`}>
-                      { `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      ID: {member.id}
-                    </div>
-                  </td>
-                  {['laptop', 'headsets', 'dongle'].map((assetType) => {
-                    const status = booking?.[assetType as keyof typeof booking] || 'none';
-                    return (
-                      <td key={assetType} className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center">
-                          <AssetStatusButtons
-                            status={status as 'none' | 'collected' | 'not_collected' | 'returned' | 'not_returned'}
-                            onStatusChange={(newStatus) => {
-                              if (bookingMode === 'collect') {
-                                updateAssetBookingBookIn(member.id, assetType, newStatus as 'none' | 'collected' | 'not_collected');
-                              } else {
-                                updateAssetBookingBookOut(member.id, assetType, newStatus as 'none' | 'returned' | 'not_returned');
-                              }
-                            }}
-                            assetType={assetType}
-                            agentId={member.id}
-                            tabType={bookingType}
-                          />
-                        </div>
-                      </td>
-                    );
-                  })}
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAgent({ id: member.id, name: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.username || 'Unknown Agent' });
-                              setShowBookingHistoryDialog(true);
-                            }}
-                            className="h-8 w-8 p-0"
-                            data-testid={`button-view-${member.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>View booking history</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => showAssetDetails('laptop', member.id)}
-                            className="h-8 w-8 p-0"
-                            data-testid={`button-asset-details-${member.id}`}
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Manage asset details</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
 
   const BookInTable = () => (
     <div className="overflow-x-auto">
@@ -1149,9 +1025,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex items-center justify-between mb-4">
-              <TabsList className="grid grid-cols-3 w-fit">
-                <TabsTrigger value="asset_booking" data-testid="tab-asset-booking">
-                  Asset Booking
+              <TabsList className="grid grid-cols-4 w-fit">
+                <TabsTrigger value="book_in" data-testid="tab-book-in">
+                  Book In
+                </TabsTrigger>
+                <TabsTrigger value="book_out" data-testid="tab-book-out">
+                  Book Out
                 </TabsTrigger>
                 <TabsTrigger value="lost_assets" data-testid="tab-unreturned-assets">
                   Unreturned Assets
@@ -1161,7 +1040,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </TabsTrigger>
               </TabsList>
               
-              {activeTab === 'asset_booking' && isAutoSaving && hasUnsavedChanges && (
+              {(activeTab === 'book_in' || activeTab === 'book_out') && isAutoSaving && hasUnsavedChanges && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="auto-save-indicator">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Auto-saving...
@@ -1169,70 +1048,33 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               )}
             </div>
             
-            <TabsContent value="asset_booking" className="mt-6">
+            <TabsContent value="book_in" className="mt-6">
               <div className="space-y-4">
-                {/* Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-4 p-4 rounded-lg border flex-1 ${
-                    bookingMode === 'collect' 
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                      : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-                  }`}>
-                    {bookingMode === 'collect' ? (
-                      <>
-                        <Check className="h-5 w-5 text-green-600" />
-                        <div>
-                          <h3 className="font-medium text-green-800 dark:text-green-200">Collect Assets</h3>
-                          <p className="text-sm text-green-600 dark:text-green-300">
-                            Mark which assets each agent has collected for their shift
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <X className="h-5 w-5 text-orange-600" />
-                        <div>
-                          <h3 className="font-medium text-orange-800 dark:text-orange-200">Return Assets</h3>
-                          <p className="text-sm text-orange-600 dark:text-orange-300">
-                            Mark which assets each agent has returned after their shift
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="ml-4">
-                    <ToggleGroup 
-                      type="single" 
-                      value={bookingMode} 
-                      onValueChange={(value) => value && setBookingMode(value as 'collect' | 'return')}
-                      className="bg-card border rounded-lg p-1"
-                    >
-                      <ToggleGroupItem 
-                        value="collect" 
-                        className={`px-4 py-2 text-sm ${
-                          bookingMode === 'collect' 
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'hover:bg-muted'
-                        }`}
-                        data-testid="toggle-collect"
-                      >
-                        Collect
-                      </ToggleGroupItem>
-                      <ToggleGroupItem 
-                        value="return" 
-                        className={`px-4 py-2 text-sm ${
-                          bookingMode === 'return' 
-                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                            : 'hover:bg-muted'
-                        }`}
-                        data-testid="toggle-return"
-                      >
-                        Return
-                      </ToggleGroupItem>
-                    </ToggleGroup>
+                <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <Check className="h-5 w-5 text-green-600" />
+                  <div>
+                    <h3 className="font-medium text-green-800 dark:text-green-200">Book In Assets</h3>
+                    <p className="text-sm text-green-600 dark:text-green-300">
+                      Mark which assets each agent has collected for their shift
+                    </p>
                   </div>
                 </div>
-                <UnifiedAssetBookingTable />
+                <BookInTable />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="book_out" className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <X className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <h3 className="font-medium text-orange-800 dark:text-orange-200">Book Out Assets</h3>
+                    <p className="text-sm text-orange-600 dark:text-orange-300">
+                      Mark which assets each agent has returned after their shift
+                    </p>
+                  </div>
+                </div>
+                <BookOutTable />
               </div>
             </TabsContent>
             
