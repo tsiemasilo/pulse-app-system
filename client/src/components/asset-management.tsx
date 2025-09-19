@@ -385,6 +385,42 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     saveRecordsMutation.mutate(recordData);
   };
 
+  // Function to get live asset status for book in/out tabs (uses today's data)
+  const getLiveAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
+    // Get today's booking data for this agent
+    const booking = bookingsByUser[agentId];
+    const bookInStatus = booking?.['book_in']?.[assetType] || 'none';
+    const bookOutStatus = booking?.['book_out']?.[assetType] || 'none';
+    
+    // Check if asset is lost today (use today's loss records, not selected date)
+    const isLostToday = assetLossRecords.some(asset => 
+      asset.userId === agentId && asset.assetType === assetType
+    );
+    
+    // Apply status precedence (book out selections override book in selections)
+    if (isLostToday) {
+      return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookOutStatus === 'returned') {
+      return { status: 'Returned', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
+    }
+    
+    if (bookOutStatus === 'not_returned') {
+      return { status: 'Not Returned', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookInStatus === 'collected') {
+      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+    }
+    
+    if (bookInStatus === 'not_collected') {
+      return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    }
+    
+    return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+  };
+
   // Function to get agent asset status for agent records tab
   const getAgentAssetStatus = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
     let bookInStatus = 'none';
@@ -875,8 +911,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       onStatusChange(status === negativeStatus ? 'none' : negativeStatus);
     };
 
-    // Get the historical asset status for this agent and asset type
-    const assetStatus = getAgentAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
+    // Get the live asset status for this agent and asset type (for book in/out tabs)
+    const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
 
     return (
       <div className="flex flex-col items-center gap-2">
