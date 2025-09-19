@@ -1445,7 +1445,77 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </DialogContent>
       </Dialog>
 
-      {/* Lost Asset Confirmation Dialog */}
+      {/* Reason Input Dialog */}
+      <Dialog open={showReasonDialog} onOpenChange={setShowReasonDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Provide Loss Reason</DialogTitle>
+            <DialogDescription>
+              Please provide a reason why this {pendingAssetAction?.assetType} was lost by {pendingAssetAction?.agentName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter the reason for the asset loss..."
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              className="min-h-[100px]"
+              data-testid="textarea-loss-reason"
+            />
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReasonDialog(false);
+                setPendingAssetAction(null);
+                setReasonInput('');
+              }}
+              data-testid="button-cancel-reason"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReasonSubmit}
+              disabled={!reasonInput.trim()}
+              data-testid="button-submit-reason"
+            >
+              Submit Reason
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reason View Dialog */}
+      <Dialog open={showReasonViewDialog} onOpenChange={setShowReasonViewDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Asset Loss Reason</DialogTitle>
+            <DialogDescription>
+              Reason provided for the lost asset.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm text-foreground" data-testid="text-displayed-reason">
+                {selectedReason}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReasonViewDialog(false);
+                setSelectedReason('');
+              }}
+              data-testid="button-close-reason-view"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>\n\n      {/* Lost Asset Confirmation Dialog */}
       <Dialog open={showLostAssetDialog} onOpenChange={setShowLostAssetDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
