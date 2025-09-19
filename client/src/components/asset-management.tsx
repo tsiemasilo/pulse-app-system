@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -54,6 +55,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Dialog state for lost asset confirmation
   const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
+  const [showReasonDialog, setShowReasonDialog] = useState(false);
+  const [showReasonViewDialog, setShowReasonViewDialog] = useState(false);
+  const [reasonInput, setReasonInput] = useState('');
+  const [selectedReason, setSelectedReason] = useState('');
   const [pendingAssetAction, setPendingAssetAction] = useState<{
     userId: string;
     assetType: string;
@@ -516,26 +521,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleLostAssetResponse = (isLost: boolean) => {
     if (!pendingAssetAction) return;
     
-    const { userId, assetType, agentName } = pendingAssetAction;
-    
     if (isLost) {
-      // Create asset loss record
-      createAssetLossMutation.mutate({
-        userId,
-        assetType,
-        reason: 'Asset reported as lost during book out process',
-        dateLost: new Date()
-      });
-      
-      // Update the booking status to not_returned
-      updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
-      
-      toast({
-        title: "Asset Marked as Lost",
-        description: `${assetType} marked as lost for ${agentName}`,
-      });
+      // Show reason dialog for lost assets
+      setShowLostAssetDialog(false);
+      setShowReasonDialog(true);
+      setReasonInput('');
     } else {
       // Clear any existing lost record for this user/asset/date
+      const { userId, assetType, agentName } = pendingAssetAction;
       deleteAssetLossMutation.mutate({
         userId,
         assetType,
@@ -549,11 +542,51 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         title: "Asset Not Returned",
         description: `${assetType} marked as not returned for ${agentName}`,
       });
+      
+      // Close dialog and clear pending action
+      setShowLostAssetDialog(false);
+      setPendingAssetAction(null);
     }
+  };
+
+  // Function to handle reason submission
+  const handleReasonSubmit = () => {
+    if (!pendingAssetAction || !reasonInput.trim()) return;
     
-    // Close dialog and clear pending action
-    setShowLostAssetDialog(false);
+    const { userId, assetType, agentName } = pendingAssetAction;
+    
+    // Create asset loss record with reason
+    createAssetLossMutation.mutate({
+      userId,
+      assetType,
+      reason: reasonInput.trim(),
+      dateLost: new Date()
+    });
+    
+    // Update the booking status to not_returned
+    updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
+    
+    toast({
+      title: "Asset Marked as Lost",
+      description: `${assetType} marked as lost for ${agentName}`,
+    });
+    
+    // Close dialogs and clear state
+    setShowReasonDialog(false);
     setPendingAssetAction(null);
+    setReasonInput('');
+  };
+
+  // Function to view reason for lost/unreturned asset
+  const handleViewReason = (userId: string, assetType: string) => {
+    const lossRecord = (assetLossRecords as any[]).find(
+      (record: any) => record.userId === userId && record.assetType === assetType
+    );
+    
+    if (lossRecord && lossRecord.reason) {
+      setSelectedReason(lossRecord.reason);
+      setShowReasonViewDialog(true);
+    }
   };
 
   // Helper function to resolve agent name properly
@@ -1155,6 +1188,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             </th>
                             <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                               Status
+                            </th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Actions
                             </th>
                           </tr>
                         </thead>
