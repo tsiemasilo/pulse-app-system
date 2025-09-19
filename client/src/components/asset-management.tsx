@@ -609,10 +609,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       (record: any) => record.userId === userId && record.assetType === assetType
     );
     
-    if (lossRecord && lossRecord.reason) {
-      setSelectedReason(lossRecord.reason);
-      setShowReasonViewDialog(true);
-    }
+    // Set reason from loss record if available, otherwise show default message
+    const reason = lossRecord?.reason || "No reason provided yet for this unreturned asset.";
+    setSelectedReason(reason);
+    setShowReasonViewDialog(true);
   };
 
   // Helper function to resolve agent name properly
@@ -1268,30 +1268,23 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                     </TooltipContent>
                                   </Tooltip>
                                   
-                                  {/* View reason button - only show if there's a reason recorded */}
-                                  {(() => {
-                                    const lossRecord = (assetLossRecords as any[]).find(
-                                      (record: any) => record.userId === asset.userId && record.assetType === asset.assetType
-                                    );
-                                    return lossRecord && lossRecord.reason ? (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleViewReason(asset.userId, asset.assetType)}
-                                            className="h-8 w-8 p-0"
-                                            data-testid={`button-view-reason-${index}`}
-                                          >
-                                            <MessageCircle className="h-4 w-4 text-blue-600" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>View reason</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    ) : null;
-                                  })()}
+                                  {/* View reason button - show for all unreturned assets */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewReason(asset.userId, asset.assetType)}
+                                        className="h-8 w-8 p-0"
+                                        data-testid={`button-view-reason-${index}`}
+                                      >
+                                        <MessageCircle className="h-4 w-4 text-blue-600" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View reason</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                   
                                   <Tooltip>
                                     <TooltipTrigger asChild>
