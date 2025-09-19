@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings, Calendar, BarChart3 } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Save, Loader2, Eye, Settings, Calendar, BarChart3, MessageCircle, FileText } from "lucide-react";
 import type { User, Asset, AssetBooking, AssetDetails, InsertAssetBooking, InsertAssetDetails } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -1220,6 +1220,71 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                 <Badge className={asset.statusColor} data-testid={`badge-unreturned-status-${index}`}>
                                   {asset.status}
                                 </Badge>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          // Mark asset as returned
+                                          updateAssetBookingBookOutDirect(asset.userId, asset.assetType, 'returned');
+                                        }}
+                                        className="h-8 w-8 p-0"
+                                        data-testid={`button-mark-returned-${index}`}
+                                      >
+                                        <Check className="h-4 w-4 text-green-600" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Mark as returned</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  
+                                  {/* View reason button - only show if there's a reason recorded */}
+                                  {(() => {
+                                    const lossRecord = (assetLossRecords as any[]).find(
+                                      (record: any) => record.userId === asset.userId && record.assetType === asset.assetType
+                                    );
+                                    return lossRecord && lossRecord.reason ? (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleViewReason(asset.userId, asset.assetType)}
+                                            className="h-8 w-8 p-0"
+                                            data-testid={`button-view-reason-${index}`}
+                                          >
+                                            <MessageCircle className="h-4 w-4 text-blue-600" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>View reason</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ) : null;
+                                  })()}
+                                  
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => showAssetDetails(asset.assetType, asset.userId)}
+                                        className="h-8 w-8 p-0"
+                                        data-testid={`button-asset-details-${index}`}
+                                      >
+                                        <FileText className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View asset details</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                               </td>
                             </tr>
                           ))}
