@@ -616,13 +616,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOut = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
-    // If marking as not_returned, directly show the reason dialog
+    // If marking as not_returned, show the lost asset dialog
     if (status === 'not_returned') {
       const agentName = getAgentName(userId);
       
       setPendingAssetAction({ userId, assetType, agentName });
-      setShowReasonDialog(true);
-      setReasonInput('');
+      setShowLostAssetDialog(true);
       return; // Exit early, dialog will handle the actual update
     }
     
