@@ -616,12 +616,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOut = (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
-    // If marking as not_returned, show the lost asset dialog
+    // If marking as not_returned, directly show the reason dialog
     if (status === 'not_returned') {
       const agentName = getAgentName(userId);
       
       setPendingAssetAction({ userId, assetType, agentName });
-      setShowLostAssetDialog(true);
+      setShowReasonDialog(true);
+      setReasonInput('');
       return; // Exit early, dialog will handle the actual update
     }
     
@@ -1449,14 +1450,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       <Dialog open={showReasonDialog} onOpenChange={setShowReasonDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Provide Loss Reason</DialogTitle>
+            <DialogTitle>Provide Reason</DialogTitle>
             <DialogDescription>
-              Please provide a reason why this {pendingAssetAction?.assetType} was lost by {pendingAssetAction?.agentName}.
+              Please provide a reason why this {pendingAssetAction?.assetType} was not returned by {pendingAssetAction?.agentName}.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Textarea
-              placeholder="Enter the reason for the asset loss..."
+              placeholder="Enter the reason why this asset was not returned..."
               value={reasonInput}
               onChange={(e) => setReasonInput(e.target.value)}
               className="min-h-[100px]"
