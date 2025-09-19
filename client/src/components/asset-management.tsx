@@ -904,8 +904,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     // Get the live asset status for this agent and asset type (for book in/out tabs)
     const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
     
-    // For book_in tab, disable buttons if asset is lost or not returned yet
-    const isAssetUnavailable = tabType === 'book_in' && (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned');
+    // For both book_in and book_out tabs, disable buttons if asset is lost or not returned yet
+    const isAssetUnavailable = (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned');
     
     const handlePositiveClick = () => {
       if (isAssetUnavailable) return;
