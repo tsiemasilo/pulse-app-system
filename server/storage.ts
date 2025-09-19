@@ -128,57 +128,74 @@ export class DatabaseStorage implements IStorage {
     const { hashPassword } = await import("./replitAuth");
     const hashedTempPassword = await hashPassword("temp-password");
     
-    const [user] = await db
+    const result = await db
       .insert(users)
       .values({
-        id: userData.id,
+        id: userData.id!,
         username: userData.username!,
         password: hashedTempPassword,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
-        role: userData.role as UserRole,
-        departmentId: userData.departmentId,
+        email: userData.email || null,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        profileImageUrl: userData.profileImageUrl || null,
+        role: (userData.role as UserRole) || 'agent',
+        departmentId: userData.departmentId || null,
         isActive: userData.isActive ?? true,
       })
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          role: userData.role as UserRole,
-          departmentId: userData.departmentId,
+          email: userData.email || null,
+          firstName: userData.firstName || null,
+          lastName: userData.lastName || null,
+          profileImageUrl: userData.profileImageUrl || null,
+          role: (userData.role as UserRole) || 'agent',
+          departmentId: userData.departmentId || null,
           isActive: userData.isActive ?? true,
           updatedAt: new Date(),
         },
       })
       .returning();
-    return user;
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to upsert user");
+    }
+    return result[0];
   }
 
   // User management
   async createUser(userData: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values({
+    const result = await db.insert(users).values({
       ...userData,
       role: userData.role as UserRole
     }).returning();
-    return user;
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create user");
+    }
+    return result[0];
   }
 
   async updateUser(userId: string, userData: Partial<InsertUser>): Promise<User> {
-    const [user] = await db
+    const updateData: any = {
+      ...userData,
+      updatedAt: new Date()
+    };
+    
+    if (userData.role) {
+      updateData.role = userData.role as UserRole;
+    }
+    
+    const result = await db
       .update(users)
-      .set({ 
-        ...userData,
-        role: userData.role as UserRole,
-        updatedAt: new Date() 
-      })
+      .set(updateData)
       .where(eq(users.id, userId))
       .returning();
-    return user;
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to update user");
+    }
+    return result[0];
   }
 
   async updateUserRole(userId: string, role: UserRole): Promise<User> {
