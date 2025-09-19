@@ -521,32 +521,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleLostAssetResponse = (isLost: boolean) => {
     if (!pendingAssetAction) return;
     
-    if (isLost) {
-      // Show reason dialog for lost assets
-      setShowLostAssetDialog(false);
-      setShowReasonDialog(true);
-      setReasonInput('');
-    } else {
-      // Clear any existing lost record for this user/asset/date
-      const { userId, assetType, agentName } = pendingAssetAction;
-      deleteAssetLossMutation.mutate({
-        userId,
-        assetType,
-        date: getCurrentDateKey()
-      });
-      
-      // Mark as not returned (without adding to lost assets)
-      updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
-      
-      toast({
-        title: "Asset Not Returned",
-        description: `${assetType} marked as not returned for ${agentName}`,
-      });
-      
-      // Close dialog and clear pending action
-      setShowLostAssetDialog(false);
-      setPendingAssetAction(null);
-    }
+    // Both "lost" and "just not returned" now ask for a reason
+    setShowLostAssetDialog(false);
+    setShowReasonDialog(true);
+    setReasonInput('');
+    
+    // Store whether this was marked as lost or just not returned for later use if needed
+    // (currently both are handled the same way in handleReasonSubmit)
   };
 
   // Function to handle reason submission
@@ -1516,12 +1497,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           <DialogHeader>
             <DialogTitle>Provide Reason</DialogTitle>
             <DialogDescription>
-              Please provide a reason why this {pendingAssetAction?.assetType} was not returned by {pendingAssetAction?.agentName}.
+              Please provide a reason for this {pendingAssetAction?.assetType} issue with {pendingAssetAction?.agentName}.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Textarea
-              placeholder="Enter the reason why this asset was not returned..."
+              placeholder="Enter the reason for this asset issue..."
               value={reasonInput}
               onChange={(e) => setReasonInput(e.target.value)}
               className="min-h-[100px]"
