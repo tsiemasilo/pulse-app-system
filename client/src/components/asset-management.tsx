@@ -57,13 +57,20 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [showLostAssetDialog, setShowLostAssetDialog] = useState(false);
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [showReasonViewDialog, setShowReasonViewDialog] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [reasonInput, setReasonInput] = useState('');
+  const [recoveryReasonInput, setRecoveryReasonInput] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
   const [pendingAssetAction, setPendingAssetAction] = useState<{
     userId: string;
     assetType: string;
     agentName: string;
     isLost?: boolean; // Track whether "lost" or "just not returned" was selected
+  } | null>(null);
+  const [pendingRecoveryAction, setPendingRecoveryAction] = useState<{
+    userId: string;
+    assetType: string;
+    agentName: string;
   } | null>(null);
   
   // Fetch today's booking data for all users
@@ -613,6 +620,32 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const reason = lossRecord?.reason || "No reason provided yet for this unreturned asset.";
     setSelectedReason(reason);
     setShowReasonViewDialog(true);
+  };
+
+  // Function to handle asset recovery confirmation
+  const handleRecoveryConfirmation = () => {
+    if (!pendingRecoveryAction || !recoveryReasonInput.trim()) {
+      toast({
+        title: "Recovery Reason Required",
+        description: "Please provide a reason for how the asset was recovered.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Mark asset as returned with the recovery reason
+    updateAssetBookingBookOutDirect(pendingRecoveryAction.userId, pendingRecoveryAction.assetType, 'returned');
+    
+    // Show success message with recovery reason
+    toast({
+      title: "Asset Recovered",
+      description: `${pendingRecoveryAction.assetType} recovered from ${pendingRecoveryAction.agentName}. Reason: ${recoveryReasonInput}`,
+    });
+
+    // Reset states
+    setShowRecoveryDialog(false);
+    setPendingRecoveryAction(null);
+    setRecoveryReasonInput('');
   };
 
   // Helper function to resolve agent name properly
@@ -1265,8 +1298,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          // Mark asset as returned
-                                          updateAssetBookingBookOutDirect(asset.userId, asset.assetType, 'returned');
+                                          // Show recovery dialog instead of directly marking as returned
+                                          setPendingRecoveryAction({
+                                            userId: asset.userId,
+                                            assetType: asset.assetType,
+                                            agentName: asset.agentName
+                                          });
+                                          setShowRecoveryDialog(true);
                                         }}
                                         className="h-8 w-8 p-0"
                                         data-testid={`button-mark-returned-${index}`}
@@ -1643,6 +1681,47 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 setPendingAssetAction(null);
               }}
               data-testid="button-cancel"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Recovery Dialog */}
+      <Dialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Asset Recovery Confirmation</DialogTitle>
+            <DialogDescription>
+              How was this {pendingRecoveryAction?.assetType} asset recovered from {pendingRecoveryAction?.agentName}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Please describe how the asset was recovered (e.g., returned by agent, found in office, etc.)"
+              value={recoveryReasonInput}
+              onChange={(e) => setRecoveryReasonInput(e.target.value)}
+              className="min-h-[100px]"
+              data-testid="textarea-recovery-reason"
+            />
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="default"
+              onClick={handleRecoveryConfirmation}
+              data-testid="button-confirm-recovery"
+            >
+              Mark as Returned
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRecoveryDialog(false);
+                setPendingRecoveryAction(null);
+                setRecoveryReasonInput('');
+              }}
+              data-testid="button-cancel-recovery"
             >
               Cancel
             </Button>
