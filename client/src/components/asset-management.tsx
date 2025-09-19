@@ -1599,7 +1599,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>\n\n      {/* Lost Asset Confirmation Dialog */}
+      </Dialog>
+
+      {/* Lost Asset Confirmation Dialog */}
       <Dialog open={showLostAssetDialog} onOpenChange={setShowLostAssetDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
