@@ -63,6 +63,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     userId: string;
     assetType: string;
     agentName: string;
+    isLost?: boolean; // Track whether "lost" or "just not returned" was selected
   } | null>(null);
   
   // Fetch today's booking data for all users
@@ -521,36 +522,44 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleLostAssetResponse = (isLost: boolean) => {
     if (!pendingAssetAction) return;
     
+    // Store whether this was marked as lost or just not returned
+    setPendingAssetAction({ ...pendingAssetAction, isLost });
+    
     // Both "lost" and "just not returned" now ask for a reason
     setShowLostAssetDialog(false);
     setShowReasonDialog(true);
     setReasonInput('');
-    
-    // Store whether this was marked as lost or just not returned for later use if needed
-    // (currently both are handled the same way in handleReasonSubmit)
   };
 
   // Function to handle reason submission
   const handleReasonSubmit = () => {
     if (!pendingAssetAction || !reasonInput.trim()) return;
     
-    const { userId, assetType, agentName } = pendingAssetAction;
+    const { userId, assetType, agentName, isLost } = pendingAssetAction;
     
-    // Create asset loss record with reason
-    createAssetLossMutation.mutate({
-      userId,
-      assetType,
-      reason: reasonInput.trim(),
-      dateLost: new Date()
-    });
+    if (isLost) {
+      // Asset was marked as lost - create asset loss record with reason
+      createAssetLossMutation.mutate({
+        userId,
+        assetType,
+        reason: reasonInput.trim(),
+        dateLost: new Date()
+      });
+      
+      toast({
+        title: "Asset Marked as Lost",
+        description: `${assetType} marked as lost for ${agentName}`,
+      });
+    } else {
+      // Asset was marked as just not returned - no loss record, but we could store the reason elsewhere
+      toast({
+        title: "Asset Not Returned",
+        description: `${assetType} marked as not returned for ${agentName}`,
+      });
+    }
     
-    // Update the booking status to not_returned
+    // Update the booking status to not_returned for both cases
     updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
-    
-    toast({
-      title: "Asset Marked as Lost",
-      description: `${assetType} marked as lost for ${agentName}`,
-    });
     
     // Close dialogs and clear state
     setShowReasonDialog(false);
