@@ -901,18 +901,23 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
     const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
     
+    // Get the live asset status for this agent and asset type (for book in/out tabs)
+    const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
+    
+    // For book_in tab, disable buttons if asset is lost or not returned yet
+    const isAssetUnavailable = tabType === 'book_in' && (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned');
+    
     const handlePositiveClick = () => {
+      if (isAssetUnavailable) return;
       // If already positive, deselect (go to none), otherwise select positive
       onStatusChange(status === positiveStatus ? 'none' : positiveStatus);
     };
     
     const handleNegativeClick = () => {
+      if (isAssetUnavailable) return;
       // If already negative, deselect (go to none), otherwise select negative
       onStatusChange(status === negativeStatus ? 'none' : negativeStatus);
     };
-
-    // Get the live asset status for this agent and asset type (for book in/out tabs)
-    const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
 
     return (
       <div className="flex flex-col items-center gap-2">
@@ -923,10 +928,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             variant={status === positiveStatus ? "default" : "outline"}
             size="sm"
             onClick={handlePositiveClick}
+            disabled={isAssetUnavailable}
             className={`h-8 w-8 p-0 ${
-              status === positiveStatus 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'border-green-300 text-green-600 hover:bg-green-50 hover:text-green-700'
+              isAssetUnavailable
+                ? 'opacity-50 cursor-not-allowed border-gray-300 text-gray-400'
+                : status === positiveStatus 
+                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  : 'border-green-300 text-green-600 hover:bg-green-50 hover:text-green-700'
             }`}
             data-testid={`button-check-${assetType}-${agentId}-${tabType}`}
           >
@@ -938,10 +946,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
             variant={status === negativeStatus ? "default" : "outline"}
             size="sm"
             onClick={handleNegativeClick}
+            disabled={isAssetUnavailable}
             className={`h-8 w-8 p-0 ${
-              status === negativeStatus 
-                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                : 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700'
+              isAssetUnavailable
+                ? 'opacity-50 cursor-not-allowed border-gray-300 text-gray-400'
+                : status === negativeStatus 
+                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700'
             }`}
             data-testid={`button-x-${assetType}-${agentId}-${tabType}`}
           >
