@@ -157,6 +157,9 @@ export const assetBookings = pgTable("asset_bookings", {
   laptop: varchar("laptop").notNull().default('none'), // none, collected, not_collected, returned, not_returned
   headsets: varchar("headsets").notNull().default('none'),
   dongle: varchar("dongle").notNull().default('none'),
+  laptopReason: text("laptop_reason"), // Reason for unreturned laptop
+  headsetsReason: text("headsets_reason"), // Reason for unreturned headsets
+  dongleReason: text("dongle_reason"), // Reason for unreturned dongle
   agentName: varchar("agent_name"), // Cache for performance
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

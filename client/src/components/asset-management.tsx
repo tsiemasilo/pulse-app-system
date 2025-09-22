@@ -595,15 +595,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         description: `${assetType} marked as lost for ${agentName}`,
       });
     } else {
-      // Asset was marked as just not returned - no loss record, but we could store the reason elsewhere
+      // Asset was marked as just not returned - save reason in booking record
       toast({
         title: "Asset Not Returned",
         description: `${assetType} marked as not returned for ${agentName}`,
       });
     }
     
-    // Update the booking status to not_returned for both cases
-    updateAssetBookingBookOutDirect(userId, assetType, 'not_returned');
+    // Update the booking status to not_returned for both cases, including reason for unreturned assets
+    updateAssetBookingBookOutDirectWithReason(userId, assetType, 'not_returned', isLost ? null : reasonInput.trim());
     
     // Close dialogs and clear state
     setShowReasonDialog(false);
@@ -621,8 +621,24 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const isLost = !!lossRecord;
     setIsViewingLostAsset(isLost);
     
-    // Set reason from loss record if available, otherwise show default message
-    const reason = lossRecord?.reason || "No reason provided yet for this unreturned asset.";
+    let reason: string;
+    
+    if (isLost) {
+      // Asset is lost - get reason from loss record
+      reason = lossRecord.reason;
+    } else {
+      // Asset is just unreturned - get reason from booking record
+      const booking = bookingsByUser[userId]?.['book_out'];
+      if (booking) {
+        const reasonField = assetType === 'laptop' ? 'laptopReason' : 
+                           assetType === 'headsets' ? 'headsetsReason' : 
+                           'dongleReason';
+        reason = booking[reasonField] || "No reason provided yet for this unreturned asset.";
+      } else {
+        reason = "No reason provided yet for this unreturned asset.";
+      }
+    }
+    
     setSelectedReason(reason);
     setShowReasonViewDialog(true);
   };
@@ -694,6 +710,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookOutDirect = async (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
+    await updateAssetBookingBookOutDirectWithReason(userId, assetType, status, null);
+  };
+
+  const updateAssetBookingBookOutDirectWithReason = async (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned', reason: string | null) => {
     const agentName = getAgentName(userId);
     
     // Only delete lost asset record if one exists for this user/asset/date and we're marking as returned
@@ -719,6 +739,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       laptop: assetType === 'laptop' ? status : (currentBooking?.laptop || 'none'),
       headsets: assetType === 'headsets' ? status : (currentBooking?.headsets || 'none'),
       dongle: assetType === 'dongle' ? status : (currentBooking?.dongle || 'none'),
+      laptopReason: assetType === 'laptop' && status === 'not_returned' ? reason : (currentBooking?.laptopReason || null),
+      headsetsReason: assetType === 'headsets' && status === 'not_returned' ? reason : (currentBooking?.headsetsReason || null),
+      dongleReason: assetType === 'dongle' && status === 'not_returned' ? reason : (currentBooking?.dongleReason || null),
       agentName,
     };
     
