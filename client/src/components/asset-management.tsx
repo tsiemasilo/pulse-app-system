@@ -61,6 +61,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [reasonInput, setReasonInput] = useState('');
   const [recoveryReasonInput, setRecoveryReasonInput] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
+  const [isViewingLostAsset, setIsViewingLostAsset] = useState(false);
   const [pendingAssetAction, setPendingAssetAction] = useState<{
     userId: string;
     assetType: string;
@@ -615,6 +616,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const lossRecord = (assetLossRecords as any[]).find(
       (record: any) => record.userId === userId && record.assetType === assetType
     );
+    
+    // Determine if this is a lost asset or just unreturned
+    const isLost = !!lossRecord;
+    setIsViewingLostAsset(isLost);
     
     // Set reason from loss record if available, otherwise show default message
     const reason = lossRecord?.reason || "No reason provided yet for this unreturned asset.";
@@ -1623,9 +1628,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       <Dialog open={showReasonViewDialog} onOpenChange={setShowReasonViewDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Asset Loss Reason</DialogTitle>
+            <DialogTitle>
+              {isViewingLostAsset ? "Asset Loss Reason" : "Unreturned Asset Reason"}
+            </DialogTitle>
             <DialogDescription>
-              Reason provided for the lost asset.
+              {isViewingLostAsset 
+                ? "Reason provided for the lost asset." 
+                : "Reason provided for why the asset was not returned."
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -1641,6 +1651,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               onClick={() => {
                 setShowReasonViewDialog(false);
                 setSelectedReason('');
+                setIsViewingLostAsset(false);
               }}
               data-testid="button-close-reason-view"
             >
