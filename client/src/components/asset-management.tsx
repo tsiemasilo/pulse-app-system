@@ -112,6 +112,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     },
   });
 
+  // Fetch today's asset loss records for live status checking
+  const { data: assetLossRecords = [] } = useQuery<any[]>({
+    queryKey: ['/api/asset-loss', getCurrentDateKey()],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/asset-loss?date=${getCurrentDateKey()}`);
+      return response.json();
+    },
+  });
+
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
