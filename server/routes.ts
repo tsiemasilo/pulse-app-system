@@ -633,7 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'hr' && user?.role !== 'admin') {
+      if (user?.role !== 'hr' && user?.role !== 'admin' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
       
@@ -648,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'hr' && user?.role !== 'admin') {
+      if (user?.role !== 'hr' && user?.role !== 'admin' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -665,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/terminations', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'hr' && user?.role !== 'admin') {
+      if (user?.role !== 'hr' && user?.role !== 'admin' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
       
@@ -680,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/terminations', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'hr' && user?.role !== 'admin') {
+      if (user?.role !== 'hr' && user?.role !== 'admin' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
