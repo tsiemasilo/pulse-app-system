@@ -130,7 +130,7 @@ export default function TeamLeaderDashboard() {
         { icon: UserX, label: 'Terminations', key: 'terminations' },
         { icon: Laptop, label: 'Asset Control', key: 'assets' },
         { icon: BarChart3, label: 'Reports', key: 'reports' },
-        { icon: Users, label: 'Employees', key: 'employees' },
+        { icon: Users, label: 'My Team', key: 'employees' },
         { icon: UserPlus, label: 'Onboarding', key: 'onboarding' },
       ]
     }
@@ -207,72 +207,6 @@ export default function TeamLeaderDashboard() {
               />
             </div>
 
-            {/* My Team Members */}
-            {teamMembers.length > 0 && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    My Team ({teamMembers.length} Members)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {teamMembers.map((member) => {
-                      const memberAttendance = attendanceRecords.find(att => att.userId === member.id);
-                      const attendanceStatus = memberAttendance?.status || 'absent';
-                      
-                      return (
-                        <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex items-center gap-3 mb-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                                {`${member.firstName?.[0] || ''}${member.lastName?.[0] || ''}`.toUpperCase() || 'A'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 dark:text-white">
-                                {member.firstName && member.lastName 
-                                  ? `${member.firstName} ${member.lastName}` 
-                                  : member.username || 'Unknown User'}
-                              </h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">@{member.username}</p>
-                            </div>
-                            <Badge 
-                              className={`text-xs ${
-                                attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
-                                attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)}
-                            </Badge>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            {member.email && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Mail className="h-4 w-4" />
-                                <span className="truncate">{member.email}</span>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="outline" className="text-xs">
-                                {member.role === 'agent' ? 'Agent' : member.role}
-                              </Badge>
-                              <span className="text-xs text-gray-500">
-                                {member.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             
             {/* Attendance Table */}
             <Card>
