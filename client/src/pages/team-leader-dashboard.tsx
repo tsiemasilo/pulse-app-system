@@ -143,7 +143,7 @@ export default function TeamLeaderDashboard() {
           <div className="space-y-6 animate-in fade-in-50 duration-500">
             {/* Header Section */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-6 border border-blue-100 dark:border-blue-800/30">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user?.firstName || 'Team Leader'}</h2>
                   <p className="text-blue-600 dark:text-blue-400">Here's your workforce overview for today</p>
@@ -153,12 +153,10 @@ export default function TeamLeaderDashboard() {
                   <p className="text-xl font-semibold text-gray-900 dark:text-white">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                 </div>
               </div>
-            </div>
-
-            {/* Reporting Manager Info */}
-            {reportingManager && (
-              <Card className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                <CardContent className="p-4">
+              
+              {/* Reports To Section */}
+              {reportingManager && (
+                <div className="border-t border-blue-200 dark:border-blue-700 pt-4">
                   <div className="flex items-center gap-3">
                     <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <div>
@@ -173,9 +171,9 @@ export default function TeamLeaderDashboard() {
                       </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* TL Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
