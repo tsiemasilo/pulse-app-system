@@ -25,12 +25,7 @@ import { ArrowRightLeft, Calendar, User, Building2 } from "lucide-react";
 import { z } from "zod";
 import type { Transfer, User as UserType, Department } from "@shared/schema";
 
-const transferFormSchema = insertTransferSchema.omit({ 
-  userId: true, 
-  transferType: true,
-  fromDepartmentId: true,
-  toDepartmentId: true 
-}).extend({
+const transferFormSchema = insertTransferSchema.extend({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
 });
@@ -56,8 +51,12 @@ export default function TransferManagement() {
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
+      userId: "",
+      fromDepartmentId: "",
+      toDepartmentId: "",
       fromRole: "",
       toRole: "",
+      transferType: "temporary",
       startDate: "",
       endDate: "",
       reason: "",
@@ -69,10 +68,8 @@ export default function TransferManagement() {
     mutationFn: async (data: z.infer<typeof transferFormSchema>) => {
       const transferData = {
         ...data,
-        userId: "placeholder", // Will be set by backend based on context
-        transferType: "temporary", // Default type since field was removed
-        startDate: new Date(data.startDate).toISOString(),
-        endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
+        startDate: new Date(data.startDate),
+        endDate: data.endDate ? new Date(data.endDate) : null,
       };
       const res = await apiRequest("POST", "/api/transfers", transferData);
       return await res.json();
@@ -142,7 +139,104 @@ export default function TransferManagement() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="userId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Employee to Transfer</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-user">
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users.filter(u => u.role === 'agent' || u.role === 'team_leader').map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.firstName} {user.lastName} - {user.role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fromDepartmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>From Department</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-from-department">
+                              <SelectValue placeholder="Select current department" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="toDepartmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>To Department</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-to-department">
+                              <SelectValue placeholder="Select destination department" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="transferType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Transfer Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-transfer-type">
+                            <SelectValue placeholder="Select transfer type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="temporary">Temporary</SelectItem>
+                          <SelectItem value="permanent">Permanent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
