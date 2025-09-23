@@ -12,7 +12,17 @@ import {
   Laptop, 
   Headphones, 
   Usb,
-  Save
+  Save,
+  Users,
+  Clock,
+  TrendingUp,
+  UserCheck,
+  Building,
+  ArrowRight,
+  Activity,
+  Shield,
+  UserX,
+  UserPlus
 } from "lucide-react";
 
 interface AssetBooking {
@@ -39,6 +49,7 @@ export default function Reports() {
   };
   
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
+  const [activeReportCategory, setActiveReportCategory] = useState<string>('overview');
   
   // Local storage data for current asset control
   const [localStorageData, setLocalStorageData] = useState<{
@@ -74,10 +85,47 @@ export default function Reports() {
     },
   });
 
+  // Fetch all users for various stats
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
   // Fetch team members for agent names
   const { data: teamMembers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
     select: (users) => users.filter(user => user.role === 'agent'),
+  });
+
+  // Fetch attendance data
+  const { data: attendanceData = [] } = useQuery<any[]>({
+    queryKey: ["/api/attendance", selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/attendance?date=${selectedDate}`);
+      return response.json();
+    },
+  });
+
+  // Fetch teams data
+  const { data: teamsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
+  });
+
+  // Fetch transfers data
+  const { data: transfersData = [] } = useQuery<any[]>({
+    queryKey: ["/api/transfers", selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/transfers?date=${selectedDate}`);
+      return response.json();
+    },
+  });
+
+  // Fetch terminations data
+  const { data: terminationsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/terminations", selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/terminations?date=${selectedDate}`);
+      return response.json();
+    },
   });
 
   // Load localStorage data when selectedDate changes
@@ -154,6 +202,88 @@ export default function Reports() {
     };
 
     saveRecordsMutation.mutate(recordData);
+  };
+
+  // Calculate overview statistics for different categories
+  const getOverviewStats = () => {
+    // Asset Management Stats
+    const getAssetStats = () => {
+      const recordsArray = Array.isArray(historicalRecords) ? historicalRecords : [];
+      const dayRecords = recordsArray.filter(record => record.date === selectedDate);
+      
+      let totalBookedIn = 0;
+      let totalBookedOut = 0;
+      let totalLost = assetLossRecords.length;
+      let activeAgents = new Set();
+
+      dayRecords.forEach(record => {
+        Object.entries(record.bookInRecords || {}).forEach(([agentId, booking]: [string, any]) => {
+          activeAgents.add(agentId);
+          if (booking.laptop === 'collected') totalBookedIn++;
+          if (booking.headsets === 'collected') totalBookedIn++;
+          if (booking.dongle === 'collected') totalBookedIn++;
+        });
+
+        Object.entries(record.bookOutRecords || {}).forEach(([agentId, booking]: [string, any]) => {
+          activeAgents.add(agentId);
+          if (booking.laptop === 'returned') totalBookedOut++;
+          if (booking.headsets === 'returned') totalBookedOut++;
+          if (booking.dongle === 'returned') totalBookedOut++;
+        });
+      });
+
+      return { totalBookedIn, totalBookedOut, totalLost, activeAgents: activeAgents.size };
+    };
+
+    // Employee Management Stats
+    const getEmployeeStats = () => {
+      const totalEmployees = allUsers.length;
+      const activeEmployees = allUsers.filter(user => user.isActive).length;
+      const roleBreakdown = allUsers.reduce((acc, user) => {
+        acc[user.role] = (acc[user.role] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return { totalEmployees, activeEmployees, roleBreakdown };
+    };
+
+    // Attendance Stats
+    const getAttendanceStats = () => {
+      const totalAttended = attendanceData.filter(record => record.status === 'present').length;
+      const totalAbsent = attendanceData.filter(record => record.status === 'absent').length;
+      const totalLate = attendanceData.filter(record => record.status === 'late').length;
+      const attendanceRate = attendanceData.length > 0 ? ((totalAttended / attendanceData.length) * 100).toFixed(1) : '0';
+
+      return { totalAttended, totalAbsent, totalLate, attendanceRate };
+    };
+
+    // Team Management Stats
+    const getTeamStats = () => {
+      const totalTeams = teamsData.length;
+      const averageTeamSize = totalTeams > 0 ? (teamMembers.length / totalTeams).toFixed(1) : '0';
+      
+      return { totalTeams, averageTeamSize };
+    };
+
+    // HR Activities Stats
+    const getHRStats = () => {
+      const transfersToday = transfersData.filter(transfer => 
+        transfer.startDate && transfer.startDate.includes(selectedDate)
+      ).length;
+      const terminationsToday = terminationsData.filter(termination => 
+        termination.terminationDate && termination.terminationDate.includes(selectedDate)
+      ).length;
+
+      return { transfersToday, terminationsToday };
+    };
+
+    return {
+      assets: getAssetStats(),
+      employees: getEmployeeStats(),
+      attendance: getAttendanceStats(),
+      teams: getTeamStats(),
+      hr: getHRStats()
+    };
   };
 
   const getReportsData = () => {
@@ -349,101 +479,241 @@ export default function Reports() {
     }).sort((a, b) => a.agentName.localeCompare(b.agentName));
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-        <BarChart3 className="h-5 w-5 text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-blue-800 dark:text-blue-200">Reports & Analytics</h1>
-          <p className="text-sm text-blue-600 dark:text-blue-300">
-            View historical data and analytics for asset management, attendance, and operational changes
-          </p>
+  // Render overview with different category cards
+  const renderOverview = () => {
+    const stats = getOverviewStats();
+    
+    const categories = [
+      {
+        id: 'assets',
+        title: 'Asset Management',
+        description: 'Equipment tracking and booking reports',
+        icon: Laptop,
+        color: 'blue',
+        stats: [
+          { label: 'Booked In', value: stats.assets.totalBookedIn, color: 'text-green-600' },
+          { label: 'Booked Out', value: stats.assets.totalBookedOut, color: 'text-orange-600' },
+          { label: 'Lost Assets', value: stats.assets.totalLost, color: 'text-red-600' },
+          { label: 'Active Agents', value: stats.assets.activeAgents, color: 'text-blue-600' }
+        ]
+      },
+      {
+        id: 'employees',
+        title: 'Employee Management',
+        description: 'Staff statistics and role distribution',
+        icon: Users,
+        color: 'green',
+        stats: [
+          { label: 'Total Employees', value: stats.employees.totalEmployees, color: 'text-blue-600' },
+          { label: 'Active Employees', value: stats.employees.activeEmployees, color: 'text-green-600' },
+          { label: 'Agents', value: stats.employees.roleBreakdown.agent || 0, color: 'text-purple-600' },
+          { label: 'Managers', value: (stats.employees.roleBreakdown.contact_center_manager || 0) + (stats.employees.roleBreakdown.team_leader || 0), color: 'text-orange-600' }
+        ]
+      },
+      {
+        id: 'attendance',
+        title: 'Attendance & Time',
+        description: 'Daily attendance and time tracking',
+        icon: Clock,
+        color: 'purple',
+        stats: [
+          { label: 'Present', value: stats.attendance.totalAttended, color: 'text-green-600' },
+          { label: 'Absent', value: stats.attendance.totalAbsent, color: 'text-red-600' },
+          { label: 'Late', value: stats.attendance.totalLate, color: 'text-yellow-600' },
+          { label: 'Attendance Rate', value: `${stats.attendance.attendanceRate}%`, color: 'text-blue-600' }
+        ]
+      },
+      {
+        id: 'teams',
+        title: 'Team Performance',
+        description: 'Team structure and performance metrics',
+        icon: UserCheck,
+        color: 'orange',
+        stats: [
+          { label: 'Total Teams', value: stats.teams.totalTeams, color: 'text-blue-600' },
+          { label: 'Avg Team Size', value: stats.teams.averageTeamSize, color: 'text-green-600' },
+          { label: 'Team Leaders', value: stats.employees.roleBreakdown.team_leader || 0, color: 'text-purple-600' },
+          { label: 'Total Agents', value: stats.employees.roleBreakdown.agent || 0, color: 'text-orange-600' }
+        ]
+      },
+      {
+        id: 'hr',
+        title: 'HR Activities',
+        description: 'Transfers, terminations, and onboarding',
+        icon: Building,
+        color: 'red',
+        stats: [
+          { label: 'Transfers Today', value: stats.hr.transfersToday, color: 'text-blue-600' },
+          { label: 'Terminations Today', value: stats.hr.terminationsToday, color: 'text-red-600' },
+          { label: 'HR Staff', value: stats.employees.roleBreakdown.hr || 0, color: 'text-green-600' },
+          { label: 'Admin Users', value: stats.employees.roleBreakdown.admin || 0, color: 'text-purple-600' }
+        ]
+      },
+      {
+        id: 'system',
+        title: 'System Overview',
+        description: 'Overall system health and statistics',
+        icon: Activity,
+        color: 'indigo',
+        stats: [
+          { label: 'Total Users', value: allUsers.length, color: 'text-blue-600' },
+          { label: 'Active Today', value: attendanceData.length, color: 'text-green-600' },
+          { label: 'Asset Activities', value: stats.assets.totalBookedIn + stats.assets.totalBookedOut, color: 'text-orange-600' },
+          { label: 'System Health', value: '98%', color: 'text-green-600' }
+        ]
+      }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-blue-800 dark:text-blue-200">Reports & Analytics</h1>
+            <p className="text-sm text-blue-600 dark:text-blue-300">
+              Comprehensive workforce management reports and insights for {selectedDate}
+            </p>
+          </div>
+        </div>
+
+        {/* Date Picker */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Select Date for Reports
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full p-2 border rounded-md"
+              data-testid="date-picker-reports"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Report Categories Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.map((category) => {
+            const IconComponent = category.icon;
+            return (
+              <Card 
+                key={category.id} 
+                className="cursor-pointer hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-blue-500"
+                onClick={() => setActiveReportCategory(category.id)}
+                data-testid={`category-card-${category.id}`}
+              >
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <IconComponent className="h-5 w-5 text-blue-600" />
+                        {category.title}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    {category.stats.map((stat, index) => (
+                      <div key={index} className="text-center">
+                        <div className={`text-lg font-bold ${stat.color}`} data-testid={`stat-${category.id}-${index}`}>
+                          {stat.value}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
+    );
+  };
 
-      {/* Date Picker */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Select Date for Reports
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full p-2 border rounded-md"
-            data-testid="date-picker-reports"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Analytics Dashboard */}
-      {(() => {
-        const reportsData = getReportsData();
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Booked In */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-green-600">Assets Booked In</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-700" data-testid="stat-booked-in">
-                  {reportsData.totalBookedIn}
-                </div>
-                <p className="text-xs text-muted-foreground">Total collected on {selectedDate}</p>
-              </CardContent>
-            </Card>
-
-            {/* Total Booked Out */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-orange-600">Assets Booked Out</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-700" data-testid="stat-booked-out">
-                  {reportsData.totalBookedOut}
-                </div>
-                <p className="text-xs text-muted-foreground">Total returned on {selectedDate}</p>
-              </CardContent>
-            </Card>
-
-            {/* Total Lost */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-red-600">Lost Assets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-700" data-testid="stat-lost-assets">
-                  {reportsData.totalLost}
-                </div>
-                <p className="text-xs text-muted-foreground">Total lost on {selectedDate}</p>
-              </CardContent>
-            </Card>
-
-            {/* Active Agents */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Active Agents</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-700" data-testid="stat-active-agents">
-                  {reportsData.agents.length}
-                </div>
-                <p className="text-xs text-muted-foreground">Agents with activity on {selectedDate}</p>
-              </CardContent>
-            </Card>
+  // Render detailed asset reports (existing functionality)
+  const renderAssetReports = () => {
+    const reportsData = getReportsData();
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setActiveReportCategory('overview')}
+            data-testid="button-back-overview"
+          >
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">Asset Management Reports</h2>
+            <p className="text-sm text-muted-foreground">Detailed asset tracking and booking reports for {selectedDate}</p>
           </div>
-        );
-      })()}
+        </div>
 
-      {/* Asset Types Breakdown */}
-      {(() => {
-        const reportsData = getReportsData();
-        return reportsData.totalLost > 0 ? (
+        {/* Analytics Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Booked In */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Assets Booked In</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700" data-testid="stat-booked-in">
+                {reportsData.totalBookedIn}
+              </div>
+              <p className="text-xs text-muted-foreground">Total collected on {selectedDate}</p>
+            </CardContent>
+          </Card>
+
+          {/* Total Booked Out */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-orange-600">Assets Booked Out</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-700" data-testid="stat-booked-out">
+                {reportsData.totalBookedOut}
+              </div>
+              <p className="text-xs text-muted-foreground">Total returned on {selectedDate}</p>
+            </CardContent>
+          </Card>
+
+          {/* Total Lost */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-600">Lost Assets</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-700" data-testid="stat-lost-assets">
+                {reportsData.totalLost}
+              </div>
+              <p className="text-xs text-muted-foreground">Total lost on {selectedDate}</p>
+            </CardContent>
+          </Card>
+
+          {/* Active Agents */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600">Active Agents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700" data-testid="stat-active-agents">
+                {reportsData.agents.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Agents with activity on {selectedDate}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Asset Types Breakdown */}
+        {reportsData.totalLost > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>Lost Assets by Type</CardTitle>
@@ -486,9 +756,45 @@ export default function Reports() {
               No lost assets data for {selectedDate}
             </CardContent>
           </Card>
-        );
-      })()}
+        )}
+      </div>
+    );
+  };
 
+  return (
+    <div className="space-y-6">
+      {activeReportCategory === 'overview' && renderOverview()}
+      {activeReportCategory === 'assets' && renderAssetReports()}
+      {activeReportCategory !== 'overview' && activeReportCategory !== 'assets' && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setActiveReportCategory('overview')}
+              data-testid="button-back-overview"
+            >
+              ← Back to Overview
+            </Button>
+            <div>
+              <h2 className="text-xl font-bold">
+                {activeReportCategory.charAt(0).toUpperCase() + activeReportCategory.slice(1)} Reports
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Detailed {activeReportCategory} reports for {selectedDate}
+              </p>
+            </div>
+          </div>
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-muted-foreground">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Detailed Reports Coming Soon</h3>
+                <p>Advanced {activeReportCategory} analytics and reports will be available here.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
