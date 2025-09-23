@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { 
   Users, 
   UserCheck, 
@@ -320,20 +321,12 @@ export default function TeamLeaderDashboard() {
       {/* Sidebar */}
       <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
-              <div className="relative">
-                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full pulse-animation"></div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Pulse
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Workforce Management</p>
-            </div>
+          <div className="flex items-center">
+            <img 
+              src={alteramLogo} 
+              alt="Alteram Solutions" 
+              className="h-8 w-auto"
+            />
           </div>
         </div>
         
