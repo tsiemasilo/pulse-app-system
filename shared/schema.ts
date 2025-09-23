@@ -35,7 +35,7 @@ export const departments = pgTable("departments", {
 });
 
 // User storage table with local authentication
-export const users = pgTable("users", {
+export const users: any = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: varchar("username").unique().notNull(),
   password: text("password").notNull(),
