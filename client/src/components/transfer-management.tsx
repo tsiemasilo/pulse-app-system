@@ -10,6 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
@@ -264,52 +272,52 @@ export default function TransferManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-border rounded-lg">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="border border-border p-3 text-left font-medium">Employee</th>
-                <th className="border border-border p-3 text-left font-medium">Transfer Type</th>
-                <th className="border border-border p-3 text-left font-medium">From → To Departments</th>
-                <th className="border border-border p-3 text-left font-medium">Role Change</th>
-                <th className="border border-border p-3 text-left font-medium">Start Date</th>
-                <th className="border border-border p-3 text-left font-medium">End Date</th>
-                <th className="border border-border p-3 text-left font-medium">Status</th>
-                <th className="border border-border p-3 text-left font-medium">Reason</th>
-                <th className="border border-border p-3 text-left font-medium">Requested By</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[180px]">Employee</TableHead>
+                <TableHead>Transfer Type</TableHead>
+                <TableHead>From → To Departments</TableHead>
+                <TableHead>Role Change</TableHead>
+                <TableHead>Start Date</TableHead>
+                <TableHead>End Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Requested By</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {transfers.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="border border-border p-8 text-center text-muted-foreground">
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center">
                     No agent transfers found. Create a new transfer to get started.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 transfers.map((transfer) => (
-                  <tr key={transfer.id} className="hover:bg-muted/30" data-testid={`row-transfer-${transfer.id}`}>
-                    <td className="border border-border p-3">
+                  <TableRow key={transfer.id} data-testid={`row-transfer-${transfer.id}`}>
+                    <TableCell>
                       <div className="flex items-center space-x-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium" data-testid={`text-user-${transfer.id}`}>
                           {getUserName(transfer.userId)}
                         </span>
                       </div>
-                    </td>
-                    <td className="border border-border p-3">
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="secondary" data-testid={`badge-type-${transfer.id}`}>
                         {transfer.transferType}
                       </Badge>
-                    </td>
-                    <td className="border border-border p-3">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center space-x-2 text-sm">
                         <span>{getDepartmentName(transfer.fromDepartmentId || '')}</span>
                         <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
                         <span>{getDepartmentName(transfer.toDepartmentId)}</span>
                       </div>
-                    </td>
-                    <td className="border border-border p-3 text-sm">
+                    </TableCell>
+                    <TableCell className="text-sm">
                       {transfer.fromRole && transfer.toRole ? (
                         <div className="flex items-center space-x-2">
                           <span>{transfer.fromRole}</span>
@@ -319,19 +327,19 @@ export default function TransferManagement() {
                       ) : (
                         <span className="text-muted-foreground">No role change</span>
                       )}
-                    </td>
-                    <td className="border border-border p-3 text-sm" data-testid={`text-start-date-${transfer.id}`}>
+                    </TableCell>
+                    <TableCell className="text-sm" data-testid={`text-start-date-${transfer.id}`}>
                       {new Date(transfer.startDate).toLocaleDateString()}
-                    </td>
-                    <td className="border border-border p-3 text-sm" data-testid={`text-end-date-${transfer.id}`}>
+                    </TableCell>
+                    <TableCell className="text-sm" data-testid={`text-end-date-${transfer.id}`}>
                       {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
-                    </td>
-                    <td className="border border-border p-3">
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className={getStatusColor(transfer.status)} data-testid={`badge-status-${transfer.id}`}>
                         {transfer.status}
                       </Badge>
-                    </td>
-                    <td className="border border-border p-3 text-sm max-w-xs" data-testid={`text-reason-${transfer.id}`}>
+                    </TableCell>
+                    <TableCell className="max-w-xs" data-testid={`text-reason-${transfer.id}`}>
                       {transfer.reason ? (
                         <span className="truncate block" title={transfer.reason}>
                           {transfer.reason}
@@ -339,15 +347,15 @@ export default function TransferManagement() {
                       ) : (
                         <span className="text-muted-foreground">No reason provided</span>
                       )}
-                    </td>
-                    <td className="border border-border p-3 text-sm" data-testid={`text-requested-by-${transfer.id}`}>
+                    </TableCell>
+                    <TableCell className="text-sm" data-testid={`text-requested-by-${transfer.id}`}>
                       {getUserName(transfer.requestedBy)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>
