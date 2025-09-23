@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Design
 - **Primary Database**: PostgreSQL with connection pooling via Neon Database serverless driver
-- **Shared Database URL**: postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+- **Database Configuration**: Uses environment variables DATABASE_URL or NETLIFY_DATABASE_URL for secure connection
 - **Schema Structure**: 
   - Users table with role-based access control (admin, hr, contact_center_ops_manager, contact_center_manager, team_leader, agent)
   - Departments table for organizational structure
