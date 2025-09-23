@@ -652,7 +652,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const transferData = insertTransferSchema.parse(req.body);
+      // Create API schema that accepts date strings and converts them
+      const transferApiSchema = insertTransferSchema.extend({
+        startDate: z.string().transform((str) => new Date(str)),
+        endDate: z.string().nullable().transform((str) => str ? new Date(str) : null),
+      });
+
+      const transferData = transferApiSchema.parse(req.body);
       const transfer = await storage.createTransfer(transferData);
       res.json(transfer);
     } catch (error) {
