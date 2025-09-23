@@ -164,9 +164,9 @@ export default function TeamLeaderDashboard() {
                       <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                         Reports To
                       </p>
-                      <p className="font-semibold text-blue-800 dark:text-blue-200">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                         {reportingManager.firstName} {reportingManager.lastName}
-                        <span className="ml-2 text-sm font-normal text-blue-600 dark:text-blue-400">
+                        <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
                           ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
                         </span>
                       </p>
