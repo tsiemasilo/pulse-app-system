@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from "recharts";
 import { 
   BarChart3, 
   Calendar, 
@@ -22,7 +24,11 @@ import {
   Activity,
   Shield,
   UserX,
-  UserPlus
+  UserPlus,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Settings
 } from "lucide-react";
 
 interface AssetBooking {
@@ -1157,11 +1163,778 @@ export default function Reports() {
     );
   };
 
+  // Employee Management Reports
+  const renderEmployeeReports = () => {
+    const stats = getOverviewStats();
+    const employeeStats = stats.employees;
+    
+    // Prepare data for charts
+    const roleData = Object.entries(employeeStats.roleBreakdown).map(([role, count]) => ({
+      role: role.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      count: count as number,
+      percentage: (((count as number) / employeeStats.totalEmployees) * 100).toFixed(1)
+    }));
+
+    const activeVsInactiveData = [
+      { status: 'Active', count: employeeStats.activeEmployees, color: '#22c55e' },
+      { status: 'Inactive', count: employeeStats.totalEmployees - employeeStats.activeEmployees, color: '#ef4444' }
+    ];
+
+    const chartConfig = {
+      count: { label: "Count", color: "#8884d8" },
+      active: { label: "Active", color: "#22c55e" },
+      inactive: { label: "Inactive", color: "#ef4444" }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setActiveReportCategory('overview')} data-testid="button-back-overview">
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">Employee Management Reports</h2>
+            <p className="text-sm text-muted-foreground">Detailed staff analytics and role distribution for {selectedDate}</p>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600">Total Employees</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700" data-testid="total-employees">
+                {employeeStats.totalEmployees}
+              </div>
+              <p className="text-xs text-muted-foreground">All registered staff</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Active Staff</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700" data-testid="active-employees">
+                {employeeStats.activeEmployees}
+              </div>
+              <p className="text-xs text-muted-foreground">Currently active employees</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-600">Agents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700" data-testid="total-agents">
+                {employeeStats.roleBreakdown.agent || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Contact center agents</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-orange-600">Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-700" data-testid="total-managers">
+                {(employeeStats.roleBreakdown.team_leader || 0) + (employeeStats.roleBreakdown.contact_center_manager || 0) + (employeeStats.roleBreakdown.admin || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">Leaders & supervisors</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Role Distribution Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Role Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <BarChart data={roleData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="role" angle={-45} textAnchor="end" height={100} />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="#8884d8" />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Employee Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <PieChart>
+                  <Pie
+                    data={activeVsInactiveData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="count"
+                    label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  >
+                    {activeVsInactiveData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Staff Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Staff Directory</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Email</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      {`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {user.role.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.isActive ? "default" : "secondary"}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{user.email || 'No email'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // Attendance Reports
+  const renderAttendanceReports = () => {
+    const stats = getOverviewStats();
+    const attendanceStats = stats.attendance;
+
+    // Prepare attendance trend data
+    const attendanceTrendData = [
+      { day: 'Present', count: attendanceStats.totalAttended, color: '#22c55e' },
+      { day: 'Absent', count: attendanceStats.totalAbsent, color: '#ef4444' },
+      { day: 'Late', count: attendanceStats.totalLate, color: '#f59e0b' }
+    ];
+
+    const chartConfig = {
+      count: { label: "Count", color: "#8884d8" },
+      present: { label: "Present", color: "#22c55e" },
+      absent: { label: "Absent", color: "#ef4444" },
+      late: { label: "Late", color: "#f59e0b" }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setActiveReportCategory('overview')} data-testid="button-back-overview">
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">Attendance & Time Reports</h2>
+            <p className="text-sm text-muted-foreground">Daily attendance tracking and time management for {selectedDate}</p>
+          </div>
+        </div>
+
+        {/* Attendance Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Present
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700" data-testid="attendance-present">
+                {attendanceStats.totalAttended}
+              </div>
+              <p className="text-xs text-muted-foreground">Employees present today</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-600 flex items-center gap-2">
+                <XCircle className="h-4 w-4" />
+                Absent
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-700" data-testid="attendance-absent">
+                {attendanceStats.totalAbsent}
+              </div>
+              <p className="text-xs text-muted-foreground">Employees absent today</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-yellow-600 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Late
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-700" data-testid="attendance-late">
+                {attendanceStats.totalLate}
+              </div>
+              <p className="text-xs text-muted-foreground">Employees late today</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700" data-testid="attendance-rate">
+                {attendanceStats.attendanceRate}%
+              </div>
+              <p className="text-xs text-muted-foreground">Overall attendance rate</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Attendance Visualization */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <PieChart>
+                  <Pie
+                    data={attendanceTrendData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="count"
+                    label={({ day, count }) => `${day}: ${count}`}
+                  >
+                    {attendanceTrendData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Status Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <BarChart data={attendanceTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="#8884d8" />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Attendance Records */}
+        {attendanceData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Attendance Records</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Clock In</TableHead>
+                    <TableHead>Clock Out</TableHead>
+                    <TableHead>Hours Worked</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attendanceData.map((record) => {
+                    const user = allUsers.find(u => u.id === record.userId);
+                    const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">{userName}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            record.status === 'present' ? 'default' :
+                            record.status === 'late' ? 'secondary' : 'destructive'
+                          }>
+                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{record.clockIn ? new Date(record.clockIn).toLocaleTimeString() : '-'}</TableCell>
+                        <TableCell>{record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : '-'}</TableCell>
+                        <TableCell>{record.hoursWorked || 0} hours</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  // Team Performance Reports
+  const renderTeamReports = () => {
+    const stats = getOverviewStats();
+    const teamStats = stats.teams;
+
+    const teamPerformanceData = teamsData.map(team => {
+      const teamMembers = allUsers.filter(user => 
+        user.teamId === team.id || 
+        (user.role === 'agent' && user.reportsTo === team.leaderId)
+      );
+      
+      const teamAttendance = attendanceData.filter(record => 
+        teamMembers.some(member => member.id === record.userId)
+      );
+      
+      const presentCount = teamAttendance.filter(record => record.status === 'present').length;
+      const attendanceRate = teamAttendance.length > 0 ? (presentCount / teamAttendance.length * 100) : 0;
+      
+      const teamLeader = allUsers.find(user => user.id === team.leaderId);
+      
+      return {
+        name: team.name,
+        memberCount: teamMembers.length,
+        attendanceRate: Number(attendanceRate.toFixed(1)),
+        leaderName: teamLeader ? `${teamLeader.firstName || ''} ${teamLeader.lastName || ''}`.trim() || teamLeader.username : 'No Leader'
+      };
+    });
+
+    const chartConfig = {
+      attendanceRate: { label: "Attendance Rate", color: "#8884d8" },
+      memberCount: { label: "Team Size", color: "#82ca9d" }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setActiveReportCategory('overview')} data-testid="button-back-overview">
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">Team Performance Reports</h2>
+            <p className="text-sm text-muted-foreground">Team structure and performance metrics for {selectedDate}</p>
+          </div>
+        </div>
+
+        {/* Team Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Total Teams
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700" data-testid="teams-total">
+                {teamStats.totalTeams}
+              </div>
+              <p className="text-xs text-muted-foreground">Active teams</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600 flex items-center gap-2">
+                <UserCheck className="h-4 w-4" />
+                Avg Team Size
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700" data-testid="teams-avg-size">
+                {teamStats.averageTeamSize}
+              </div>
+              <p className="text-xs text-muted-foreground">Members per team</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-600 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Team Leaders
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700" data-testid="teams-leaders">
+                {allUsers.filter(user => user.role === 'team_leader').length}
+              </div>
+              <p className="text-xs text-muted-foreground">Active team leaders</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Team Performance Chart */}
+        {teamPerformanceData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Performance Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig}>
+                <BarChart data={teamPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="attendanceRate" fill="#8884d8" name="Attendance Rate %" />
+                  <Bar dataKey="memberCount" fill="#82ca9d" name="Team Size" />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Detailed Teams Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Team Name</TableHead>
+                  <TableHead>Leader</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Attendance Rate</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teamPerformanceData.map((team) => (
+                  <TableRow key={team.name}>
+                    <TableCell className="font-medium">{team.name}</TableCell>
+                    <TableCell>{team.leaderName}</TableCell>
+                    <TableCell>{team.memberCount}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full" 
+                            style={{ width: `${Math.min(team.attendanceRate, 100)}%` }}
+                          />
+                        </div>
+                        {team.attendanceRate}%
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default">Active</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // HR Activities Reports
+  const renderHRReports = () => {
+    const stats = getOverviewStats();
+    const hrStats = stats.hr;
+
+    const hrActivityData = [
+      { activity: 'Transfers', count: hrStats.transfersToday, color: '#3b82f6' },
+      { activity: 'Terminations', count: hrStats.terminationsToday, color: '#ef4444' }
+    ];
+
+    const chartConfig = {
+      count: { label: "Count", color: "#8884d8" },
+      transfers: { label: "Transfers", color: "#3b82f6" },
+      terminations: { label: "Terminations", color: "#ef4444" }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setActiveReportCategory('overview')} data-testid="button-back-overview">
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">HR Activities Reports</h2>
+            <p className="text-sm text-muted-foreground">Human resources activities and employee changes for {selectedDate}</p>
+          </div>
+        </div>
+
+        {/* HR Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600 flex items-center gap-2">
+                <ArrowRight className="h-4 w-4" />
+                Transfers Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700" data-testid="hr-transfers">
+                {hrStats.transfersToday}
+              </div>
+              <p className="text-xs text-muted-foreground">Employee transfers initiated</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-600 flex items-center gap-2">
+                <UserX className="h-4 w-4" />
+                Terminations Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-700" data-testid="hr-terminations">
+                {hrStats.terminationsToday}
+              </div>
+              <p className="text-xs text-muted-foreground">Employee terminations processed</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600 flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Active Employees
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700" data-testid="hr-active-employees">
+                {allUsers.filter(user => user.isActive).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Currently active staff</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-600 flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Total Activities
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700" data-testid="hr-total-activities">
+                {hrStats.transfersToday + hrStats.terminationsToday}
+              </div>
+              <p className="text-xs text-muted-foreground">All HR activities today</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* HR Activities Chart */}
+        {(hrStats.transfersToday > 0 || hrStats.terminationsToday > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>HR Activities Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig}>
+                  <PieChart>
+                    <Pie
+                      data={hrActivityData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="count"
+                      label={({ activity, count }) => `${activity}: ${count}`}
+                    >
+                      {hrActivityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Volume</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig}>
+                  <BarChart data={hrActivityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="activity" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="#8884d8" />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Recent Transfers */}
+        {transfersData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Transfers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>To</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transfersData.slice(0, 5).map((transfer) => {
+                    const user = allUsers.find(u => u.id === transfer.userId);
+                    const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
+                    return (
+                      <TableRow key={transfer.id}>
+                        <TableCell className="font-medium">{userName}</TableCell>
+                        <TableCell>{transfer.fromRole || 'N/A'}</TableCell>
+                        <TableCell>{transfer.toRole || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {transfer.transferType || 'Unknown'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={transfer.status === 'approved' ? 'default' : 'secondary'}>
+                            {transfer.status || 'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {transfer.startDate ? new Date(transfer.startDate).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent Terminations */}
+        {terminationsData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Terminations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {terminationsData.slice(0, 5).map((termination) => {
+                    const user = allUsers.find(u => u.id === termination.userId);
+                    const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
+                    return (
+                      <TableRow key={termination.id}>
+                        <TableCell className="font-medium">{userName}</TableCell>
+                        <TableCell>{termination.reason || 'Not specified'}</TableCell>
+                        <TableCell>
+                          <Badge variant={termination.status === 'completed' ? 'default' : 'secondary'}>
+                            {termination.status || 'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {termination.terminationDate ? new Date(termination.terminationDate).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No Activity Message */}
+        {hrStats.transfersToday === 0 && hrStats.terminationsToday === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-muted-foreground">
+                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No HR Activities Today</h3>
+                <p>There are no transfers or terminations recorded for {selectedDate}.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {activeReportCategory === 'overview' && renderOverview()}
       {activeReportCategory === 'assets' && renderAssetReports()}
       {activeReportCategory === 'leaderboard' && renderTeamLeaderboard()}
+      {activeReportCategory === 'employees' && renderEmployeeReports()}
+      {activeReportCategory === 'attendance' && renderAttendanceReports()}
+      {activeReportCategory === 'teams' && renderTeamReports()}
+      {activeReportCategory === 'hr' && renderHRReports()}
       {activeReportCategory !== 'overview' && activeReportCategory !== 'assets' && activeReportCategory !== 'leaderboard' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
