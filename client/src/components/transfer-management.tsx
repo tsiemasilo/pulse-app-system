@@ -264,28 +264,30 @@ export default function TransferManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        {transfers.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No agent transfers found. Create a new transfer to get started.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-border rounded-lg">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border p-3 text-left font-medium">Employee</th>
-                  <th className="border border-border p-3 text-left font-medium">Transfer Type</th>
-                  <th className="border border-border p-3 text-left font-medium">From → To Departments</th>
-                  <th className="border border-border p-3 text-left font-medium">Role Change</th>
-                  <th className="border border-border p-3 text-left font-medium">Start Date</th>
-                  <th className="border border-border p-3 text-left font-medium">End Date</th>
-                  <th className="border border-border p-3 text-left font-medium">Status</th>
-                  <th className="border border-border p-3 text-left font-medium">Reason</th>
-                  <th className="border border-border p-3 text-left font-medium">Requested By</th>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-border rounded-lg">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border border-border p-3 text-left font-medium">Employee</th>
+                <th className="border border-border p-3 text-left font-medium">Transfer Type</th>
+                <th className="border border-border p-3 text-left font-medium">From → To Departments</th>
+                <th className="border border-border p-3 text-left font-medium">Role Change</th>
+                <th className="border border-border p-3 text-left font-medium">Start Date</th>
+                <th className="border border-border p-3 text-left font-medium">End Date</th>
+                <th className="border border-border p-3 text-left font-medium">Status</th>
+                <th className="border border-border p-3 text-left font-medium">Reason</th>
+                <th className="border border-border p-3 text-left font-medium">Requested By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transfers.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="border border-border p-8 text-center text-muted-foreground">
+                    No agent transfers found. Create a new transfer to get started.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {transfers.map((transfer) => (
+              ) : (
+                transfers.map((transfer) => (
                   <tr key={transfer.id} className="hover:bg-muted/30" data-testid={`row-transfer-${transfer.id}`}>
                     <td className="border border-border p-3">
                       <div className="flex items-center space-x-2">
@@ -342,11 +344,11 @@ export default function TransferManagement() {
                       {getUserName(transfer.requestedBy)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );

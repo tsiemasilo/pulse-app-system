@@ -317,27 +317,29 @@ export default function TerminationManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        {terminations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No terminations on record.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-border rounded-lg">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border p-3 text-left font-medium">Employee</th>
-                  <th className="border border-border p-3 text-left font-medium">Termination Type</th>
-                  <th className="border border-border p-3 text-left font-medium">Termination Date</th>
-                  <th className="border border-border p-3 text-left font-medium">Last Working Day</th>
-                  <th className="border border-border p-3 text-left font-medium">Asset Return Status</th>
-                  <th className="border border-border p-3 text-left font-medium">Exit Interview</th>
-                  <th className="border border-border p-3 text-left font-medium">Reason</th>
-                  <th className="border border-border p-3 text-left font-medium">Processed By</th>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-border rounded-lg">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border border-border p-3 text-left font-medium">Employee</th>
+                <th className="border border-border p-3 text-left font-medium">Termination Type</th>
+                <th className="border border-border p-3 text-left font-medium">Termination Date</th>
+                <th className="border border-border p-3 text-left font-medium">Last Working Day</th>
+                <th className="border border-border p-3 text-left font-medium">Asset Return Status</th>
+                <th className="border border-border p-3 text-left font-medium">Exit Interview</th>
+                <th className="border border-border p-3 text-left font-medium">Reason</th>
+                <th className="border border-border p-3 text-left font-medium">Processed By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {terminations.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="border border-border p-8 text-center text-muted-foreground">
+                    No terminations on record.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {terminations.map((termination) => (
+              ) : (
+                terminations.map((termination) => (
                   <tr key={termination.id} className="hover:bg-muted/30" data-testid={`row-termination-${termination.id}`}>
                     <td className="border border-border p-3">
                       <div className="flex items-center space-x-2">
@@ -386,11 +388,11 @@ export default function TerminationManagement() {
                       {getUserName(termination.processedBy)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );
