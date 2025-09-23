@@ -51,6 +51,55 @@ export default function Reports() {
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
   const [activeReportCategory, setActiveReportCategory] = useState<string>('overview');
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+
+  // Utility function to calculate date ranges based on timeframe
+  const getDateRange = (selectedDate: string, timeframe: 'daily' | 'weekly' | 'monthly') => {
+    const baseDate = new Date(selectedDate);
+    
+    switch (timeframe) {
+      case 'daily':
+        return {
+          startDate: selectedDate,
+          endDate: selectedDate,
+          dates: [selectedDate]
+        };
+      
+      case 'weekly':
+        // Get the week containing the selected date (Sunday to Saturday)
+        const dayOfWeek = baseDate.getDay();
+        const startOfWeek = new Date(baseDate);
+        startOfWeek.setDate(baseDate.getDate() - dayOfWeek);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        
+        const weekDates = [];
+        for (let d = new Date(startOfWeek); d <= endOfWeek; d.setDate(d.getDate() + 1)) {
+          weekDates.push(d.toISOString().split('T')[0]);
+        }
+        
+        return {
+          startDate: startOfWeek.toISOString().split('T')[0],
+          endDate: endOfWeek.toISOString().split('T')[0],
+          dates: weekDates
+        };
+      
+      case 'monthly':
+        // Get the month containing the selected date
+        const startOfMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+        const endOfMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+        
+        const monthDates = [];
+        for (let d = new Date(startOfMonth); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
+          monthDates.push(d.toISOString().split('T')[0]);
+        }
+        
+        return {
+          startDate: startOfMonth.toISOString().split('T')[0],
+          endDate: endOfMonth.toISOString().split('T')[0],
+          dates: monthDates
+        };
+    }
+  };
   
   // Local storage data for current asset control
   const [localStorageData, setLocalStorageData] = useState<{
@@ -696,29 +745,86 @@ export default function Reports() {
   // Function to render team leaderboard with performance metrics
   const renderTeamLeaderboard = () => {
     const getTeamPerformanceData = () => {
+      const dateRange = getDateRange(selectedDate, timeframe);
+      
       return teamsData.map(team => {
         const teamMembers = allUsers.filter(user => {
           // Check if user belongs to this team (you may need to adjust this based on your data structure)
           return user.teamId === team.id || (team.leaderId && user.reportsTo === team.leaderId);
         });
         
-        // Calculate attendance metrics
-        const teamAttendance = attendanceData.filter(record => {
-          return teamMembers.some(member => member.id === record.userId);
+        // Calculate attendance metrics across the timeframe
+        let totalPresentCount = 0;
+        let totalAbsentCount = 0;
+        let totalLateCount = 0;
+        let totalAttendanceRecords = 0;
+        
+        // For each date in the range, get attendance data
+        dateRange.dates.forEach(date => {
+          // Note: In a real implementation, you'd want to fetch attendance data for each date
+          // For now, we'll use the current attendanceData if it matches the date
+          const dayAttendance = attendanceData.filter(record => {
+            const recordDate = new Date(record.date).toISOString().split('T')[0];
+            return recordDate === date && teamMembers.some(member => member.id === record.userId);
+          });
+          
+          totalPresentCount += dayAttendance.filter(record => record.status === 'present').length;
+          totalAbsentCount += dayAttendance.filter(record => record.status === 'absent').length;
+          totalLateCount += dayAttendance.filter(record => record.status === 'late').length;
+          totalAttendanceRecords += dayAttendance.length;
         });
         
-        const presentCount = teamAttendance.filter(record => record.status === 'present').length;
-        const absentCount = teamAttendance.filter(record => record.status === 'absent').length;
-        const lateCount = teamAttendance.filter(record => record.status === 'late').length;
-        const attendanceRate = teamAttendance.length > 0 ? (presentCount / teamAttendance.length * 100) : 0;
+        const attendanceRate = totalAttendanceRecords > 0 ? (totalPresentCount / totalAttendanceRecords * 100) : 0;
         
-        // Calculate asset compliance
+        // Calculate improved asset compliance across the timeframe
         let assetCompliance = 0;
         if (teamMembers.length > 0) {
           const compliantMembers = teamMembers.filter(member => {
-            const agentRecords = getConsolidatedAgentRecords().filter(record => record.agentId === member.id);
-            return agentRecords.length > 0;
+            // Check asset compliance for each date in the range
+            let memberCompliant = true;
+            
+            dateRange.dates.forEach(date => {
+              const dayRecords = historicalRecords.filter(record => record.date === date);
+              let hasProperBooking = false;
+              
+              dayRecords.forEach(record => {
+                const bookInRecord = record.bookInRecords?.[member.id];
+                const bookOutRecord = record.bookOutRecords?.[member.id];
+                
+                // Check if member has proper book-in and book-out for any assets
+                if (bookInRecord || bookOutRecord) {
+                  const hasBookIn = bookInRecord && (
+                    bookInRecord.laptop === 'collected' ||
+                    bookInRecord.headsets === 'collected' ||
+                    bookInRecord.dongle === 'collected'
+                  );
+                  const hasBookOut = bookOutRecord && (
+                    bookOutRecord.laptop === 'returned' ||
+                    bookOutRecord.headsets === 'returned' ||
+                    bookOutRecord.dongle === 'returned'
+                  );
+                  
+                  if (hasBookIn || hasBookOut) {
+                    hasProperBooking = true;
+                  }
+                }
+              });
+              
+              // Check for lost assets on this date
+              const hasLostAsset = assetLossRecords.some(asset => {
+                const lossDate = new Date(asset.dateLost).toISOString().split('T')[0];
+                return lossDate === date && asset.userId === member.id;
+              });
+              
+              // If member had activity but lost assets, reduce compliance
+              if (hasLostAsset) {
+                memberCompliant = false;
+              }
+            });
+            
+            return memberCompliant;
           });
+          
           assetCompliance = (compliantMembers.length / teamMembers.length) * 100;
         }
         
@@ -732,9 +838,9 @@ export default function Reports() {
           leaderName,
           memberCount: teamMembers.length,
           attendanceRate: Number(attendanceRate.toFixed(1)),
-          presentCount,
-          absentCount,
-          lateCount,
+          presentCount: totalPresentCount,
+          absentCount: totalAbsentCount,
+          lateCount: totalLateCount,
           assetCompliance: Number(assetCompliance.toFixed(1)),
           overallScore: Number(((attendanceRate * 0.7) + (assetCompliance * 0.3)).toFixed(1))
         };
@@ -755,7 +861,12 @@ export default function Reports() {
           </Button>
           <div>
             <h2 className="text-xl font-bold">Team Leaderboard</h2>
-            <p className="text-sm text-muted-foreground">Compare team leaders by team performance for {selectedDate}</p>
+            <p className="text-sm text-muted-foreground">
+              Compare team leaders by team performance 
+              {timeframe === 'daily' && `for ${selectedDate}`}
+              {timeframe === 'weekly' && `for week of ${selectedDate}`}
+              {timeframe === 'monthly' && `for month of ${selectedDate}`}
+            </p>
           </div>
         </div>
 
