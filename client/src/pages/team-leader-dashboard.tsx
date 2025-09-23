@@ -321,11 +321,11 @@ export default function TeamLeaderDashboard() {
       {/* Sidebar */}
       <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
+          <div className="flex items-center justify-center">
             <img 
               src={alteramLogo} 
               alt="Alteram Solutions" 
-              className="h-8 w-auto"
+              className="h-12 w-auto max-w-full object-contain"
             />
           </div>
         </div>
