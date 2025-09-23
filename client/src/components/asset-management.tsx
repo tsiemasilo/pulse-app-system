@@ -150,9 +150,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       
       if (isLost) return { status: 'Lost', color: 'bg-red-100 text-red-800' };
       if (bookOutStatus === 'not_returned') return { status: 'Not Returned', color: 'bg-red-100 text-red-800' };
-      if (bookOutStatus === 'returned') return { status: 'Returned', color: 'bg-green-100 text-green-800' };
+      if (bookOutStatus === 'returned') return { status: 'Returned to Team Leader', color: 'bg-green-100 text-green-800' };
       if (bookInStatus === 'not_collected') return { status: 'Not Collected', color: 'bg-yellow-100 text-yellow-800' };
-      if (bookInStatus === 'collected') return { status: 'Collected', color: 'bg-green-100 text-green-800' };
+      if (bookInStatus === 'collected') return { status: 'Collected from Team Leader', color: 'bg-green-100 text-green-800' };
       
       return { status: defaultStatus, color: 'bg-blue-100 text-blue-800' };
     };
@@ -411,7 +411,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }
     
     if (bookOutStatus === 'returned') {
-      return { status: 'Returned', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
+      return { status: 'Returned to Team Leader', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
     }
     
     if (bookOutStatus === 'not_returned') {
@@ -419,7 +419,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }
     
     if (bookInStatus === 'collected') {
-      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+      return { status: 'Collected from Team Leader', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
     }
     
     if (bookInStatus === 'not_collected') {
@@ -459,7 +459,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }
     
     if (bookOutStatus === 'returned') {
-      return { status: 'Returned', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
+      return { status: 'Returned to Team Leader', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
     }
     
     if (bookOutStatus === 'not_returned') {
@@ -467,7 +467,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     }
     
     if (bookInStatus === 'collected') {
-      return { status: 'Collected', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
+      return { status: 'Collected from Team Leader', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
     }
     
     if (bookInStatus === 'not_collected') {
