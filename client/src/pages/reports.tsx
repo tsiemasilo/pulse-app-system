@@ -50,6 +50,7 @@ export default function Reports() {
   
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
   const [activeReportCategory, setActiveReportCategory] = useState<string>('overview');
+  const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   
   // Local storage data for current asset control
   const [localStorageData, setLocalStorageData] = useState<{
@@ -202,6 +203,60 @@ export default function Reports() {
     };
 
     saveRecordsMutation.mutate(recordData);
+  };
+
+  // Helper functions for team leaderboard
+  const getTopPerformingTeam = () => {
+    if (teamsData.length === 0) return { name: 'No Teams', attendanceRate: '0' };
+    
+    // Calculate team performance based on attendance rates
+    const teamPerformance = teamsData.map(team => {
+      const teamAttendance = attendanceData.filter(record => {
+        const teamMembers = allUsers.filter(user => user.teamId === team.id);
+        return teamMembers.some(member => member.id === record.userId);
+      });
+      
+      const presentCount = teamAttendance.filter(record => record.status === 'present').length;
+      const attendanceRate = teamAttendance.length > 0 ? (presentCount / teamAttendance.length * 100).toFixed(1) : '0';
+      
+      return {
+        name: team.name,
+        attendanceRate: attendanceRate
+      };
+    });
+    
+    return teamPerformance.reduce((best, current) => 
+      parseFloat(current.attendanceRate) > parseFloat(best.attendanceRate) ? current : best,
+      teamPerformance[0] || { name: 'No Teams', attendanceRate: '0' }
+    );
+  };
+
+  const getTopAssetComplianceTeam = () => {
+    if (teamsData.length === 0) return { name: 'No Teams' };
+    
+    // Calculate asset compliance by team (based on proper asset booking)
+    const teamCompliance = teamsData.map(team => {
+      const teamMembers = allUsers.filter(user => user.teamId === team.id);
+      let complianceScore = 0;
+      
+      teamMembers.forEach(member => {
+        const agentRecords = getConsolidatedAgentRecords().filter(record => record.agentId === member.id);
+        // Simple compliance: if agent has proper asset bookings (booked in and out properly)
+        if (agentRecords.length > 0) {
+          complianceScore += 1;
+        }
+      });
+      
+      return {
+        name: team.name,
+        score: teamMembers.length > 0 ? (complianceScore / teamMembers.length * 100) : 0
+      };
+    });
+    
+    return teamCompliance.reduce((best, current) => 
+      current.score > best.score ? current : best,
+      teamCompliance[0] || { name: 'No Teams' }
+    );
   };
 
   // Calculate overview statistics for different categories
@@ -537,29 +592,29 @@ export default function Reports() {
         ]
       },
       {
-        id: 'hr',
-        title: 'HR Activities',
+        id: 'operations',
+        title: 'Staff Operations',
         description: 'Transfers, terminations, and onboarding',
         icon: Building,
         color: 'red',
         stats: [
           { label: 'Transfers Today', value: stats.hr.transfersToday, color: 'text-blue-600' },
           { label: 'Terminations Today', value: stats.hr.terminationsToday, color: 'text-red-600' },
-          { label: 'HR Staff', value: stats.employees.roleBreakdown.hr || 0, color: 'text-green-600' },
+          { label: 'Operations Staff', value: stats.employees.roleBreakdown.hr || 0, color: 'text-green-600' },
           { label: 'Admin Users', value: stats.employees.roleBreakdown.admin || 0, color: 'text-purple-600' }
         ]
       },
       {
-        id: 'system',
-        title: 'System Overview',
-        description: 'Overall system health and statistics',
-        icon: Activity,
+        id: 'leaderboard',
+        title: 'Team Leaderboard',
+        description: 'Compare team leaders by team performance',
+        icon: TrendingUp,
         color: 'indigo',
         stats: [
-          { label: 'Total Users', value: allUsers.length, color: 'text-blue-600' },
-          { label: 'Active Today', value: attendanceData.length, color: 'text-green-600' },
-          { label: 'Asset Activities', value: stats.assets.totalBookedIn + stats.assets.totalBookedOut, color: 'text-orange-600' },
-          { label: 'System Health', value: '98%', color: 'text-green-600' }
+          { label: 'Best Performing Team', value: teamsData.length > 0 ? getTopPerformingTeam().name : 'Loading...', color: 'text-green-600' },
+          { label: 'Top Attendance Rate', value: teamsData.length > 0 ? `${getTopPerformingTeam().attendanceRate}%` : '0%', color: 'text-blue-600' },
+          { label: 'Asset Compliance Leader', value: teamsData.length > 0 ? getTopAssetComplianceTeam().name : 'Loading...', color: 'text-purple-600' },
+          { label: 'Total Teams Ranked', value: teamsData.length, color: 'text-orange-600' }
         ]
       }
     ];
@@ -634,6 +689,236 @@ export default function Reports() {
             );
           })}
         </div>
+      </div>
+    );
+  };
+
+  // Function to render team leaderboard with performance metrics
+  const renderTeamLeaderboard = () => {
+    const getTeamPerformanceData = () => {
+      return teamsData.map(team => {
+        const teamMembers = allUsers.filter(user => {
+          // Check if user belongs to this team (you may need to adjust this based on your data structure)
+          return user.teamId === team.id || (team.leaderId && user.reportsTo === team.leaderId);
+        });
+        
+        // Calculate attendance metrics
+        const teamAttendance = attendanceData.filter(record => {
+          return teamMembers.some(member => member.id === record.userId);
+        });
+        
+        const presentCount = teamAttendance.filter(record => record.status === 'present').length;
+        const absentCount = teamAttendance.filter(record => record.status === 'absent').length;
+        const lateCount = teamAttendance.filter(record => record.status === 'late').length;
+        const attendanceRate = teamAttendance.length > 0 ? (presentCount / teamAttendance.length * 100) : 0;
+        
+        // Calculate asset compliance
+        let assetCompliance = 0;
+        if (teamMembers.length > 0) {
+          const compliantMembers = teamMembers.filter(member => {
+            const agentRecords = getConsolidatedAgentRecords().filter(record => record.agentId === member.id);
+            return agentRecords.length > 0;
+          });
+          assetCompliance = (compliantMembers.length / teamMembers.length) * 100;
+        }
+        
+        // Get team leader info
+        const teamLeader = allUsers.find(user => user.id === team.leaderId);
+        const leaderName = teamLeader ? `${teamLeader.firstName || ''} ${teamLeader.lastName || ''}`.trim() || teamLeader.username : 'No Leader';
+        
+        return {
+          id: team.id,
+          name: team.name,
+          leaderName,
+          memberCount: teamMembers.length,
+          attendanceRate: Number(attendanceRate.toFixed(1)),
+          presentCount,
+          absentCount,
+          lateCount,
+          assetCompliance: Number(assetCompliance.toFixed(1)),
+          overallScore: Number(((attendanceRate * 0.7) + (assetCompliance * 0.3)).toFixed(1))
+        };
+      }).sort((a, b) => b.overallScore - a.overallScore);
+    };
+    
+    const teamPerformance = getTeamPerformanceData();
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setActiveReportCategory('overview')}
+            data-testid="button-back-overview"
+          >
+            ← Back to Overview
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold">Team Leaderboard</h2>
+            <p className="text-sm text-muted-foreground">Compare team leaders by team performance for {selectedDate}</p>
+          </div>
+        </div>
+
+        {/* Timeframe Filter */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Performance Timeframe
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              {(['daily', 'weekly', 'monthly'] as const).map((period) => (
+                <Button
+                  key={period}
+                  variant={timeframe === period ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeframe(period)}
+                  data-testid={`timeframe-${period}`}
+                >
+                  {period.charAt(0).toUpperCase() + period.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Performance Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Top Performing Team</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-green-700" data-testid="top-team">
+                {teamPerformance[0]?.name || 'No Teams'}
+              </div>
+              <p className="text-xs text-muted-foreground">Score: {teamPerformance[0]?.overallScore || 0}%</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600">Best Attendance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-blue-700" data-testid="best-attendance">
+                {teamPerformance.reduce((best, current) => 
+                  current.attendanceRate > best.attendanceRate ? current : best, 
+                  teamPerformance[0] || { name: 'No Teams', attendanceRate: 0 }
+                ).name}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {teamPerformance.reduce((best, current) => 
+                  current.attendanceRate > best.attendanceRate ? current : best, 
+                  teamPerformance[0] || { attendanceRate: 0 }
+                ).attendanceRate}% attendance
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-600">Asset Compliance Leader</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-purple-700" data-testid="asset-leader">
+                {teamPerformance.reduce((best, current) => 
+                  current.assetCompliance > best.assetCompliance ? current : best, 
+                  teamPerformance[0] || { name: 'No Teams', assetCompliance: 0 }
+                ).name}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {teamPerformance.reduce((best, current) => 
+                  current.assetCompliance > best.assetCompliance ? current : best, 
+                  teamPerformance[0] || { assetCompliance: 0 }
+                ).assetCompliance}% compliance
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-orange-600">Total Teams</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-orange-700" data-testid="total-teams">
+                {teamsData.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Teams tracked</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Leaderboard Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Performance Rankings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rank</TableHead>
+                  <TableHead>Team Name</TableHead>
+                  <TableHead>Team Leader</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Attendance Rate</TableHead>
+                  <TableHead>Asset Compliance</TableHead>
+                  <TableHead>Overall Score</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teamPerformance.map((team, index) => (
+                  <TableRow key={team.id} data-testid={`team-row-${team.id}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">#{index + 1}</span>
+                        {index === 0 && <Badge variant="default" className="bg-yellow-100 text-yellow-800">🏆</Badge>}
+                        {index === 1 && <Badge variant="secondary" className="bg-gray-100 text-gray-800">🥈</Badge>}
+                        {index === 2 && <Badge variant="outline" className="bg-orange-100 text-orange-800">🥉</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{team.name}</TableCell>
+                    <TableCell>{team.leaderName}</TableCell>
+                    <TableCell>{team.memberCount}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className={team.attendanceRate >= 90 ? 'text-green-600' : team.attendanceRate >= 70 ? 'text-yellow-600' : 'text-red-600'}>
+                          {team.attendanceRate}%
+                        </span>
+                        <Badge variant={team.attendanceRate >= 90 ? 'default' : team.attendanceRate >= 70 ? 'secondary' : 'destructive'} className="text-xs">
+                          {team.presentCount}P {team.absentCount}A {team.lateCount}L
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={team.assetCompliance >= 80 ? 'text-green-600' : team.assetCompliance >= 60 ? 'text-yellow-600' : 'text-red-600'}>
+                        {team.assetCompliance}%
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={team.overallScore >= 85 ? 'default' : team.overallScore >= 70 ? 'secondary' : 'outline'}
+                        className={team.overallScore >= 85 ? 'bg-green-100 text-green-800' : team.overallScore >= 70 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}
+                      >
+                        {team.overallScore}%
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {teamPerformance.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No teams found for {selectedDate}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     );
   };
@@ -765,7 +1050,8 @@ export default function Reports() {
     <div className="space-y-6">
       {activeReportCategory === 'overview' && renderOverview()}
       {activeReportCategory === 'assets' && renderAssetReports()}
-      {activeReportCategory !== 'overview' && activeReportCategory !== 'assets' && (
+      {activeReportCategory === 'leaderboard' && renderTeamLeaderboard()}
+      {activeReportCategory !== 'overview' && activeReportCategory !== 'assets' && activeReportCategory !== 'leaderboard' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button 
