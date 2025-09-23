@@ -317,44 +317,80 @@ export default function TerminationManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {terminations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No terminations on record.
-            </div>
-          ) : (
-            terminations.map((termination) => (
-              <div key={termination.id} className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{getUserName(termination.userId)}</span>
-                    <Badge className={getTerminationTypeColor(termination.terminationType)}>
-                      {termination.terminationType}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{new Date(termination.terminationDate).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-4">
-                    <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')}>
-                      Assets: {termination.assetReturnStatus || 'pending'}
-                    </Badge>
-                  </div>
-                  <span className="text-muted-foreground">
-                    {new Date(termination.lastWorkingDay).toLocaleDateString()}
-                  </span>
-                </div>
-                {termination.reason && (
-                  <p className="text-sm text-muted-foreground mt-2">{termination.reason}</p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+        {terminations.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No terminations on record.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-border rounded-lg">
+              <thead>
+                <tr className="bg-muted/50">
+                  <th className="border border-border p-3 text-left font-medium">Employee</th>
+                  <th className="border border-border p-3 text-left font-medium">Termination Type</th>
+                  <th className="border border-border p-3 text-left font-medium">Termination Date</th>
+                  <th className="border border-border p-3 text-left font-medium">Last Working Day</th>
+                  <th className="border border-border p-3 text-left font-medium">Asset Return Status</th>
+                  <th className="border border-border p-3 text-left font-medium">Exit Interview</th>
+                  <th className="border border-border p-3 text-left font-medium">Reason</th>
+                  <th className="border border-border p-3 text-left font-medium">Processed By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {terminations.map((termination) => (
+                  <tr key={termination.id} className="hover:bg-muted/30" data-testid={`row-termination-${termination.id}`}>
+                    <td className="border border-border p-3">
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium" data-testid={`text-user-${termination.id}`}>
+                          {getUserName(termination.userId)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="border border-border p-3">
+                      <Badge className={getTerminationTypeColor(termination.terminationType)} data-testid={`badge-type-${termination.id}`}>
+                        {termination.terminationType}
+                      </Badge>
+                    </td>
+                    <td className="border border-border p-3 text-sm" data-testid={`text-termination-date-${termination.id}`}>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{new Date(termination.terminationDate).toLocaleDateString()}</span>
+                      </div>
+                    </td>
+                    <td className="border border-border p-3 text-sm" data-testid={`text-last-working-day-${termination.id}`}>
+                      {new Date(termination.lastWorkingDay).toLocaleDateString()}
+                    </td>
+                    <td className="border border-border p-3">
+                      <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')} data-testid={`badge-asset-status-${termination.id}`}>
+                        {termination.assetReturnStatus || 'pending'}
+                      </Badge>
+                    </td>
+                    <td className="border border-border p-3 text-center">
+                      {termination.exitInterviewCompleted ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" data-testid={`icon-interview-completed-${termination.id}`} />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-yellow-600 mx-auto" data-testid={`icon-interview-pending-${termination.id}`} />
+                      )}
+                    </td>
+                    <td className="border border-border p-3 text-sm max-w-xs" data-testid={`text-reason-${termination.id}`}>
+                      {termination.reason ? (
+                        <span className="truncate block" title={termination.reason}>
+                          {termination.reason}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">No reason provided</span>
+                      )}
+                    </td>
+                    <td className="border border-border p-3 text-sm" data-testid={`text-processed-by-${termination.id}`}>
+                      {getUserName(termination.processedBy)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
