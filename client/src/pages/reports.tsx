@@ -1935,7 +1935,13 @@ export default function Reports() {
       {activeReportCategory === 'attendance' && renderAttendanceReports()}
       {activeReportCategory === 'teams' && renderTeamReports()}
       {activeReportCategory === 'hr' && renderHRReports()}
-      {activeReportCategory !== 'overview' && activeReportCategory !== 'assets' && activeReportCategory !== 'leaderboard' && (
+      {activeReportCategory !== 'overview' && 
+       activeReportCategory !== 'assets' && 
+       activeReportCategory !== 'leaderboard' && 
+       activeReportCategory !== 'employees' && 
+       activeReportCategory !== 'attendance' && 
+       activeReportCategory !== 'teams' && 
+       activeReportCategory !== 'hr' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button 
