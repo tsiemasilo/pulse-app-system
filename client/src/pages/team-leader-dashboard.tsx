@@ -140,10 +140,19 @@ export default function TeamLeaderDashboard() {
     switch (activeTab) {
       case 'attendance':
         return (
-          <div>
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-foreground">Team Attendance</h1>
-              <p className="text-muted-foreground">Manage your team's attendance, assets, and performance</p>
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Header Section */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-6 border border-blue-100 dark:border-blue-800/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user?.firstName || 'Team Leader'}</h2>
+                  <p className="text-blue-600 dark:text-blue-400">Here's your workforce overview for today</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Today</p>
+                  <p className="text-xl font-semibold text-gray-900 dark:text-white">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                </div>
+              </div>
             </div>
 
             {/* Reporting Manager Info */}
