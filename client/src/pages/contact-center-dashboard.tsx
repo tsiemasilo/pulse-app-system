@@ -55,28 +55,40 @@ export default function ContactCenterDashboard() {
           title="Active Agents"
           value={agents.length}
           icon={Headphones}
-          iconColor="bg-green-100 text-green-600"
+          cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+          textColor="text-green-600 dark:text-green-400"
+          iconBgColor="bg-green-100 dark:bg-green-900/50"
+          iconColor="text-green-600 dark:text-green-400"
           testId="stat-active-agents"
         />
         <StatCard
           title="Teams"
           value={teams.length}
           icon={Users}
-          iconColor="bg-blue-100 text-blue-600"
+          cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+          textColor="text-blue-600 dark:text-blue-400"
+          iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+          iconColor="text-blue-600 dark:text-blue-400"
           testId="stat-teams"
         />
         <StatCard
           title="Avg Performance"
           value="87%"
           icon={TrendingUp}
-          iconColor="bg-secondary/10 text-secondary"
+          cardColor="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-800/30"
+          textColor="text-yellow-600 dark:text-yellow-400"
+          iconBgColor="bg-yellow-100 dark:bg-yellow-900/50"
+          iconColor="text-yellow-600 dark:text-yellow-400"
           testId="stat-avg-performance"
         />
         <StatCard
           title="Utilization"
           value="92%"
           icon={Clock}
-          iconColor="bg-purple-100 text-purple-600"
+          cardColor="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border-purple-200 dark:border-purple-800/30"
+          textColor="text-purple-600 dark:text-purple-400"
+          iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+          iconColor="text-purple-600 dark:text-purple-400"
           testId="stat-utilization"
         />
       </div>

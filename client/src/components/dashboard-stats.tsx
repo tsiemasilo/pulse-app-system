@@ -13,13 +13,16 @@ interface StatCardProps {
 }
 
 export function StatCard({ title, value, icon: Icon, cardColor, textColor, iconBgColor, iconColor, testId }: StatCardProps) {
+  // Create a darker version of the text color for the value
+  const valueColor = textColor ? textColor.replace('400', '300').replace('600', '700') : 'text-foreground';
+  
   return (
     <Card className={`${cardColor} shadow-sm hover:shadow-md transition-all duration-300`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className={`${textColor} text-sm font-medium`}>{title}</p>
-            <p className={`text-3xl font-bold ${textColor.replace('400', '300').replace('600', '700')}`} data-testid={testId}>
+            <p className={`${textColor || 'text-muted-foreground'} text-sm font-medium`}>{title}</p>
+            <p className={`text-3xl font-bold ${valueColor}`} data-testid={testId}>
               {value}
             </p>
           </div>
