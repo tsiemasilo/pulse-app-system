@@ -94,6 +94,17 @@ export interface IStorage {
   getAssetLossRecordsByDate(date: string): Promise<AssetLossRecord[]>;
   createAssetLossRecord(assetLossRecord: InsertAssetLossRecord): Promise<AssetLossRecord>;
   deleteAssetLossRecord(userId: string, assetType: string, date?: string): Promise<void>;
+  
+  // Unreturned assets management
+  getAllUnreturnedAssets(): Promise<Array<{
+    userId: string;
+    agentName: string;
+    assetType: string;
+    status: string;
+    date: string;
+    reason?: string;
+  }>>;
+  hasUnreturnedAssets(userId: string): Promise<boolean>;
 
   // Historical asset records management  
   getAllHistoricalAssetRecords(): Promise<HistoricalAssetRecord[]>;
@@ -528,6 +539,194 @@ export class DatabaseStorage implements IStorage {
     
     await db.delete(assetLossRecords)
       .where(and(...conditions));
+  }
+
+  // Unreturned assets management
+  async getAllUnreturnedAssets(): Promise<Array<{
+    userId: string;
+    agentName: string;
+    assetType: string;
+    status: string;
+    date: string;
+    reason?: string;
+  }>> {
+    const unreturnedAssets: Array<{
+      userId: string;
+      agentName: string;
+      assetType: string;
+      status: string;
+      date: string;
+      reason?: string;
+    }> = [];
+
+    // Get all lost assets (these are permanently lost)
+    const lostAssets = await db
+      .select({
+        userId: assetLossRecords.userId,
+        assetType: assetLossRecords.assetType,
+        dateLost: assetLossRecords.dateLost,
+        reason: assetLossRecords.reason,
+        user: {
+          firstName: users.firstName,
+          lastName: users.lastName,
+          username: users.username,
+        }
+      })
+      .from(assetLossRecords)
+      .leftJoin(users, eq(assetLossRecords.userId, users.id))
+      .where(eq(assetLossRecords.status, 'reported')); // Only unresolved losses
+
+    // Add lost assets
+    lostAssets.forEach(asset => {
+      const fullName = `${asset.user?.firstName || ''} ${asset.user?.lastName || ''}`.trim();
+      const displayName = fullName || asset.user?.username || 'Unknown User';
+      
+      unreturnedAssets.push({
+        userId: asset.userId,
+        agentName: displayName,
+        assetType: asset.assetType,
+        status: 'Lost',
+        date: asset.dateLost instanceof Date 
+          ? asset.dateLost.toISOString().split('T')[0]
+          : asset.dateLost,
+        reason: asset.reason
+      });
+    });
+
+    // Get all asset bookings with not_returned status that haven't been resolved
+    const unreturnedBookings = await db
+      .select({
+        userId: assetBookings.userId,
+        date: assetBookings.date,
+        laptop: assetBookings.laptop,
+        headsets: assetBookings.headsets,
+        dongle: assetBookings.dongle,
+        laptopReason: assetBookings.laptopReason,
+        headsetsReason: assetBookings.headsetsReason,
+        dongleReason: assetBookings.dongleReason,
+        agentName: assetBookings.agentName,
+        user: {
+          firstName: users.firstName,
+          lastName: users.lastName,
+          username: users.username,
+        }
+      })
+      .from(assetBookings)
+      .leftJoin(users, eq(assetBookings.userId, users.id))
+      .where(and(
+        eq(assetBookings.bookingType, 'book_out'),
+        sql`(${assetBookings.laptop} = 'not_returned' OR ${assetBookings.headsets} = 'not_returned' OR ${assetBookings.dongle} = 'not_returned')`
+      ));
+
+    // Add not returned assets from bookings, but exclude those that have been resolved
+    for (const booking of unreturnedBookings) {
+      const fullName = `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim();
+      const displayName = fullName || booking.agentName || booking.user?.username || 'Unknown User';
+      
+      // Check each asset type for not_returned status
+      const assetTypes = [
+        { type: 'laptop', status: booking.laptop, reason: booking.laptopReason },
+        { type: 'headsets', status: booking.headsets, reason: booking.headsetsReason },
+        { type: 'dongle', status: booking.dongle, reason: booking.dongleReason }
+      ];
+
+      for (const { type, status, reason } of assetTypes) {
+        if (status === 'not_returned') {
+          // Check if this asset has been resolved by a later book_in record
+          const resolvedBookings = await db
+            .select()
+            .from(assetBookings)
+            .where(and(
+              eq(assetBookings.userId, booking.userId),
+              eq(assetBookings.bookingType, 'book_in'),
+              sql`${assetBookings.date} >= ${booking.date}`,
+              sql`${assetBookings[type as keyof AssetBooking]} = 'collected'`
+            ));
+
+          // Only add if not resolved and not already marked as lost
+          const isResolved = resolvedBookings.length > 0;
+          const isAlreadyLost = unreturnedAssets.some(
+            asset => asset.userId === booking.userId && 
+                    asset.assetType === type && 
+                    asset.status === 'Lost'
+          );
+          
+          if (!isResolved && !isAlreadyLost) {
+            unreturnedAssets.push({
+              userId: booking.userId,
+              agentName: displayName,
+              assetType: type,
+              status: 'Not Returned Yet',
+              date: booking.date,
+              reason
+            });
+          }
+        }
+      }
+    }
+
+    return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
+  }
+
+  async hasUnreturnedAssets(userId: string): Promise<boolean> {
+    // Check if user has any lost assets
+    const lostAssetsCount = await db
+      .select({ count: sql`count(*)`.mapWith(Number) })
+      .from(assetLossRecords)
+      .where(and(
+        eq(assetLossRecords.userId, userId),
+        eq(assetLossRecords.status, 'reported') // Only unresolved losses
+      ));
+
+    if (lostAssetsCount[0]?.count > 0) {
+      return true;
+    }
+
+    // Check if user has any unresolved unreturned assets from bookings
+    const unreturnedBookings = await db
+      .select({
+        date: assetBookings.date,
+        laptop: assetBookings.laptop,
+        headsets: assetBookings.headsets,
+        dongle: assetBookings.dongle,
+      })
+      .from(assetBookings)
+      .where(and(
+        eq(assetBookings.userId, userId),
+        eq(assetBookings.bookingType, 'book_out'),
+        sql`(${assetBookings.laptop} = 'not_returned' OR ${assetBookings.headsets} = 'not_returned' OR ${assetBookings.dongle} = 'not_returned')`
+      ));
+
+    // Check each unreturned asset to see if it has been resolved
+    for (const booking of unreturnedBookings) {
+      const assetTypes = [
+        { type: 'laptop', status: booking.laptop },
+        { type: 'headsets', status: booking.headsets },
+        { type: 'dongle', status: booking.dongle }
+      ];
+
+      for (const { type, status } of assetTypes) {
+        if (status === 'not_returned') {
+          // Check if this asset has been resolved by a later book_in record
+          const resolvedBookings = await db
+            .select()
+            .from(assetBookings)
+            .where(and(
+              eq(assetBookings.userId, userId),
+              eq(assetBookings.bookingType, 'book_in'),
+              sql`${assetBookings.date} >= ${booking.date}`,
+              sql`${assetBookings[type as keyof AssetBooking]} = 'collected'`
+            ));
+
+          // If this asset hasn't been resolved, user has unreturned assets
+          if (resolvedBookings.length === 0) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   // Historical asset records management

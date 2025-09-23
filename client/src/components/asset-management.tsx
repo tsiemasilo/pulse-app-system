@@ -79,13 +79,19 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`],
   });
 
-  // Fetch today's asset loss records
-  const { data: assetLossRecords = [], isLoading: lossRecordsLoading } = useQuery<any[]>({
-    queryKey: ['/api/asset-loss', getCurrentDateKey()],
+  // Fetch current user for role checking
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+  });
+
+  // Only fetch all unreturned assets for management roles (for the Unreturned Assets tab)
+  const { data: unreturnedAssets = [], isLoading: lossRecordsLoading } = useQuery<any[]>({
+    queryKey: ['/api/unreturned-assets'],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/asset-loss?date=${getCurrentDateKey()}`);
+      const response = await apiRequest("GET", `/api/unreturned-assets`);
       return response.json();
     },
+    enabled: ['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(currentUser?.role),
   });
 
   // Historical records from database for agent records tab
@@ -122,7 +128,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const bookingStatus = {
       bookOut: userBookings.find(b => b.bookingType === 'book_out'),
       bookIn: userBookings.find(b => b.bookingType === 'book_in'),
-      lostAssets: (assetLossRecords as any[]).filter((record: any) => record.userId === userId)
+      lostAssets: unreturnedAssets.filter((record: any) => record.userId === userId && record.status === 'Lost')
     };
 
     if (isLoading || userBookingsLoading) {
@@ -228,56 +234,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Function to get all unreturned assets (both lost and not returned)
   const getUnreturnedAssets = () => {
-    const unreturnedAssets: Array<{
-      userId: string;
-      agentName: string;
-      assetType: string;
-      status: string;
-      statusColor: string;
-      date: string;
-    }> = [];
-
-    // Add lost assets from asset loss records
-    (assetLossRecords as any[]).forEach((lossRecord: any) => {
-      unreturnedAssets.push({
-        userId: lossRecord.userId,
-        agentName: getAgentName(lossRecord.userId),
-        assetType: lossRecord.assetType,
-        status: 'Lost',
-        statusColor: 'bg-red-100 text-red-800',
-        date: lossRecord.dateLost ? new Date(lossRecord.dateLost).toISOString().split('T')[0] : getCurrentDateKey()
-      });
-    });
-
-    // Add assets marked as not returned from today's bookings
-    todayBookings
-      .filter(booking => booking.bookingType === 'book_out')
-      .forEach(booking => {
-        const agentName = getAgentName(booking.userId);
-        
-        // Check each asset type for not_returned status
-        ['laptop', 'headsets', 'dongle'].forEach(assetType => {
-          if (booking[assetType as keyof typeof booking] === 'not_returned') {
-            // Only add if it's not already in lost assets
-            const isAlreadyLost = (assetLossRecords as any[]).some(
-              (lossRecord: any) => lossRecord.userId === booking.userId && lossRecord.assetType === assetType
-            );
-            
-            if (!isAlreadyLost) {
-              unreturnedAssets.push({
-                userId: booking.userId,
-                agentName,
-                assetType,
-                status: 'Not Returned Yet',
-                statusColor: 'bg-orange-100 text-orange-800',
-                date: booking.date
-              });
-            }
-          }
-        });
-      });
-
-    return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
+    // Transform the API response to include status colors
+    return unreturnedAssets.map((asset: any) => ({
+      ...asset,
+      statusColor: asset.status === 'Lost' 
+        ? 'bg-red-100 text-red-800' 
+        : 'bg-orange-100 text-orange-800'
+    })).sort((a: any, b: any) => a.agentName.localeCompare(b.agentName));
   };
 
   // Mutation to create/update asset bookings
@@ -286,12 +249,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-bookings', booking);
     },
     onSuccess: () => {
-      // Invalidate and refetch booking data AND historical records for Reports tab sync
+      // Invalidate and refetch booking data, historical records, and unreturned assets
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
           return queryKey?.startsWith('/api/asset-bookings') || 
-                 queryKey?.startsWith('/api/historical-asset-records');
+                 queryKey?.startsWith('/api/historical-asset-records') ||
+                 queryKey?.startsWith('/api/unreturned-assets');
         }
       });
       setHasUnsavedChanges(false);
@@ -311,8 +275,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-loss', lossData);
     },
     onSuccess: () => {
-      // Invalidate both asset loss records and historical records for proper cache sync
+      // Invalidate asset loss records, historical records, and unreturned assets for proper cache sync
       queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
@@ -334,8 +299,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('DELETE', '/api/asset-loss', deleteData);
     },
     onSuccess: () => {
-      // Invalidate both asset loss records and historical records for proper cache sync
+      // Invalidate asset loss records, historical records, and unreturned assets for proper cache sync
       queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
@@ -965,9 +931,23 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     // Get the live asset status for this agent and asset type (for book in/out tabs)
     const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
     
-    // For both book_in and book_out tabs, disable buttons if asset is lost or not returned yet
-    // Also disable book_in buttons if asset is already collected
+    // Check if agent has any unreturned assets using per-user endpoint
+    const { data: agentUnreturnedStatus } = useQuery<{ hasUnreturnedAssets: boolean }>({
+      queryKey: ['/api/unreturned-assets/user', agentId],
+      queryFn: async () => {
+        const response = await apiRequest('GET', `/api/unreturned-assets/user/${agentId}`);
+        return response.json();
+      },
+    });
+    
+    const agentHasUnreturnedAssets = agentUnreturnedStatus?.hasUnreturnedAssets || false;
+    
+    // For both book_in and book_out tabs, disable buttons if:
+    // 1. Asset is lost or not returned yet, OR
+    // 2. Agent has unreturned assets from any date (prevents new bookings), OR  
+    // 3. For book_in: asset is already collected
     const isAssetUnavailable = (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned') ||
+                              agentHasUnreturnedAssets ||
                               (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader');
     
     const handlePositiveClick = () => {

@@ -398,6 +398,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all unreturned assets across all dates
+  app.get('/api/unreturned-assets', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const unreturnedAssets = await storage.getAllUnreturnedAssets();
+      res.json(unreturnedAssets);
+    } catch (error) {
+      console.error("Error fetching unreturned assets:", error);
+      res.status(500).json({ message: "Failed to fetch unreturned assets" });
+    }
+  });
+
+  // Check if a specific user has unreturned assets
+  app.get('/api/unreturned-assets/user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const targetUserId = req.params.userId;
+      
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== targetUserId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const hasUnreturnedAssets = await storage.hasUnreturnedAssets(targetUserId);
+      res.json({ hasUnreturnedAssets });
+    } catch (error) {
+      console.error("Error checking unreturned assets for user:", error);
+      res.status(500).json({ message: "Failed to check unreturned assets for user" });
+    }
+  });
+
 
   // Asset booking routes
   app.get('/api/asset-bookings/date/:date', isAuthenticated, async (req: any, res) => {
