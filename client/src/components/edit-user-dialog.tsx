@@ -364,7 +364,9 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     <SelectItem value="none">No Manager</SelectItem>
                     {managers.map((manager) => (
                       <SelectItem key={manager.id} value={manager.id}>
-                        {manager.firstName} {manager.lastName} ({manager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                        <span className="text-sm">
+                          {manager.firstName} {manager.lastName} ({manager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
