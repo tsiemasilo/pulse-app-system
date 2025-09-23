@@ -5,23 +5,26 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: LucideIcon;
+  cardColor: string;
+  textColor: string;
+  iconBgColor: string;
   iconColor: string;
   testId?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, iconColor, testId }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, cardColor, textColor, iconBgColor, iconColor, testId }: StatCardProps) {
   return (
-    <Card className="shadow-sm">
+    <Card className={`${cardColor} shadow-sm hover:shadow-md transition-all duration-300`}>
       <CardContent className="p-6">
-        <div className="flex items-center">
-          <div className={`p-2 ${iconColor} rounded-lg`}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="ml-4">
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold text-foreground" data-testid={testId}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`${textColor} text-sm font-medium`}>{title}</p>
+            <p className={`text-3xl font-bold ${textColor.replace('400', '300').replace('600', '700')}`} data-testid={testId}>
               {value}
             </p>
+          </div>
+          <div className={`${iconBgColor} p-3 rounded-full`}>
+            <Icon className={`h-6 w-6 ${iconColor}`} />
           </div>
         </div>
       </CardContent>
