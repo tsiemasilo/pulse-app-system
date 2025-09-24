@@ -31,8 +31,8 @@ const transferFormSchema = insertTransferSchema.extend({
   endDate: z.string().optional(),
 });
 
-// Predefined departments for transfer
-const AVAILABLE_DEPARTMENTS = [
+// Predefined roles for transfer
+const AVAILABLE_ROLES = [
   { id: 'taking_calls', name: 'Taking Calls' },
   { id: 'administrative_work', name: 'Administrative Work' },
   { id: 'quality_compliance', name: 'Quality and Compliance Tasks' },
@@ -41,6 +41,12 @@ const AVAILABLE_DEPARTMENTS = [
   { id: 'operational_support', name: 'Operational Support' },
   { id: 'litigation', name: 'Litigation' },
   { id: 'audit', name: 'Audit' },
+];
+
+// Available locations
+const AVAILABLE_LOCATIONS = [
+  { id: 'thandanani', name: 'Thandanani' },
+  { id: '16th', name: '16th' },
 ];
 
 export default function TransferManagement() {
@@ -106,7 +112,6 @@ export default function TransferManagement() {
       transferType: "temporary",
       startDate: "",
       endDate: "",
-      reason: "",
       requestedBy: "",
     },
   });
@@ -161,9 +166,14 @@ export default function TransferManagement() {
     return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
   };
 
-  const getDepartmentName = (deptId: string) => {
-    const dept = AVAILABLE_DEPARTMENTS.find(d => d.id === deptId);
-    return dept?.name || 'Unknown';
+  const getRoleName = (roleId: string) => {
+    const role = AVAILABLE_ROLES.find(r => r.id === roleId);
+    return role?.name || 'Unknown';
+  };
+
+  const getLocationName = (locationId: string) => {
+    const location = AVAILABLE_LOCATIONS.find(l => l.id === locationId);
+    return location?.name || 'Unknown';
   };
 
   return (
@@ -217,17 +227,17 @@ export default function TransferManagement() {
                     name="fromDepartmentId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>From Department</FormLabel>
+                        <FormLabel>From Role</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-from-department">
-                              <SelectValue placeholder="Select current department" />
+                            <SelectTrigger data-testid="select-from-role">
+                              <SelectValue placeholder="Select current role" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {AVAILABLE_DEPARTMENTS.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
+                            {AVAILABLE_ROLES.map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                {role.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -242,17 +252,17 @@ export default function TransferManagement() {
                     name="toDepartmentId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>To Department</FormLabel>
+                        <FormLabel>To Role</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-to-department">
-                              <SelectValue placeholder="Select destination department" />
+                            <SelectTrigger data-testid="select-to-role">
+                              <SelectValue placeholder="Select destination role" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {AVAILABLE_DEPARTMENTS.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
+                            {AVAILABLE_ROLES.map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                {role.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -285,35 +295,30 @@ export default function TransferManagement() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fromRole"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>From Role</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="fromRole"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Input {...field} placeholder="Current role" data-testid="input-from-role" />
+                          <SelectTrigger data-testid="select-location">
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="toRole"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>To Role</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="New role" data-testid="input-to-role" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        <SelectContent>
+                          {AVAILABLE_LOCATIONS.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -345,34 +350,6 @@ export default function TransferManagement() {
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="reason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Transfer Reason</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-reason">
-                            <SelectValue placeholder="Select transfer reason" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="litigation">Litigation</SelectItem>
-                          <SelectItem value="admin_work">Administrative Work</SelectItem>
-                          <SelectItem value="training">Training Assignment</SelectItem>
-                          <SelectItem value="project_management">Project Management</SelectItem>
-                          <SelectItem value="compliance">Compliance</SelectItem>
-                          <SelectItem value="audit">Audit</SelectItem>
-                          <SelectItem value="special_assignment">Special Assignment</SelectItem>
-                          <SelectItem value="cross_training">Cross Training</SelectItem>
-                          <SelectItem value="operational_support">Operational Support</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
@@ -426,19 +403,18 @@ export default function TransferManagement() {
               <TableRow>
                 <TableHead className="w-[180px]">Employee</TableHead>
                 <TableHead>Transfer Type</TableHead>
-                <TableHead>From → To Departments</TableHead>
-                <TableHead>Role Change</TableHead>
+                <TableHead>From → To Roles</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Reason</TableHead>
                 <TableHead>Requested By</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transfers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No agent transfers found. Create a new transfer to get started.
                   </TableCell>
                 </TableRow>
@@ -460,20 +436,16 @@ export default function TransferManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2 text-sm">
-                        <span>{getDepartmentName(transfer.fromDepartmentId || '')}</span>
+                        <span>{getRoleName(transfer.fromDepartmentId || '')}</span>
                         <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                        <span>{getDepartmentName(transfer.toDepartmentId)}</span>
+                        <span>{getRoleName(transfer.toDepartmentId)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {transfer.fromRole && transfer.toRole ? (
-                        <div className="flex items-center space-x-2">
-                          <span>{transfer.fromRole}</span>
-                          <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
-                          <span>{transfer.toRole}</span>
-                        </div>
+                      {transfer.fromRole ? (
+                        <span>{getLocationName(transfer.fromRole)}</span>
                       ) : (
-                        <span className="text-muted-foreground">No role change</span>
+                        <span className="text-muted-foreground">No location</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm" data-testid={`text-start-date-${transfer.id}`}>
@@ -486,15 +458,6 @@ export default function TransferManagement() {
                       <Badge variant="outline" className={getStatusColor(transfer.status)} data-testid={`badge-status-${transfer.id}`}>
                         {transfer.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs" data-testid={`text-reason-${transfer.id}`}>
-                      {transfer.reason ? (
-                        <span className="truncate block" title={transfer.reason}>
-                          {transfer.reason}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">No reason provided</span>
-                      )}
                     </TableCell>
                     <TableCell className="text-sm" data-testid={`text-requested-by-${transfer.id}`}>
                       {getUserName(transfer.requestedBy)}
