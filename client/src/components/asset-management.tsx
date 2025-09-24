@@ -82,6 +82,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     userId: string;
     assetType: string;
     agentName: string;
+    id?: string; // Include ID to identify previous day assets
   } | null>(null);
   
   // Fetch today's booking data for all users
@@ -723,8 +724,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return;
     }
 
-    // Mark asset as returned with the recovery reason
-    updateAssetBookingBookOutDirect(pendingRecoveryAction.userId, pendingRecoveryAction.assetType, 'returned');
+    // Check if this is an "Unreturned from Previous Day" asset
+    const isUnreturnedFromPreviousDay = pendingRecoveryAction.id?.startsWith('prev-day-');
+    
+    if (isUnreturnedFromPreviousDay) {
+      // For previous day unreturned assets, update the previous day's booking record
+      updatePreviousDayAssetBooking(pendingRecoveryAction.userId, pendingRecoveryAction.assetType, 'returned', recoveryReasonInput.trim());
+    } else {
+      // For current unreturned assets, use existing logic
+      updateAssetBookingBookOutDirect(pendingRecoveryAction.userId, pendingRecoveryAction.assetType, 'returned');
+    }
     
     // Show success message with recovery reason
     toast({
@@ -780,6 +789,56 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   const updateAssetBookingBookOutDirect = async (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned') => {
     await updateAssetBookingBookOutDirectWithReason(userId, assetType, status, null);
+  };
+
+  // Function to update previous day's booking record for unreturned assets
+  const updatePreviousDayAssetBooking = async (userId: string, assetType: string, status: 'returned', reason: string) => {
+    const agentName = getAgentName(userId);
+    const previousDayKey = getPreviousDayKey();
+    
+    try {
+      // Get the previous day's booking record
+      const previousDayBooking = previousDayBookingsByUser[userId]?.['book_out'];
+      
+      if (!previousDayBooking) {
+        // If no book_out record exists for previous day, create one
+        const newBooking: InsertAssetBooking = {
+          userId,
+          date: previousDayKey,
+          bookingType: 'book_out',
+          laptop: assetType === 'laptop' ? status : 'none',
+          headsets: assetType === 'headsets' ? status : 'none',
+          dongle: assetType === 'dongle' ? status : 'none',
+          laptopReason: assetType === 'laptop' ? reason : null,
+          headsetsReason: assetType === 'headsets' ? reason : null,
+          dongleReason: assetType === 'dongle' ? reason : null,
+        };
+        
+        await updateAssetBookingMutation.mutateAsync(newBooking);
+      } else {
+        // Update existing book_out record
+        const updatedBooking: InsertAssetBooking = {
+          ...previousDayBooking,
+          [assetType]: status,
+          [`${assetType}Reason`]: reason,
+        };
+        
+        await updateAssetBookingMutation.mutateAsync(updatedBooking);
+      }
+      
+      toast({
+        title: "Previous Day Asset Updated",
+        description: `${assetType} for ${agentName} marked as returned to team leader for ${previousDayKey}`,
+      });
+      
+    } catch (error) {
+      console.error('Failed to update previous day booking:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update previous day asset record. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const updateAssetBookingBookOutDirectWithReason = async (userId: string, assetType: string, status: 'none' | 'returned' | 'not_returned', reason: string | null) => {
@@ -1417,7 +1476,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                           setPendingRecoveryAction({
                                             userId: asset.userId,
                                             assetType: asset.assetType,
-                                            agentName: asset.agentName
+                                            agentName: asset.agentName,
+                                            id: asset.id // Include the asset ID to identify previous day assets
                                           });
                                           setShowRecoveryDialog(true);
                                         }}
