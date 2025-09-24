@@ -41,6 +41,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  // Helper function to get previous day's date
+  const getPreviousDayKey = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const year = yesterday.getFullYear();
+    const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterday.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
   // Agent Records functionality - date selection and state
   const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateKey());
@@ -77,6 +87,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Fetch today's booking data for all users
   const { data: todayBookings = [], isLoading: bookingsLoading } = useQuery<AssetBooking[]>({
     queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`],
+  });
+
+  // Fetch previous day's booking data to check for unreturned assets
+  const { data: previousDayBookings = [] } = useQuery<AssetBooking[]>({
+    queryKey: [`/api/asset-bookings/date/${getPreviousDayKey()}`],
   });
 
   // Fetch current user for role checking
@@ -241,6 +256,25 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return acc;
   }, {} as Record<string, Record<string, AssetBooking>>);
 
+  // Transform previous day's booking data
+  const previousDayBookingsByUser = previousDayBookings.reduce((acc, booking) => {
+    if (!acc[booking.userId]) acc[booking.userId] = {};
+    acc[booking.userId][booking.bookingType] = booking;
+    return acc;
+  }, {} as Record<string, Record<string, AssetBooking>>);
+
+  // Function to check if an asset is unreturned from the previous day
+  const isAssetUnreturnedFromPreviousDay = (agentId: string, assetType: 'laptop' | 'headsets' | 'dongle') => {
+    const previousBooking = previousDayBookingsByUser[agentId];
+    if (!previousBooking) return false;
+    
+    const bookInStatus = previousBooking['book_in']?.[assetType] || 'none';
+    const bookOutStatus = previousBooking['book_out']?.[assetType] || 'none';
+    
+    // If asset was collected yesterday but not returned or marked as not returned
+    return bookInStatus === 'collected' && (bookOutStatus === 'none' || bookOutStatus === 'not_returned');
+  };
+
   // Function to get all unreturned assets (both lost and not returned)
   const getUnreturnedAssets = () => {
     // Transform the API response to include status colors
@@ -380,9 +414,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       asset.userId === agentId && asset.assetType === assetType
     );
     
+    // Check if asset is unreturned from previous day
+    const isUnreturnedFromPreviousDay = isAssetUnreturnedFromPreviousDay(agentId, assetType);
+    
     // Apply status precedence (book out selections override book in selections)
     if (isLostToday) {
       return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (isUnreturnedFromPreviousDay) {
+      return { status: 'Unreturned from Previous Day', variant: 'destructive' as const, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' };
     }
     
     if (bookOutStatus === 'returned') {
@@ -500,6 +541,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   };
 
   const updateAssetBookingBookIn = async (userId: string, assetType: string, status: 'none' | 'collected' | 'not_collected') => {
+    // Check if asset is unreturned from previous day - prevent booking in
+    if (isAssetUnreturnedFromPreviousDay(userId, assetType as 'laptop' | 'headsets' | 'dongle')) {
+      toast({
+        title: "Asset Unavailable",
+        description: `This ${assetType} was not returned yesterday and cannot be booked in today.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const agentName = getAgentName(userId);
     
     // Only delete lost asset record if one exists for this user/asset/date and we're marking as collected
@@ -954,10 +1005,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     // For both book_in and book_out tabs, disable buttons if:
     // 1. Asset is lost or not returned yet, OR
     // 2. Agent has unreturned assets from any date (prevents new bookings), OR  
-    // 3. For book_in: asset is already collected
+    // 3. For book_in: asset is already collected, OR
+    // 4. Asset is unreturned from previous day
     const isAssetUnavailable = (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned') ||
                               agentHasUnreturnedAssets ||
-                              (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader');
+                              (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader') ||
+                              assetStatus.status === 'Unreturned from Previous Day';
     
     const handlePositiveClick = () => {
       if (isAssetUnavailable) return;
