@@ -19,28 +19,75 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
 import { ArrowRightLeft, Calendar, User, Building2 } from "lucide-react";
 import { z } from "zod";
-import type { Transfer, User as UserType, Department } from "@shared/schema";
+import type { Transfer, User as UserType, Department, Team } from "@shared/schema";
 
 const transferFormSchema = insertTransferSchema.extend({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
 });
 
+// Predefined departments for transfer
+const AVAILABLE_DEPARTMENTS = [
+  { id: 'taking_calls', name: 'Taking Calls' },
+  { id: 'administrative_work', name: 'Administrative Work' },
+  { id: 'quality_compliance', name: 'Quality and Compliance Tasks' },
+  { id: 'technical_support', name: 'Technical and Support Roles' },
+  { id: 'training_development', name: 'Training and Development' },
+  { id: 'operational_support', name: 'Operational Support' },
+  { id: 'litigation', name: 'Litigation' },
+  { id: 'audit', name: 'Audit' },
+];
+
 export default function TransferManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Fetch teams led by current user
+  const { data: leaderTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/leader", user?.id],
+    enabled: !!user?.id,
+  });
+
+  // Fetch team members (agents) for teams led by current user
+  const { data: teamMembers = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/teams/members", leaderTeams.map(t => t.id)],
+    queryFn: async () => {
+      if (leaderTeams.length === 0) return [];
+      
+      const allMembers: UserType[] = [];
+      for (const team of leaderTeams) {
+        const response = await apiRequest("GET", `/api/teams/${team.id}/members`);
+        const members = await response.json() as UserType[];
+        allMembers.push(...members);
+      }
+      // Filter to only agents (exclude team leader themselves)
+      return allMembers.filter(member => 
+        member.role === 'agent' && member.id !== user?.id
+      );
+    },
+    enabled: leaderTeams.length > 0,
+  });
+
+  // Fetch reporting manager information
+  const { data: reportingManager = null } = useQuery<UserType | null>({
+    queryKey: ["/api/users", user?.reportsTo],
+    queryFn: async () => {
+      if (!user?.reportsTo) return null;
+      const response = await apiRequest("GET", `/api/users/${user.reportsTo}`);
+      return await response.json() as UserType;
+    },
+    enabled: !!user?.reportsTo,
+  });
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
-  });
-
-  const { data: departments = [] } = useQuery<Department[]>({
-    queryKey: ["/api/departments"],
   });
 
 
@@ -115,7 +162,7 @@ export default function TransferManagement() {
   };
 
   const getDepartmentName = (deptId: string) => {
-    const dept = departments.find(d => d.id === deptId);
+    const dept = AVAILABLE_DEPARTMENTS.find(d => d.id === deptId);
     return dept?.name || 'Unknown';
   };
 
@@ -144,17 +191,17 @@ export default function TransferManagement() {
                   name="userId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Employee to Transfer</FormLabel>
+                      <FormLabel>Agent to Transfer</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-user">
-                            <SelectValue placeholder="Select employee" />
+                            <SelectValue placeholder="Select agent" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users.filter(u => u.role === 'agent' || u.role === 'team_leader').map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} - {user.role}
+                          {teamMembers.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.firstName} {agent.lastName}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -178,7 +225,7 @@ export default function TransferManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {departments.map((dept) => (
+                            {AVAILABLE_DEPARTMENTS.map((dept) => (
                               <SelectItem key={dept.id} value={dept.id}>
                                 {dept.name}
                               </SelectItem>
@@ -203,7 +250,7 @@ export default function TransferManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {departments.map((dept) => (
+                            {AVAILABLE_DEPARTMENTS.map((dept) => (
                               <SelectItem key={dept.id} value={dept.id}>
                                 {dept.name}
                               </SelectItem>
@@ -340,11 +387,18 @@ export default function TransferManagement() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users.filter(u => u.role === 'hr' || u.role === 'admin').map((user) => (
+                          {/* Show current team leader */}
+                          {user && (
                             <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} ({user.role})
+                              {user.firstName} {user.lastName} (Team Leader)
                             </SelectItem>
-                          ))}
+                          )}
+                          {/* Show team leader's manager if available */}
+                          {reportingManager && (
+                            <SelectItem key={reportingManager.id} value={reportingManager.id}>
+                              {reportingManager.firstName} {reportingManager.lastName} (Manager)
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
