@@ -277,13 +277,56 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Function to get all unreturned assets (both lost and not returned)
   const getUnreturnedAssets = () => {
-    // Transform the API response to include status colors
-    return unreturnedAssets.map((asset: any) => ({
+    // Get existing unreturned assets from API
+    const existingUnreturnedAssets = unreturnedAssets.map((asset: any) => ({
       ...asset,
       statusColor: asset.status === 'Lost' 
         ? 'bg-red-100 text-red-800' 
         : 'bg-orange-100 text-orange-800'
-    })).sort((a: any, b: any) => a.agentName.localeCompare(b.agentName));
+    }));
+    
+    // Get unreturned assets from previous day
+    const previousDayUnreturnedAssets: any[] = [];
+    Object.keys(previousDayBookingsByUser).forEach(userId => {
+      const previousBooking = previousDayBookingsByUser[userId];
+      const bookInRecord = previousBooking['book_in'];
+      const bookOutRecord = previousBooking['book_out'];
+      
+      if (!bookInRecord) return;
+      
+      const assetTypes: ('laptop' | 'headsets' | 'dongle')[] = ['laptop', 'headsets', 'dongle'];
+      const agentName = getAgentName(userId);
+      
+      assetTypes.forEach(assetType => {
+        const bookInStatus = bookInRecord[assetType] || 'none';
+        const bookOutStatus = bookOutRecord?.[assetType] || 'none';
+        
+        // If asset was collected but not returned from previous day
+        if (bookInStatus === 'collected' && (bookOutStatus === 'none' || bookOutStatus === 'not_returned')) {
+          // Check if this asset isn't already in the existing unreturned assets
+          const alreadyExists = existingUnreturnedAssets.some(existing => 
+            existing.userId === userId && existing.assetType === assetType
+          );
+          
+          if (!alreadyExists) {
+            previousDayUnreturnedAssets.push({
+              id: `prev-day-${userId}-${assetType}`,
+              userId,
+              agentName,
+              assetType,
+              status: 'Unreturned from Previous Day',
+              statusColor: 'bg-orange-100 text-orange-800',
+              dateLost: getPreviousDayKey(),
+              reason: 'Asset was collected but not returned from previous day'
+            });
+          }
+        }
+      });
+    });
+    
+    // Combine both lists and sort
+    return [...existingUnreturnedAssets, ...previousDayUnreturnedAssets]
+      .sort((a: any, b: any) => a.agentName.localeCompare(b.agentName));
   };
 
   // Mutation to create/update asset bookings
