@@ -336,15 +336,48 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-bookings', booking);
     },
     onSuccess: () => {
-      // Invalidate and refetch booking data, historical records, and unreturned assets
+      // Comprehensive cache invalidation to ensure all UI components update immediately
+      
+      // 1. Invalidate all asset booking queries (broad match)
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
-          return queryKey?.startsWith('/api/asset-bookings') || 
-                 queryKey?.startsWith('/api/historical-asset-records') ||
-                 queryKey?.startsWith('/api/unreturned-assets');
+          return queryKey?.startsWith('/api/asset-bookings');
         }
       });
+      
+      // 2. Invalidate all unreturned asset queries (including per-user queries)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/unreturned-assets');
+        }
+      });
+      
+      // 3. Invalidate all asset loss queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/asset-loss');
+        }
+      });
+      
+      // 4. Invalidate historical records
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/historical-asset-records');
+        }
+      });
+      
+      // 5. Force refetch of today's specific queries that the UI depends on
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/asset-bookings/date/${getCurrentDateKey()}`]
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/asset-loss', getCurrentDateKey()]
+      });
+      
       setHasUnsavedChanges(false);
     },
     onError: (error) => {
@@ -362,14 +395,35 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/asset-loss', lossData);
     },
     onSuccess: () => {
-      // Invalidate asset loss records, historical records, and unreturned assets for proper cache sync
-      queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
+      // Comprehensive cache invalidation for asset loss records
+      
+      // 1. Invalidate all asset loss queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/asset-loss');
+        }
+      });
+      
+      // 2. Invalidate all unreturned asset queries (including per-user queries)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/unreturned-assets');
+        }
+      });
+      
+      // 3. Invalidate historical records
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
           return queryKey?.startsWith('/api/historical-asset-records');
         }
+      });
+      
+      // 4. Force refetch of today's specific queries that the UI depends on
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/asset-loss', getCurrentDateKey()]
       });
     },
     onError: (error) => {
@@ -386,14 +440,35 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('DELETE', '/api/asset-loss', deleteData);
     },
     onSuccess: () => {
-      // Invalidate asset loss records, historical records, and unreturned assets for proper cache sync
-      queryClient.invalidateQueries({ queryKey: ['/api/asset-loss'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
+      // Comprehensive cache invalidation for asset loss record deletion
+      
+      // 1. Invalidate all asset loss queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/asset-loss');
+        }
+      });
+      
+      // 2. Invalidate all unreturned asset queries (including per-user queries)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0] as string;
+          return queryKey?.startsWith('/api/unreturned-assets');
+        }
+      });
+      
+      // 3. Invalidate historical records
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const queryKey = query.queryKey[0] as string;
           return queryKey?.startsWith('/api/historical-asset-records');
         }
+      });
+      
+      // 4. Force refetch of today's specific queries that the UI depends on
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/asset-loss', getCurrentDateKey()]
       });
     },
     onError: (error) => {
