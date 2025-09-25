@@ -1237,24 +1237,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     // Get the live asset status for this agent and asset type (for checking unavailability)
     const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
     
-    // Check if agent has any unreturned assets using per-user endpoint
-    const { data: agentUnreturnedStatus } = useQuery<{ hasUnreturnedAssets: boolean }>({
-      queryKey: ['/api/unreturned-assets/user', agentId],
-      queryFn: async () => {
-        const response = await apiRequest('GET', `/api/unreturned-assets/user/${agentId}`);
-        return response.json();
-      },
-    });
-    
-    const agentHasUnreturnedAssets = agentUnreturnedStatus?.hasUnreturnedAssets || false;
-    
-    // For book_in and book_out tabs, disable buttons if:
-    // 1. Asset is lost or not returned yet, OR
-    // 2. For book_in: Agent has unreturned assets from any date (prevents new collection), OR  
-    // 3. For book_in: asset is already collected, OR
-    // 4. Asset is unreturned from previous day
+    // Disable buttons only for this specific asset if:
+    // 1. This specific asset is lost or not returned, OR
+    // 2. For book_in: this specific asset is already collected, OR
+    // 3. This specific asset is unreturned from previous day
     const isAssetUnavailable = (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned') ||
-                              (tabType === 'book_in' && agentHasUnreturnedAssets) ||
                               (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader') ||
                               assetStatus.status === 'Unreturned from Previous Day';
     
