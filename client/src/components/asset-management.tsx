@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -1234,6 +1235,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
     const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
     
+    // Confirmation dialog state
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{
+      message: string;
+      title: string;
+      action: () => void;
+      actionType: 'positive' | 'negative';
+    } | null>(null);
+    
     // Get the live asset status for this agent and asset type (for checking unavailability)
     const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
     
@@ -1260,17 +1270,25 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           ? `Are you sure you want to clear the collection status for ${agentName}'s ${assetDisplayName}?`
           : `Are you sure you want to clear the return status for ${agentName}'s ${assetDisplayName}?`;
         
-        if (window.confirm(confirmMessage)) {
-          onStatusChange('none');
-        }
+        setConfirmAction({
+          title: 'Clear Status',
+          message: confirmMessage,
+          action: () => onStatusChange('none'),
+          actionType: 'positive'
+        });
+        setShowConfirmDialog(true);
       } else {
         const confirmMessage = tabType === 'book_in'
           ? `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as COLLECTED from Team Leader?`
           : `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as RETURNED to Team Leader?`;
         
-        if (window.confirm(confirmMessage)) {
-          onStatusChange(positiveStatus);
-        }
+        setConfirmAction({
+          title: tabType === 'book_in' ? 'Confirm Collection' : 'Confirm Return',
+          message: confirmMessage,
+          action: () => onStatusChange(positiveStatus),
+          actionType: 'positive'
+        });
+        setShowConfirmDialog(true);
       }
     };
     
@@ -1286,17 +1304,25 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           ? `Are you sure you want to clear the "Not Collected" status for ${agentName}'s ${assetDisplayName}?`
           : `Are you sure you want to clear the "Not Returned" status for ${agentName}'s ${assetDisplayName}?`;
         
-        if (window.confirm(confirmMessage)) {
-          onStatusChange('none');
-        }
+        setConfirmAction({
+          title: 'Clear Status',
+          message: confirmMessage,
+          action: () => onStatusChange('none'),
+          actionType: 'negative'
+        });
+        setShowConfirmDialog(true);
       } else {
         const confirmMessage = tabType === 'book_in'
           ? `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as NOT COLLECTED?`
           : `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as NOT RETURNED?`;
         
-        if (window.confirm(confirmMessage)) {
-          onStatusChange(negativeStatus);
-        }
+        setConfirmAction({
+          title: tabType === 'book_in' ? 'Mark as Not Collected' : 'Mark as Not Returned',
+          message: confirmMessage,
+          action: () => onStatusChange(negativeStatus),
+          actionType: 'negative'
+        });
+        setShowConfirmDialog(true);
       }
     };
 
@@ -1349,6 +1375,52 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         >
           {badgeStatus.text}
         </Badge>
+        
+        {/* Beautiful Confirmation Dialog */}
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent className="sm:max-w-[425px]">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                {confirmAction?.actionType === 'positive' ? (
+                  <Check className="h-5 w-5 text-green-600" />
+                ) : (
+                  <X className="h-5 w-5 text-red-600" />
+                )}
+                {confirmAction?.title}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-left text-base">
+                {confirmAction?.message}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex gap-2">
+              <AlertDialogCancel 
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setConfirmAction(null);
+                }}
+                className="hover:bg-gray-100"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (confirmAction?.action) {
+                    confirmAction.action();
+                  }
+                  setShowConfirmDialog(false);
+                  setConfirmAction(null);
+                }}
+                className={`${
+                  confirmAction?.actionType === 'positive' 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+              >
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   };
