@@ -461,7 +461,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     // Check if asset is unreturned from previous day
     const isUnreturnedFromPreviousDay = isAssetUnreturnedFromPreviousDay(agentId, assetType);
     
-    // Apply status precedence (book out selections override book in selections)
+    // Apply status precedence with book in status taking priority over book out 'returned' status
     if (isLostToday) {
       return { status: 'Lost', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
     }
@@ -470,20 +470,22 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return { status: 'Unreturned from Previous Day', variant: 'destructive' as const, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' };
     }
     
-    if (bookOutStatus === 'returned') {
-      return { status: 'Returned to Team Leader', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
-    }
-    
-    if (bookOutStatus === 'not_returned') {
-      return { status: 'Not Returned', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
-    }
-    
+    // Book in status takes priority over book out 'returned' status (more recent action)
     if (bookInStatus === 'collected') {
       return { status: 'Collected from Team Leader', variant: 'default' as const, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' };
     }
     
     if (bookInStatus === 'not_collected') {
       return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
+    }
+    
+    // Book out 'not_returned' still takes priority over 'returned' status  
+    if (bookOutStatus === 'not_returned') {
+      return { status: 'Not Returned', variant: 'destructive' as const, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' };
+    }
+    
+    if (bookOutStatus === 'returned') {
+      return { status: 'Returned to Team Leader', variant: 'secondary' as const, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' };
     }
     
     return { status: 'Not Collected', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' };
