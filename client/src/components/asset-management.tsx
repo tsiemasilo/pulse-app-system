@@ -1250,14 +1250,54 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     
     const handlePositiveClick = () => {
       if (isAssetUnavailable) return;
-      // If already positive, deselect (go to none), otherwise select positive
-      onStatusChange(status === positiveStatus ? 'none' : positiveStatus);
+      
+      const agentName = getAgentName(agentId);
+      const assetDisplayName = assetType.charAt(0).toUpperCase() + assetType.slice(1);
+      
+      // If already positive, ask to confirm deselection, otherwise confirm selection
+      if (status === positiveStatus) {
+        const confirmMessage = tabType === 'book_in' 
+          ? `Are you sure you want to clear the collection status for ${agentName}'s ${assetDisplayName}?`
+          : `Are you sure you want to clear the return status for ${agentName}'s ${assetDisplayName}?`;
+        
+        if (window.confirm(confirmMessage)) {
+          onStatusChange('none');
+        }
+      } else {
+        const confirmMessage = tabType === 'book_in'
+          ? `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as COLLECTED from Team Leader?`
+          : `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as RETURNED to Team Leader?`;
+        
+        if (window.confirm(confirmMessage)) {
+          onStatusChange(positiveStatus);
+        }
+      }
     };
     
     const handleNegativeClick = () => {
       if (isAssetUnavailable) return;
-      // If already negative, deselect (go to none), otherwise select negative
-      onStatusChange(status === negativeStatus ? 'none' : negativeStatus);
+      
+      const agentName = getAgentName(agentId);
+      const assetDisplayName = assetType.charAt(0).toUpperCase() + assetType.slice(1);
+      
+      // If already negative, ask to confirm deselection, otherwise confirm selection
+      if (status === negativeStatus) {
+        const confirmMessage = tabType === 'book_in'
+          ? `Are you sure you want to clear the "Not Collected" status for ${agentName}'s ${assetDisplayName}?`
+          : `Are you sure you want to clear the "Not Returned" status for ${agentName}'s ${assetDisplayName}?`;
+        
+        if (window.confirm(confirmMessage)) {
+          onStatusChange('none');
+        }
+      } else {
+        const confirmMessage = tabType === 'book_in'
+          ? `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as NOT COLLECTED?`
+          : `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as NOT RETURNED?`;
+        
+        if (window.confirm(confirmMessage)) {
+          onStatusChange(negativeStatus);
+        }
+      }
     };
 
     return (
