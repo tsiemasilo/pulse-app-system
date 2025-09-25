@@ -1215,59 +1215,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     tabType: 'book_in' | 'book_out',
     assetStatus: { status: string; variant: any; color: string }
   ) => {
-    // If asset is unavailable (lost, unreturned from previous day), show that status
-    if (assetStatus.status === 'Lost' || assetStatus.status === 'Unreturned from Previous Day') {
-      return {
-        text: assetStatus.status,
-        variant: assetStatus.variant,
-        color: assetStatus.color
-      };
-    }
-    
-    // Show status based on current button selection
-    if (tabType === 'book_in') {
-      switch (status) {
-        case 'collected':
-          return {
-            text: 'Collected from Team Leader',
-            variant: 'default' as const,
-            color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-          };
-        case 'not_collected':
-          return {
-            text: 'Not Collected',
-            variant: 'destructive' as const,
-            color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-          };
-        default: // 'none'
-          return {
-            text: 'Not Booked In',
-            variant: 'outline' as const,
-            color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-          };
-      }
-    } else { // book_out
-      switch (status) {
-        case 'returned':
-          return {
-            text: 'Returned to Team Leader',
-            variant: 'secondary' as const,
-            color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-          };
-        case 'not_returned':
-          return {
-            text: 'Not Returned',
-            variant: 'destructive' as const,
-            color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-          };
-        default: // 'none'
-          return {
-            text: 'Not Booked Out',
-            variant: 'outline' as const,
-            color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-          };
-      }
-    }
+    // Always use the actual asset status for consistency across tabs
+    // This ensures the same asset shows the same badge regardless of which tab you're viewing
+    return {
+      text: assetStatus.status,
+      variant: assetStatus.variant,
+      color: assetStatus.color
+    };
   };
 
   const AssetStatusButtons = ({ status, onStatusChange, assetType, agentId, tabType }: {
