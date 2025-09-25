@@ -66,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Hash the password before creating the user
       if (userData.password) {
-        userData.password = await hashPassword(userData.password);
+        (userData as any).password = await hashPassword(userData.password);
       }
       
       const newUser = await storage.createUser(userData);
@@ -130,10 +130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If password is provided, hash it before updating
       if (updateData.password) {
-        updateData.password = await hashPassword(updateData.password);
+        (updateData as any).password = await hashPassword(updateData.password);
       }
       
-      const updatedUser = await storage.updateUser(req.params.userId, updateData);
+      const updatedUser = await storage.updateUser(req.params.userId, updateData as any);
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user:", error);
