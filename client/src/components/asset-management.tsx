@@ -1240,7 +1240,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const [confirmAction, setConfirmAction] = useState<{
       message: string;
       title: string;
-      action: () => void;
+      action: (() => void) | null;
       actionType: 'positive' | 'negative';
     } | null>(null);
     
@@ -1278,6 +1278,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         });
         setShowConfirmDialog(true);
       } else {
+        // Special validation for book out tab: check if asset was collected first
+        if (tabType === 'book_out') {
+          // Check if asset was never collected - cannot return what was never taken
+          if (assetStatus.status === 'Not Collected' || assetStatus.status === 'Not Booked In') {
+            setConfirmAction({
+              title: 'Cannot Return Asset',
+              message: `${agentName}'s ${assetDisplayName} cannot be returned because it was never collected from the Team Leader. Please mark it as collected on the Book In tab first.`,
+              action: null, // No action for error
+              actionType: 'negative'
+            });
+            setShowConfirmDialog(true);
+            return;
+          }
+        }
+        
         const confirmMessage = tabType === 'book_in'
           ? `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as COLLECTED from Team Leader?`
           : `Are you sure you want to mark ${agentName}'s ${assetDisplayName} as RETURNED to Team Leader?`;
@@ -1393,31 +1408,47 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex gap-2">
-              <AlertDialogCancel 
-                onClick={() => {
-                  setShowConfirmDialog(false);
-                  setConfirmAction(null);
-                }}
-                className="hover:bg-gray-100"
-              >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  if (confirmAction?.action) {
-                    confirmAction.action();
-                  }
-                  setShowConfirmDialog(false);
-                  setConfirmAction(null);
-                }}
-                className={`${
-                  confirmAction?.actionType === 'positive' 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-red-600 hover:bg-red-700 text-white'
-                }`}
-              >
-                Confirm
-              </AlertDialogAction>
+              {confirmAction?.action ? (
+                // Normal confirmation with Cancel and Confirm buttons
+                <>
+                  <AlertDialogCancel 
+                    onClick={() => {
+                      setShowConfirmDialog(false);
+                      setConfirmAction(null);
+                    }}
+                    className="hover:bg-gray-100"
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      if (confirmAction?.action) {
+                        confirmAction.action();
+                      }
+                      setShowConfirmDialog(false);
+                      setConfirmAction(null);
+                    }}
+                    className={`${
+                      confirmAction?.actionType === 'positive' 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    Confirm
+                  </AlertDialogAction>
+                </>
+              ) : (
+                // Error case with only OK button
+                <AlertDialogAction
+                  onClick={() => {
+                    setShowConfirmDialog(false);
+                    setConfirmAction(null);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  OK
+                </AlertDialogAction>
+              )}
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
