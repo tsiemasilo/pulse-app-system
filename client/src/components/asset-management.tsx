@@ -687,20 +687,46 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       });
     }
     
-    // Get current booking or create a new one
-    const currentBooking = bookingsByUser[userId]?.['book_in'];
+    // Get current booking data for both book_in and book_out
+    const currentBookInBooking = bookingsByUser[userId]?.['book_in'];
+    const currentBookOutBooking = bookingsByUser[userId]?.['book_out'];
     
+    // MUTUAL EXCLUSIVITY: If setting book_in status (not 'none'), clear book_out status for this asset
+    let bookOutUpdate = null;
+    if (status !== 'none') {
+      const currentBookOutStatus = currentBookOutBooking?.[assetType as keyof AssetBooking] || 'none';
+      if (currentBookOutStatus !== 'none') {
+        // Clear the book_out status for this asset
+        bookOutUpdate = {
+          userId,
+          date: getCurrentDateKey(),
+          bookingType: 'book_out' as const,
+          laptop: assetType === 'laptop' ? 'none' : (currentBookOutBooking?.laptop || 'none'),
+          headsets: assetType === 'headsets' ? 'none' : (currentBookOutBooking?.headsets || 'none'),
+          dongle: assetType === 'dongle' ? 'none' : (currentBookOutBooking?.dongle || 'none'),
+          agentName,
+        };
+      }
+    }
+    
+    // Update book_in booking
     const bookingData: InsertAssetBooking = {
       userId,
       date: getCurrentDateKey(),
       bookingType: 'book_in',
-      laptop: assetType === 'laptop' ? status : (currentBooking?.laptop || 'none'),
-      headsets: assetType === 'headsets' ? status : (currentBooking?.headsets || 'none'),
-      dongle: assetType === 'dongle' ? status : (currentBooking?.dongle || 'none'),
+      laptop: assetType === 'laptop' ? status : (currentBookInBooking?.laptop || 'none'),
+      headsets: assetType === 'headsets' ? status : (currentBookInBooking?.headsets || 'none'),
+      dongle: assetType === 'dongle' ? status : (currentBookInBooking?.dongle || 'none'),
       agentName,
     };
     
-    updateAssetBookingMutation.mutate(bookingData);
+    // Execute both updates if needed
+    const promises = [updateAssetBookingMutation.mutateAsync(bookingData)];
+    if (bookOutUpdate) {
+      promises.push(updateAssetBookingMutation.mutateAsync(bookOutUpdate));
+    }
+    
+    await Promise.all(promises);
     
     const statusText = status === 'collected' ? 'collected' : status === 'not_collected' ? 'not collected' : 'unmarked';
     toast({
@@ -934,23 +960,49 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       });
     }
     
-    // Get current booking or create a new one
-    const currentBooking = bookingsByUser[userId]?.['book_out'];
+    // Get current booking data for both book_in and book_out
+    const currentBookOutBooking = bookingsByUser[userId]?.['book_out'];
+    const currentBookInBooking = bookingsByUser[userId]?.['book_in'];
     
+    // MUTUAL EXCLUSIVITY: If setting book_out status (not 'none'), clear book_in status for this asset
+    let bookInUpdate = null;
+    if (status !== 'none') {
+      const currentBookInStatus = currentBookInBooking?.[assetType as keyof AssetBooking] || 'none';
+      if (currentBookInStatus !== 'none') {
+        // Clear the book_in status for this asset
+        bookInUpdate = {
+          userId,
+          date: getCurrentDateKey(),
+          bookingType: 'book_in' as const,
+          laptop: assetType === 'laptop' ? 'none' : (currentBookInBooking?.laptop || 'none'),
+          headsets: assetType === 'headsets' ? 'none' : (currentBookInBooking?.headsets || 'none'),
+          dongle: assetType === 'dongle' ? 'none' : (currentBookInBooking?.dongle || 'none'),
+          agentName,
+        };
+      }
+    }
+    
+    // Update book_out booking
     const bookingData: InsertAssetBooking = {
       userId,
       date: getCurrentDateKey(),
       bookingType: 'book_out',
-      laptop: assetType === 'laptop' ? status : (currentBooking?.laptop || 'none'),
-      headsets: assetType === 'headsets' ? status : (currentBooking?.headsets || 'none'),
-      dongle: assetType === 'dongle' ? status : (currentBooking?.dongle || 'none'),
-      laptopReason: assetType === 'laptop' && status === 'not_returned' ? reason : (currentBooking?.laptopReason || null),
-      headsetsReason: assetType === 'headsets' && status === 'not_returned' ? reason : (currentBooking?.headsetsReason || null),
-      dongleReason: assetType === 'dongle' && status === 'not_returned' ? reason : (currentBooking?.dongleReason || null),
+      laptop: assetType === 'laptop' ? status : (currentBookOutBooking?.laptop || 'none'),
+      headsets: assetType === 'headsets' ? status : (currentBookOutBooking?.headsets || 'none'),
+      dongle: assetType === 'dongle' ? status : (currentBookOutBooking?.dongle || 'none'),
+      laptopReason: assetType === 'laptop' && status === 'not_returned' ? reason : (currentBookOutBooking?.laptopReason || null),
+      headsetsReason: assetType === 'headsets' && status === 'not_returned' ? reason : (currentBookOutBooking?.headsetsReason || null),
+      dongleReason: assetType === 'dongle' && status === 'not_returned' ? reason : (currentBookOutBooking?.dongleReason || null),
       agentName,
     };
     
-    updateAssetBookingMutation.mutate(bookingData);
+    // Execute both updates if needed
+    const promises = [updateAssetBookingMutation.mutateAsync(bookingData)];
+    if (bookInUpdate) {
+      promises.push(updateAssetBookingMutation.mutateAsync(bookInUpdate));
+    }
+    
+    await Promise.all(promises);
     
     const statusText = status === 'returned' ? 'returned' : status === 'not_returned' ? 'not returned' : 'unmarked';
     toast({
@@ -1157,6 +1209,67 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     </div>
   );
 
+  // Function to get badge display based on current button selection state
+  const getBadgeStatusFromSelection = (
+    status: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected',
+    tabType: 'book_in' | 'book_out',
+    assetStatus: { status: string; variant: any; color: string }
+  ) => {
+    // If asset is unavailable (lost, unreturned from previous day), show that status
+    if (assetStatus.status === 'Lost' || assetStatus.status === 'Unreturned from Previous Day') {
+      return {
+        text: assetStatus.status,
+        variant: assetStatus.variant,
+        color: assetStatus.color
+      };
+    }
+    
+    // Show status based on current button selection
+    if (tabType === 'book_in') {
+      switch (status) {
+        case 'collected':
+          return {
+            text: 'Collected from Team Leader',
+            variant: 'default' as const,
+            color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+          };
+        case 'not_collected':
+          return {
+            text: 'Not Collected',
+            variant: 'destructive' as const,
+            color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+          };
+        default: // 'none'
+          return {
+            text: 'Not Booked In',
+            variant: 'outline' as const,
+            color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+          };
+      }
+    } else { // book_out
+      switch (status) {
+        case 'returned':
+          return {
+            text: 'Returned to Team Leader',
+            variant: 'secondary' as const,
+            color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+          };
+        case 'not_returned':
+          return {
+            text: 'Not Returned',
+            variant: 'destructive' as const,
+            color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+          };
+        default: // 'none'
+          return {
+            text: 'Not Booked Out',
+            variant: 'outline' as const,
+            color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+          };
+      }
+    }
+  };
+
   const AssetStatusButtons = ({ status, onStatusChange, assetType, agentId, tabType }: {
     status: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected';
     onStatusChange: (newStatus: 'none' | 'returned' | 'not_returned' | 'collected' | 'not_collected') => void;
@@ -1167,7 +1280,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     const positiveStatus = tabType === 'book_in' ? 'collected' : 'returned';
     const negativeStatus = tabType === 'book_in' ? 'not_collected' : 'not_returned';
     
-    // Get the live asset status for this agent and asset type (for book in/out tabs)
+    // Get the live asset status for this agent and asset type (for checking unavailability)
     const assetStatus = getLiveAssetStatus(agentId, assetType as 'laptop' | 'headsets' | 'dongle');
     
     // Check if agent has any unreturned assets using per-user endpoint
@@ -1190,6 +1303,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                               (tabType === 'book_in' && agentHasUnreturnedAssets) ||
                               (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader') ||
                               assetStatus.status === 'Unreturned from Previous Day';
+    
+    // Get badge status based on current button selection state
+    const badgeStatus = getBadgeStatusFromSelection(status, tabType, assetStatus);
     
     const handlePositiveClick = () => {
       if (isAssetUnavailable) return;
@@ -1244,13 +1360,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           </Button>
         </div>
         
-        {/* Status Badge */}
+        {/* Status Badge - Now shows status based on button selection */}
         <Badge 
-          variant={assetStatus.variant} 
-          className={`${assetStatus.color} text-xs font-medium px-2 py-1 min-w-[80px] text-center`}
+          variant={badgeStatus.variant} 
+          className={`${badgeStatus.color} text-xs font-medium px-2 py-1 min-w-[80px] text-center`}
           data-testid={`badge-status-${assetType}-${agentId}-${tabType}`}
         >
-          {assetStatus.status}
+          {badgeStatus.text}
         </Badge>
       </div>
     );
