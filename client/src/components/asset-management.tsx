@@ -1106,13 +1106,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     
     const agentHasUnreturnedAssets = agentUnreturnedStatus?.hasUnreturnedAssets || false;
     
-    // For both book_in and book_out tabs, disable buttons if:
+    // For book_in and book_out tabs, disable buttons if:
     // 1. Asset is lost or not returned yet, OR
-    // 2. Agent has unreturned assets from any date (prevents new bookings), OR  
+    // 2. For book_in: Agent has unreturned assets from any date (prevents new collection), OR  
     // 3. For book_in: asset is already collected, OR
     // 4. Asset is unreturned from previous day
     const isAssetUnavailable = (assetStatus.status === 'Lost' || assetStatus.status === 'Not Returned') ||
-                              agentHasUnreturnedAssets ||
+                              (tabType === 'book_in' && agentHasUnreturnedAssets) ||
                               (tabType === 'book_in' && assetStatus.status === 'Collected from Team Leader') ||
                               assetStatus.status === 'Unreturned from Previous Day';
     
