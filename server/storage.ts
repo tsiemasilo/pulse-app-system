@@ -632,15 +632,16 @@ export class DatabaseStorage implements IStorage {
 
       for (const { type, status, reason } of assetTypes) {
         if (status === 'not_returned') {
-          // Check if this asset has been resolved by a later book_in record
+          // Check if this asset has been resolved by a later book_out record showing 'returned'
+          // An unreturned asset is only resolved when it's actually returned, not when a new asset is collected
           const resolvedBookings = await db
             .select()
             .from(assetBookings)
             .where(and(
               eq(assetBookings.userId, booking.userId),
-              eq(assetBookings.bookingType, 'book_in'),
-              sql`${assetBookings.date} >= ${booking.date}`,
-              sql`${assetBookings[type as keyof AssetBooking]} = 'collected'`
+              eq(assetBookings.bookingType, 'book_out'),
+              sql`${assetBookings.date} > ${booking.date}`,
+              sql`${assetBookings[type as keyof AssetBooking]} = 'returned'`
             ));
 
           // Only add if not resolved and not already marked as lost
@@ -707,18 +708,19 @@ export class DatabaseStorage implements IStorage {
 
       for (const { type, status } of assetTypes) {
         if (status === 'not_returned') {
-          // Check if this asset has been resolved by a later book_in record
+          // Check if this asset has been resolved by a later book_out record showing 'returned'
+          // An unreturned asset is only resolved when it's actually returned, not when a new asset is collected
           const resolvedBookings = await db
             .select()
             .from(assetBookings)
             .where(and(
               eq(assetBookings.userId, userId),
-              eq(assetBookings.bookingType, 'book_in'),
-              sql`${assetBookings.date} >= ${booking.date}`,
-              sql`${assetBookings[type as keyof AssetBooking]} = 'collected'`
+              eq(assetBookings.bookingType, 'book_out'),
+              sql`${assetBookings.date} > ${booking.date}`,
+              sql`${assetBookings[type as keyof AssetBooking]} = 'returned'`
             ));
 
-          // If this asset hasn't been resolved, user has unreturned assets
+          // If this asset hasn't been returned, user has unreturned assets
           if (resolvedBookings.length === 0) {
             return true;
           }
