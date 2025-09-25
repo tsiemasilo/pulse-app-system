@@ -1,0 +1,16 @@
+delete the whole system logic of how the boook in book out unreturned asset system logic works because its not working the way i want to
+
+the whole logic of the asset control isnt working the way i want to and has too many errors
+
+when a brand new day starts assets should be ready for collection because they have not been collected yet, thats where team leader will pick and indicate whether the asset has been collected or not and if the asset is collected then the badge should say collected from team leader and if i the team leader picks that it has not collected then it should say it has not been collected from team leader
+there should be a confirmation message dialog asking for confirmation whether the asset is booked in or not depending on which option was chosen, once the confirmation is made the options should be grayed out to book in that certain asset since it was confimed that the asset was booked in for that day
+
+for the book out tab, if a certain asset was not booked in for the day then tick option to book it out cannot be possible since you cannot book out a asset that was not booked in, and if a user tries to tick the to nook out then error message should pop up stating you cannot book out an asset that was not booked in yet
+
+if an asset was booked in and we confirm that it was returned back to the team leader then a badge stating asset returned back to team leader should show and once the asset is confirmed to be returned then on the book in tab the options for that certain asset (the tick and cross) should be grayed out and showing the badge status of the updated badge that was made from the book out tab options
+
+still on the book out tab, if an asset was lost or just not returned on the day, when the cross is pressed then a dialog should pop up asking the asset status and should be able to select if the asset was lost or just not returned yet and whichever option is picked (lost or just not returned yet) another dialog should show next asking for the reason why it was lost or not returned yet based on the option selected and thats where the user can type and enter the reason
+
+then the badge should show lost or just not returned yet based on the selection made
+when the asset is marked as lost or unreturned then the options for that asset on both the book in and book ou ttab should be grayed out showing the correct badge status, options are graye out because you cannot book in or book out an asset that was lost or not returned
+VERY IMPORTANT if the asset was marked as lost or unreturned then make sure that the options still stay grayed out even for the next day until the asset has been found or returned it has to be grayed out because you cannot book in or book out an asset that was lost or unreturned so the options should still be grayed out even for the coming days because it has not been returned yet
