@@ -9,7 +9,9 @@ import {
   terminations,
   assetLossRecords,
   historicalAssetRecords,
-  assetBookings,
+  assetDailyStates,
+  assetStateAudit,
+  assetIncidents,
   assetDetails,
   type User,
   type UpsertUser,
@@ -31,8 +33,12 @@ import {
   type InsertAssetLossRecord,
   type HistoricalAssetRecord,
   type InsertHistoricalAssetRecord,
-  type AssetBooking,
-  type InsertAssetBooking,
+  type AssetDailyState,
+  type InsertAssetDailyState,
+  type AssetStateAudit,
+  type InsertAssetStateAudit,
+  type AssetIncident,
+  type InsertAssetIncident,
   type AssetDetails,
   type InsertAssetDetails,
   type UserRole,
@@ -111,15 +117,41 @@ export interface IStorage {
   getHistoricalAssetRecordsByDate(date: string): Promise<HistoricalAssetRecord[]>;
   createHistoricalAssetRecord(record: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord>;
   
-  // Asset booking management
-  getAssetBookingsByUserAndDate(userId: string, date: string): Promise<AssetBooking[]>;
-  upsertAssetBooking(booking: InsertAssetBooking): Promise<AssetBooking>;
-  getAllAssetBookingsByDate(date: string): Promise<AssetBooking[]>;
+  // Asset daily state management
+  getAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<AssetDailyState[]>;
+  upsertAssetDailyState(dailyState: InsertAssetDailyState): Promise<AssetDailyState>;
+  getAllAssetDailyStatesByDate(date: string): Promise<AssetDailyState[]>;
+  
+  // Asset state audit management
+  createAssetStateAudit(audit: InsertAssetStateAudit): Promise<AssetStateAudit>;
+  getAssetStateAuditByUserId(userId: string): Promise<AssetStateAudit[]>;
+  
+  // Asset incident management
+  createAssetIncident(incident: InsertAssetIncident): Promise<AssetIncident>;
+  getAllAssetIncidents(): Promise<AssetIncident[]>;
+  getAssetIncidentsByUserId(userId: string): Promise<AssetIncident[]>;
+  updateAssetIncidentStatus(incidentId: string, status: string, resolution?: string, resolvedBy?: string): Promise<AssetIncident>;
   
   // Asset details management
   getAssetDetailsByUserId(userId: string): Promise<AssetDetails[]>;
   upsertAssetDetails(details: InsertAssetDetails): Promise<AssetDetails>;
   deleteAssetDetails(id: string): Promise<void>;
+  
+  // Enhanced daily reset functionality
+  performDailyReset(targetDate: string, resetPerformedBy: string): Promise<{
+    message: string;
+    resetCount: number;
+    incidentsCreated: number;
+    details: Array<{
+      userId: string;
+      agentName: string;
+      assetType: string;
+      action: string;
+      previousState?: string;
+      newState: string;
+      reason: string;
+    }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -263,13 +295,19 @@ export class DatabaseStorage implements IStorage {
         .where(eq(terminations.processedBy, userId));
       await tx.delete(terminations).where(eq(terminations.userId, userId));
       
-      // 7. Delete asset bookings for the user
-      await tx.delete(assetBookings).where(eq(assetBookings.userId, userId));
+      // 7. Delete asset daily states for the user
+      await tx.delete(assetDailyStates).where(eq(assetDailyStates.userId, userId));
       
-      // 8. Delete asset loss records for the user
+      // 8. Delete asset state audit records for the user
+      await tx.delete(assetStateAudit).where(eq(assetStateAudit.userId, userId));
+      
+      // 9. Delete asset incidents for the user
+      await tx.delete(assetIncidents).where(eq(assetIncidents.userId, userId));
+      
+      // 10. Delete asset loss records for the user
       await tx.delete(assetLossRecords).where(eq(assetLossRecords.userId, userId));
       
-      // 9. Delete asset details for the user
+      // 11. Delete asset details for the user
       await tx.delete(assetDetails).where(eq(assetDetails.userId, userId));
       
       // Finally, delete the user
@@ -593,76 +631,46 @@ export class DatabaseStorage implements IStorage {
       });
     });
 
-    // Get all asset bookings with not_returned status that haven't been resolved
-    const unreturnedBookings = await db
+    // Get all assets with 'not_returned' state from asset daily states
+    const unreturnedStates = await db
       .select({
-        userId: assetBookings.userId,
-        date: assetBookings.date,
-        laptop: assetBookings.laptop,
-        headsets: assetBookings.headsets,
-        dongle: assetBookings.dongle,
-        laptopReason: assetBookings.laptopReason,
-        headsetsReason: assetBookings.headsetsReason,
-        dongleReason: assetBookings.dongleReason,
-        agentName: assetBookings.agentName,
+        userId: assetDailyStates.userId,
+        date: assetDailyStates.date,
+        assetType: assetDailyStates.assetType,
+        currentState: assetDailyStates.currentState,
+        reason: assetDailyStates.reason,
+        agentName: assetDailyStates.agentName,
         user: {
           firstName: users.firstName,
           lastName: users.lastName,
           username: users.username,
         }
       })
-      .from(assetBookings)
-      .leftJoin(users, eq(assetBookings.userId, users.id))
-      .where(and(
-        eq(assetBookings.bookingType, 'book_out'),
-        sql`(${assetBookings.laptop} = 'not_returned' OR ${assetBookings.headsets} = 'not_returned' OR ${assetBookings.dongle} = 'not_returned')`
-      ));
+      .from(assetDailyStates)
+      .leftJoin(users, eq(assetDailyStates.userId, users.id))
+      .where(eq(assetDailyStates.currentState, 'not_returned'));
 
-    // Add not returned assets from bookings, but exclude those that have been resolved
-    for (const booking of unreturnedBookings) {
-      const fullName = `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim();
-      const displayName = fullName || booking.agentName || booking.user?.username || 'Unknown User';
+    // Add not returned assets from daily states
+    for (const state of unreturnedStates) {
+      const fullName = `${state.user?.firstName || ''} ${state.user?.lastName || ''}`.trim();
+      const displayName = fullName || state.agentName || state.user?.username || 'Unknown User';
       
-      // Check each asset type for not_returned status
-      const assetTypes = [
-        { type: 'laptop', status: booking.laptop, reason: booking.laptopReason },
-        { type: 'headsets', status: booking.headsets, reason: booking.headsetsReason },
-        { type: 'dongle', status: booking.dongle, reason: booking.dongleReason }
-      ];
-
-      for (const { type, status, reason } of assetTypes) {
-        if (status === 'not_returned') {
-          // Check if this asset has been resolved by a later book_out record showing 'returned'
-          // An unreturned asset is only resolved when it's actually returned, not when a new asset is collected
-          const resolvedBookings = await db
-            .select()
-            .from(assetBookings)
-            .where(and(
-              eq(assetBookings.userId, booking.userId),
-              eq(assetBookings.bookingType, 'book_out'),
-              sql`${assetBookings.date} > ${booking.date}`,
-              sql`${assetBookings[type as keyof AssetBooking]} = 'returned'`
-            ));
-
-          // Only add if not resolved and not already marked as lost
-          const isResolved = resolvedBookings.length > 0;
-          const isAlreadyLost = unreturnedAssets.some(
-            asset => asset.userId === booking.userId && 
-                    asset.assetType === type && 
-                    asset.status === 'Lost'
-          );
-          
-          if (!isResolved && !isAlreadyLost) {
-            unreturnedAssets.push({
-              userId: booking.userId,
-              agentName: displayName,
-              assetType: type,
-              status: 'Not Returned Yet',
-              date: booking.date,
-              reason
-            });
-          }
-        }
+      // Check if this asset is already marked as lost
+      const isAlreadyLost = unreturnedAssets.some(
+        asset => asset.userId === state.userId && 
+                asset.assetType === state.assetType && 
+                asset.status === 'Lost'
+      );
+      
+      if (!isAlreadyLost) {
+        unreturnedAssets.push({
+          userId: state.userId,
+          agentName: displayName,
+          assetType: state.assetType,
+          status: 'Not Returned Yet',
+          date: state.date,
+          reason: state.reason || undefined
+        });
       }
     }
 
@@ -683,49 +691,17 @@ export class DatabaseStorage implements IStorage {
       return true;
     }
 
-    // Check if user has any unresolved unreturned assets from bookings
-    const unreturnedBookings = await db
-      .select({
-        date: assetBookings.date,
-        laptop: assetBookings.laptop,
-        headsets: assetBookings.headsets,
-        dongle: assetBookings.dongle,
-      })
-      .from(assetBookings)
+    // Check if user has any unresolved unreturned assets from daily states
+    const unreturnedStates = await db
+      .select({ count: sql`count(*)`.mapWith(Number) })
+      .from(assetDailyStates)
       .where(and(
-        eq(assetBookings.userId, userId),
-        eq(assetBookings.bookingType, 'book_out'),
-        sql`(${assetBookings.laptop} = 'not_returned' OR ${assetBookings.headsets} = 'not_returned' OR ${assetBookings.dongle} = 'not_returned')`
+        eq(assetDailyStates.userId, userId),
+        eq(assetDailyStates.currentState, 'not_returned')
       ));
 
-    // Check each unreturned asset to see if it has been resolved
-    for (const booking of unreturnedBookings) {
-      const assetTypes = [
-        { type: 'laptop', status: booking.laptop },
-        { type: 'headsets', status: booking.headsets },
-        { type: 'dongle', status: booking.dongle }
-      ];
-
-      for (const { type, status } of assetTypes) {
-        if (status === 'not_returned') {
-          // Check if this asset has been resolved by a later book_out record showing 'returned'
-          // An unreturned asset is only resolved when it's actually returned, not when a new asset is collected
-          const resolvedBookings = await db
-            .select()
-            .from(assetBookings)
-            .where(and(
-              eq(assetBookings.userId, userId),
-              eq(assetBookings.bookingType, 'book_out'),
-              sql`${assetBookings.date} > ${booking.date}`,
-              sql`${assetBookings[type as keyof AssetBooking]} = 'returned'`
-            ));
-
-          // If this asset hasn't been returned, user has unreturned assets
-          if (resolvedBookings.length === 0) {
-            return true;
-          }
-        }
-      }
+    if (unreturnedStates[0]?.count > 0) {
+      return true;
     }
 
     return false;
@@ -745,190 +721,295 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async upsertHistoricalAssetRecord(recordData: InsertHistoricalAssetRecord): Promise<HistoricalAssetRecord> {
-    // Check if a record already exists for this date
-    const existingRecords = await this.getHistoricalAssetRecordsByDate(recordData.date);
-    
-    if (existingRecords.length > 0) {
-      // Update the most recent record for this date
-      const existingRecord = existingRecords[0];
-      const [updatedRecord] = await db
-        .update(historicalAssetRecords)
-        .set({
-          bookInRecords: recordData.bookInRecords,
-          bookOutRecords: recordData.bookOutRecords,
-          lostAssets: recordData.lostAssets,
-        })
-        .where(eq(historicalAssetRecords.id, existingRecord.id))
-        .returning();
-      return updatedRecord;
-    } else {
-      // Create new record if none exists
-      return await this.createHistoricalAssetRecord(recordData);
-    }
-  }
-  
-  // Asset booking management
-  async getAssetBookingsByUserAndDate(userId: string, date: string): Promise<AssetBooking[]> {
+  // Asset daily state management
+  async getAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<AssetDailyState[]> {
     return await db
       .select()
-      .from(assetBookings)
+      .from(assetDailyStates)
       .where(and(
-        eq(assetBookings.userId, userId),
-        eq(assetBookings.date, date)
-      ));
+        eq(assetDailyStates.userId, userId),
+        eq(assetDailyStates.date, date)
+      ))
+      .orderBy(assetDailyStates.assetType);
   }
-  
-  async upsertAssetBooking(bookingData: InsertAssetBooking): Promise<AssetBooking> {
-    // Check if a booking already exists for this user, date, and booking type
-    const existingBookings = await db
+
+  async upsertAssetDailyState(dailyStateData: InsertAssetDailyState): Promise<AssetDailyState> {
+    // Check if a daily state already exists for this user, date, and asset type
+    const existingStates = await db
       .select()
-      .from(assetBookings)
+      .from(assetDailyStates)
       .where(and(
-        eq(assetBookings.userId, bookingData.userId),
-        eq(assetBookings.date, bookingData.date),
-        eq(assetBookings.bookingType, bookingData.bookingType as string)
+        eq(assetDailyStates.userId, dailyStateData.userId),
+        eq(assetDailyStates.date, dailyStateData.date),
+        eq(assetDailyStates.assetType, dailyStateData.assetType)
       ));
     
-    let resultBooking: AssetBooking;
-    
-    if (existingBookings.length > 0) {
-      // Update existing booking
-      const [updatedBooking] = await db
-        .update(assetBookings)
+    if (existingStates.length > 0) {
+      // Update existing state
+      const [updatedState] = await db
+        .update(assetDailyStates)
         .set({
-          laptop: bookingData.laptop as string,
-          headsets: bookingData.headsets as string,
-          dongle: bookingData.dongle as string,
-          agentName: bookingData.agentName,
+          currentState: dailyStateData.currentState,
+          confirmedBy: dailyStateData.confirmedBy,
+          confirmedAt: dailyStateData.confirmedAt,
+          reason: dailyStateData.reason,
+          agentName: dailyStateData.agentName,
           updatedAt: new Date(),
         })
-        .where(eq(assetBookings.id, existingBookings[0].id))
+        .where(eq(assetDailyStates.id, existingStates[0].id))
         .returning();
-
-      // Auto-remove lost asset records when assets are marked as returned or collected (date-scoped)
-      if (bookingData.laptop === 'returned' || bookingData.laptop === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'laptop', bookingData.date);
-      }
-      if (bookingData.headsets === 'returned' || bookingData.headsets === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'headsets', bookingData.date);
-      }
-      if (bookingData.dongle === 'returned' || bookingData.dongle === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'dongle', bookingData.date);
-      }
-
-      resultBooking = updatedBooking;
+      return updatedState;
     } else {
-      // Create new booking
-      const [newBooking] = await db
-        .insert(assetBookings)
-        .values({
-          ...bookingData,
-          bookingType: bookingData.bookingType as string,
-          laptop: bookingData.laptop as string,
-          headsets: bookingData.headsets as string,
-          dongle: bookingData.dongle as string,
-        })
+      // Create new state
+      const [newState] = await db
+        .insert(assetDailyStates)
+        .values(dailyStateData)
         .returning();
-
-      // Auto-remove lost asset records when assets are marked as returned or collected (date-scoped, for new bookings too)
-      if (bookingData.laptop === 'returned' || bookingData.laptop === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'laptop', bookingData.date);
-      }
-      if (bookingData.headsets === 'returned' || bookingData.headsets === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'headsets', bookingData.date);
-      }
-      if (bookingData.dongle === 'returned' || bookingData.dongle === 'collected') {
-        await this.deleteAssetLossRecord(bookingData.userId, 'dongle', bookingData.date);
-      }
-
-      resultBooking = newBooking;
+      return newState;
     }
-
-    // CRITICAL FIX: Sync historical asset records with current asset bookings
-    await this.syncHistoricalRecordsFromBookings(bookingData.date);
-
-    return resultBooking;
   }
-  
-  async getAllAssetBookingsByDate(date: string): Promise<AssetBooking[]> {
+
+  async getAllAssetDailyStatesByDate(date: string): Promise<AssetDailyState[]> {
     return await db
       .select()
-      .from(assetBookings)
-      .where(eq(assetBookings.date, date))
-      .orderBy(assetBookings.bookingType);
+      .from(assetDailyStates)
+      .where(eq(assetDailyStates.date, date))
+      .orderBy(assetDailyStates.userId, assetDailyStates.assetType);
   }
 
-  // Helper method to sync historical records from current asset bookings
-  async syncHistoricalRecordsFromBookings(date: string): Promise<void> {
-    try {
-      // Get all asset bookings for this date
-      const allBookings = await this.getAllAssetBookingsByDate(date);
+  // Asset state audit management
+  async createAssetStateAudit(auditData: InsertAssetStateAudit): Promise<AssetStateAudit> {
+    const [audit] = await db
+      .insert(assetStateAudit)
+      .values(auditData)
+      .returning();
+    return audit;
+  }
+
+  async getAssetStateAuditByUserId(userId: string): Promise<AssetStateAudit[]> {
+    return await db
+      .select()
+      .from(assetStateAudit)
+      .where(eq(assetStateAudit.userId, userId))
+      .orderBy(desc(assetStateAudit.changedAt));
+  }
+
+  // Enhanced daily reset functionality
+  async performDailyReset(targetDate: string, resetPerformedBy: string): Promise<{
+    message: string;
+    resetCount: number;
+    incidentsCreated: number;
+    details: Array<{
+      userId: string;
+      agentName: string;
+      assetType: string;
+      action: string;
+      previousState?: string;
+      newState: string;
+      reason: string;
+    }>;
+  }> {
+    // Calculate previous day
+    const targetDateTime = new Date(targetDate);
+    const previousDay = new Date(targetDateTime);
+    previousDay.setDate(previousDay.getDate() - 1);
+    const previousDate = previousDay.toISOString().split('T')[0];
+
+    // Get all active users
+    const allUsers = await this.getAllUsers();
+    const activeUsers = allUsers.filter(u => u.isActive);
+    
+    const assetTypes = ['laptop', 'headsets', 'dongle'];
+    const resetDetails: Array<{
+      userId: string;
+      agentName: string;
+      assetType: string;
+      action: string;
+      previousState?: string;
+      newState: string;
+      reason: string;
+    }> = [];
+    
+    let incidentsCreated = 0;
+
+    // Process each user and asset type
+    for (const user of activeUsers) {
+      const agentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
       
-      // Group bookings by user and type
-      const bookingsByUser: Record<string, Record<string, AssetBooking>> = {};
-      for (const booking of allBookings) {
-        if (!bookingsByUser[booking.userId]) {
-          bookingsByUser[booking.userId] = {};
+      for (const assetType of assetTypes) {
+        // Get previous day's state for this user/asset type
+        const previousStates = await this.getAssetDailyStatesByUserAndDate(user.id, previousDate);
+        const previousState = previousStates.find(s => s.assetType === assetType);
+        
+        // Get current state to check if it exists
+        const currentStates = await this.getAssetDailyStatesByUserAndDate(user.id, targetDate);
+        const currentState = currentStates.find(s => s.assetType === assetType);
+        
+        let actionTaken = '';
+        let newState = '';
+        let reason = '';
+        
+        if (previousState) {
+          // Handle based on previous day's state
+          switch (previousState.currentState) {
+            case 'collected':
+              // Asset was collected but not returned - mark as unreturned and create incident
+              newState = 'not_returned';
+              reason = 'Asset was not returned/booked out from previous day';
+              actionTaken = 'auto_mark_unreturned';
+              
+              // Create incident for unreturned asset
+              await this.createAssetIncident({
+                userId: user.id,
+                assetType,
+                incidentType: 'unreturned',
+                description: `Asset was collected on ${previousDate} but was not returned. Automatically marked as not returned during daily reset.`,
+                reportedBy: resetPerformedBy
+              });
+              incidentsCreated++;
+              break;
+              
+            case 'returned':
+              // Asset completed full cycle - reset to ready for collection
+              newState = 'ready_for_collection';
+              reason = 'Daily reset - asset completed full cycle';
+              actionTaken = 'reset_completed_cycle';
+              break;
+              
+            case 'not_collected':
+              // Asset was not collected - reset to ready for collection
+              newState = 'ready_for_collection';
+              reason = 'Daily reset - asset was not collected previous day';
+              actionTaken = 'reset_not_collected';
+              break;
+              
+            case 'not_returned':
+            case 'lost':
+              // Persistent states - keep the same state
+              if (!currentState) {
+                newState = previousState.currentState;
+                reason = `Persisting ${previousState.currentState} state from previous day`;
+                actionTaken = 'persist_problematic_state';
+              } else {
+                // State already exists, skip
+                continue;
+              }
+              break;
+              
+            case 'ready_for_collection':
+              // Was ready but not collected - reset to ready again
+              newState = 'ready_for_collection';
+              reason = 'Daily reset - asset remained ready for collection';
+              actionTaken = 'reset_ready_state';
+              break;
+              
+            default:
+              // Unknown state - reset to ready for collection
+              newState = 'ready_for_collection';
+              reason = 'Daily reset - unknown previous state';
+              actionTaken = 'reset_unknown_state';
+              break;
+          }
+        } else {
+          // No previous state - initialize as ready for collection
+          newState = 'ready_for_collection';
+          reason = 'Daily reset - initializing new asset state';
+          actionTaken = 'initialize_new_state';
         }
-        bookingsByUser[booking.userId][booking.bookingType] = booking;
-      }
-
-      // Build historical record format (JSON snapshots)
-      const bookInRecords: Record<string, any> = {};
-      const bookOutRecords: Record<string, any> = {};
-
-      for (const [userId, userBookings] of Object.entries(bookingsByUser)) {
-        // Build book-in record
-        if (userBookings.book_in) {
-          const booking = userBookings.book_in;
-          bookInRecords[userId] = {
-            agentId: userId,
-            agentName: booking.agentName,
-            date: booking.date,
-            type: 'book_in',
-            laptop: booking.laptop,
-            headsets: booking.headsets,
-            dongle: booking.dongle,
+        
+        // Only create/update state if we have an action to take and no current state exists
+        if (actionTaken && !currentState) {
+          const dailyStateData = {
+            userId: user.id,
+            date: targetDate,
+            assetType,
+            currentState: newState as any,
+            confirmedBy: resetPerformedBy,
+            confirmedAt: new Date(),
+            reason,
+            agentName
           };
-        }
-
-        // Build book-out record
-        if (userBookings.book_out) {
-          const booking = userBookings.book_out;
-          bookOutRecords[userId] = {
-            agentId: userId,
-            agentName: booking.agentName,
-            date: booking.date,
-            type: 'book_out',
-            laptop: booking.laptop,
-            headsets: booking.headsets,
-            dongle: booking.dongle,
-          };
+          
+          const createdState = await this.upsertAssetDailyState(dailyStateData);
+          
+          // Create audit trail
+          await this.createAssetStateAudit({
+            dailyStateId: createdState.id,
+            userId: user.id,
+            assetType,
+            previousState: previousState?.currentState || null,
+            newState,
+            reason,
+            changedBy: resetPerformedBy,
+            changedAt: new Date()
+          });
+          
+          resetDetails.push({
+            userId: user.id,
+            agentName,
+            assetType,
+            action: actionTaken,
+            previousState: previousState?.currentState,
+            newState,
+            reason
+          });
         }
       }
-
-      // Get current lost assets for this date
-      const lostAssets = await this.getAllAssetLossRecords();
-      const todayLostAssets = lostAssets.filter(asset => {
-        // Convert dateLost to string format for comparison
-        const assetDateString = asset.dateLost instanceof Date 
-          ? asset.dateLost.toISOString().split('T')[0]
-          : asset.dateLost;
-        return assetDateString === date;
-      });
-
-      // Update or create historical record
-      await this.upsertHistoricalAssetRecord({
-        date: date,
-        bookInRecords: bookInRecords,
-        bookOutRecords: bookOutRecords,
-        lostAssets: todayLostAssets,
-      });
-    } catch (error) {
-      console.error('Error syncing historical records from bookings:', error);
-      // Don't throw error to avoid breaking the main booking operation
     }
+    
+    return {
+      message: `Daily reset completed for ${targetDate}`,
+      resetCount: resetDetails.length,
+      incidentsCreated,
+      details: resetDetails
+    };
+  }
+
+  // Asset incident management
+  async createAssetIncident(incidentData: InsertAssetIncident): Promise<AssetIncident> {
+    const [incident] = await db
+      .insert(assetIncidents)
+      .values(incidentData)
+      .returning();
+    return incident;
+  }
+
+  async getAllAssetIncidents(): Promise<AssetIncident[]> {
+    return await db
+      .select()
+      .from(assetIncidents)
+      .orderBy(desc(assetIncidents.reportedAt));
+  }
+
+  async getAssetIncidentsByUserId(userId: string): Promise<AssetIncident[]> {
+    return await db
+      .select()
+      .from(assetIncidents)
+      .where(eq(assetIncidents.userId, userId))
+      .orderBy(desc(assetIncidents.reportedAt));
+  }
+
+  async updateAssetIncidentStatus(incidentId: string, status: string, resolution?: string, resolvedBy?: string): Promise<AssetIncident> {
+    const updateData: any = {
+      status,
+      updatedAt: new Date()
+    };
+    
+    if (resolution) {
+      updateData.resolution = resolution;
+    }
+    
+    if (resolvedBy) {
+      updateData.resolvedBy = resolvedBy;
+      updateData.resolvedAt = new Date();
+    }
+    
+    const [incident] = await db
+      .update(assetIncidents)
+      .set(updateData)
+      .where(eq(assetIncidents.id, incidentId))
+      .returning();
+    return incident;
   }
   
   // Asset details management

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { dailyResetScheduler } from "./scheduler";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,13 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start the daily reset scheduler
+    try {
+      dailyResetScheduler.start();
+      log("Daily reset scheduler started successfully");
+    } catch (error) {
+      console.error("Failed to start daily reset scheduler:", error);
+    }
   });
 })();

@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetBookingSchema, insertAssetDetailsSchema, users } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, users } from "@shared/schema";
+import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -335,12 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const assetLossRecord = await storage.createAssetLossRecord(assetLossData);
       
-      // Sync historical records to include the new loss record
-      const lossDateString = assetLossData.dateLost instanceof Date 
-        ? assetLossData.dateLost.toISOString().split('T')[0]
-        : assetLossData.dateLost;
-      
-      await storage.syncHistoricalRecordsFromBookings(lossDateString);
+      // Note: Historical record sync will be handled by daily state management
       
       res.json(assetLossRecord);
     } catch (error) {
@@ -388,8 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteAssetLossRecord(userId, assetType, date);
       
-      // Sync historical records to remove the cleared loss record
-      await storage.syncHistoricalRecordsFromBookings(date);
+      // Note: Historical record sync will be handled by daily state management
       
       res.json({ success: true });
     } catch (error) {
@@ -434,23 +429,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Asset booking routes
-  app.get('/api/asset-bookings/date/:date', isAuthenticated, async (req: any, res) => {
+  // Asset daily states routes (replacement for asset bookings)
+  app.get('/api/assets/daily-states/:date', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const bookings = await storage.getAllAssetBookingsByDate(req.params.date);
-      res.json(bookings);
+      const dailyStates = await storage.getAllAssetDailyStatesByDate(req.params.date);
+      res.json(dailyStates);
     } catch (error) {
-      console.error("Error fetching asset bookings:", error);
-      res.status(500).json({ message: "Failed to fetch asset bookings" });
+      console.error("Error fetching daily states:", error);
+      res.status(500).json({ message: "Failed to fetch daily states" });
     }
   });
 
-  app.get('/api/asset-bookings/user/:userId/date/:date', isAuthenticated, async (req: any, res) => {
+  app.get('/api/assets/daily-states/user/:userId/date/:date', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       // Allow access to own data or if user has management permissions
@@ -458,27 +453,391 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const bookings = await storage.getAssetBookingsByUserAndDate(req.params.userId, req.params.date);
-      res.json(bookings);
+      const dailyStates = await storage.getAssetDailyStatesByUserAndDate(req.params.userId, req.params.date);
+      res.json(dailyStates);
     } catch (error) {
-      console.error("Error fetching user asset bookings:", error);
-      res.status(500).json({ message: "Failed to fetch user asset bookings" });
+      console.error("Error fetching user daily states:", error);
+      res.status(500).json({ message: "Failed to fetch user daily states" });
     }
   });
 
-  app.post('/api/asset-bookings', isAuthenticated, async (req: any, res) => {
+  app.post('/api/assets/daily-state', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const bookingData = insertAssetBookingSchema.parse(req.body);
-      const booking = await storage.upsertAssetBooking(bookingData);
-      res.json(booking);
+      const dailyStateData = insertAssetDailyStateSchema.parse(req.body);
+      const dailyState = await storage.upsertAssetDailyState(dailyStateData);
+      res.json(dailyState);
     } catch (error) {
-      console.error("Error creating/updating asset booking:", error);
-      res.status(500).json({ message: "Failed to create/update asset booking" });
+      console.error("Error creating/updating daily state:", error);
+      res.status(500).json({ message: "Failed to create/update daily state" });
+    }
+  });
+
+  // Helper function to get user full name
+  async function getUserFullName(userId: string): Promise<string> {
+    const user = await storage.getUser(userId);
+    return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
+  }
+
+  // Helper function to check if user has unreturned asset of specific type
+  async function checkUserHasUnreturnedAssetType(userId: string, assetType: string): Promise<boolean> {
+    const unreturnedAssets = await storage.getAllUnreturnedAssets();
+    return unreturnedAssets.some(asset => asset.userId === userId && asset.assetType === assetType);
+  }
+
+  // New Asset Booking API Routes
+  
+  // Book In Route - Confirm asset collection status
+  app.post('/api/assets/book-in', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { userId, assetType, date, status, reason } = z.object({
+        userId: z.string(),
+        assetType: z.string(),
+        date: z.string(), // YYYY-MM-DD format
+        status: z.enum(['collected', 'not_collected']),
+        reason: z.string().optional(),
+      }).parse(req.body);
+
+      // Validate that the asset is in a state that allows book-in
+      const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
+      const existingState = currentStates.find(s => s.assetType === assetType);
+      
+      if (existingState && !['ready_for_collection', 'collected', 'not_collected'].includes(existingState.currentState)) {
+        return res.status(400).json({ 
+          message: `Cannot book in asset in current state: ${existingState.currentState}` 
+        });
+      }
+
+      const dailyStateData = {
+        userId,
+        date,
+        assetType,
+        currentState: status,
+        confirmedBy: user.id,
+        confirmedAt: new Date(),
+        reason: reason || null,
+        agentName: await getUserFullName(userId)
+      };
+
+      const dailyState = await storage.upsertAssetDailyState(dailyStateData);
+      
+      // Create audit trail
+      await storage.createAssetStateAudit({
+        dailyStateId: dailyState.id,
+        userId,
+        assetType,
+        previousState: existingState?.currentState || 'ready_for_collection',
+        newState: status,
+        reason: reason || `Book in: ${status}`,
+        changedBy: user.id,
+        changedAt: new Date()
+      });
+
+      res.json(dailyState);
+    } catch (error) {
+      console.error("Error processing book-in:", error);
+      res.status(500).json({ message: "Failed to process book-in" });
+    }
+  });
+
+  // Book Out Route - Confirm asset return status  
+  app.post('/api/assets/book-out', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { userId, assetType, date, status, reason } = z.object({
+        userId: z.string(),
+        assetType: z.string(),
+        date: z.string(), // YYYY-MM-DD format
+        status: z.enum(['returned', 'not_returned', 'lost']),
+        reason: z.string().optional(),
+      }).parse(req.body);
+
+      // Validate that the asset was booked in (collected) before allowing book out
+      const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
+      const existingState = currentStates.find(s => s.assetType === assetType);
+      
+      if (!existingState || existingState.currentState !== 'collected') {
+        return res.status(400).json({ 
+          message: "Asset must be collected before it can be booked out" 
+        });
+      }
+
+      const dailyStateData = {
+        userId,
+        date,
+        assetType,
+        currentState: status,
+        confirmedBy: user.id,
+        confirmedAt: new Date(),
+        reason: reason || null,
+        agentName: await getUserFullName(userId)
+      };
+
+      const dailyState = await storage.upsertAssetDailyState(dailyStateData);
+      
+      // Create audit trail
+      await storage.createAssetStateAudit({
+        dailyStateId: dailyState.id,
+        userId,
+        assetType,
+        previousState: existingState.currentState,
+        newState: status,
+        reason: reason || `Book out: ${status}`,
+        changedBy: user.id,
+        changedAt: new Date()
+      });
+
+      res.json(dailyState);
+    } catch (error) {
+      console.error("Error processing book-out:", error);
+      res.status(500).json({ message: "Failed to process book-out" });
+    }
+  });
+
+  // Mark Asset as Found Route
+  app.post('/api/assets/mark-found', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { userId, assetType, date, recoveryReason } = z.object({
+        userId: z.string(),
+        assetType: z.string(),
+        date: z.string(), // YYYY-MM-DD format of the day when asset was lost
+        recoveryReason: z.string(),
+      }).parse(req.body);
+
+      // Find the lost/unreturned asset state
+      const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
+      const existingState = currentStates.find(s => s.assetType === assetType);
+      
+      if (!existingState || !['not_returned', 'lost'].includes(existingState.currentState)) {
+        return res.status(400).json({ 
+          message: "Asset is not in a lost/unreturned state" 
+        });
+      }
+
+      const dailyStateData = {
+        userId,
+        date,
+        assetType,
+        currentState: 'returned' as const,
+        confirmedBy: user.id,
+        confirmedAt: new Date(),
+        reason: `Found: ${recoveryReason}`,
+        agentName: await getUserFullName(userId)
+      };
+
+      const dailyState = await storage.upsertAssetDailyState(dailyStateData);
+      
+      // Create audit trail
+      await storage.createAssetStateAudit({
+        dailyStateId: dailyState.id,
+        userId,
+        assetType,
+        previousState: existingState.currentState,
+        newState: 'returned',
+        reason: `Asset found: ${recoveryReason}`,
+        changedBy: user.id,
+        changedAt: new Date()
+      });
+
+      res.json(dailyState);
+    } catch (error) {
+      console.error("Error marking asset as found:", error);
+      res.status(500).json({ message: "Failed to mark asset as found" });
+    }
+  });
+
+  // Enhanced Daily Reset Route - Intelligent state management across days
+  app.post('/api/assets/daily-reset', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden - Admin/HR only" });
+      }
+
+      const { date } = z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+      }).parse(req.body);
+
+      console.log(`Starting enhanced daily reset for ${date} by user ${user.id} (${user.username})`);
+      
+      // Use the enhanced daily reset logic
+      const result = await storage.performDailyReset(date, user.id);
+      
+      console.log(`Daily reset completed for ${date}:`, {
+        resetCount: result.resetCount,
+        incidentsCreated: result.incidentsCreated,
+        actionsPerformed: result.details.map(d => `${d.agentName} - ${d.assetType}: ${d.action}`)
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error performing daily reset:", error);
+      res.status(500).json({ 
+        message: "Failed to perform daily reset", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Automated Daily Reset Trigger Route (for scheduling systems)
+  app.post('/api/assets/daily-reset/auto', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden - Admin only" });
+      }
+
+      // Auto-calculate today's date
+      const today = new Date().toISOString().split('T')[0];
+      
+      console.log(`Starting automated daily reset for ${today} by user ${user.id} (${user.username})`);
+      
+      // Use the enhanced daily reset logic with today's date
+      const result = await storage.performDailyReset(today, user.id);
+      
+      console.log(`Automated daily reset completed for ${today}:`, {
+        resetCount: result.resetCount,
+        incidentsCreated: result.incidentsCreated,
+        actionsPerformed: result.details.map(d => `${d.agentName} - ${d.assetType}: ${d.action}`)
+      });
+
+      res.json({
+        ...result,
+        automated: true,
+        processedDate: today
+      });
+    } catch (error) {
+      console.error("Error performing automated daily reset:", error);
+      res.status(500).json({ 
+        message: "Failed to perform automated daily reset", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Daily Reset Status Route - Check if reset has been performed for a date
+  app.get('/api/assets/daily-reset/status/:date', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { date } = z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+      }).parse({ date: req.params.date });
+
+      const dailyStates = await storage.getAllAssetDailyStatesByDate(date);
+      const stateGroups = dailyStates.reduce((acc, state) => {
+        const key = state.currentState;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json({
+        date,
+        resetPerformed: dailyStates.length > 0,
+        totalStates: dailyStates.length,
+        stateBreakdown: stateGroups,
+        lastActivity: dailyStates.length > 0 ? 
+          Math.max(...dailyStates.map(s => new Date(s.updatedAt || s.createdAt).getTime())) : null
+      });
+    } catch (error) {
+      console.error("Error checking daily reset status:", error);
+      res.status(500).json({ message: "Failed to check daily reset status" });
+    }
+  });
+
+  // Scheduler Management Routes
+  app.get('/api/assets/daily-reset/scheduler/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'hr'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden - Admin/HR only" });
+      }
+
+      const status = dailyResetScheduler.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting scheduler status:", error);
+      res.status(500).json({ message: "Failed to get scheduler status" });
+    }
+  });
+
+  app.post('/api/assets/daily-reset/scheduler/trigger', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'hr'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden - Admin/HR only" });
+      }
+
+      const { date } = z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional(),
+      }).parse(req.body);
+
+      const result = await dailyResetScheduler.triggerManualReset(date);
+      res.json({
+        ...result,
+        triggeredBy: user.username,
+        triggeredAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error triggering manual reset:", error);
+      res.status(500).json({ 
+        message: "Failed to trigger manual reset", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Asset State Audit Trail Route
+  app.get('/api/assets/state-audit/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== req.params.userId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const auditTrail = await storage.getAssetStateAuditByUserId(req.params.userId);
+      res.json(auditTrail);
+    } catch (error) {
+      console.error("Error fetching asset state audit:", error);
+      res.status(500).json({ message: "Failed to fetch asset state audit" });
+    }
+  });
+
+  // Alias route for unreturned assets (matches required API specification)
+  app.get('/api/assets/unreturned', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader' && user?.role !== 'contact_center_manager' && user?.role !== 'contact_center_ops_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const unreturnedAssets = await storage.getAllUnreturnedAssets();
+      res.json(unreturnedAssets);
+    } catch (error) {
+      console.error("Error fetching unreturned assets:", error);
+      res.status(500).json({ message: "Failed to fetch unreturned assets" });
     }
   });
 
@@ -737,7 +1096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const recordData = insertHistoricalAssetRecordSchema.parse(req.body);
-      const record = await storage.upsertHistoricalAssetRecord(recordData);
+      const record = await storage.createHistoricalAssetRecord(recordData);
       res.json(record);
     } catch (error) {
       console.error("Error creating historical asset record:", error);

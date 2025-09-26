@@ -35,7 +35,7 @@ export const departments = pgTable("departments", {
 });
 
 // User storage table with local authentication
-export const users: any = pgTable("users", {
+export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: varchar("username").unique().notNull(),
   password: text("password").notNull(),
@@ -148,26 +148,56 @@ export const assetLossRecords = pgTable("asset_loss_records", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Asset booking records (real-time daily tracking)
-export const assetBookings = pgTable("asset_bookings", {
+// Asset daily states (state-machine based tracking)
+export const assetDailyStates = pgTable("asset_daily_states", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   date: text("date").notNull(), // YYYY-MM-DD format
-  bookingType: varchar("booking_type").notNull(), // book_in, book_out
-  laptop: varchar("laptop").notNull().default('none'), // none, collected, not_collected, returned, not_returned
-  headsets: varchar("headsets").notNull().default('none'),
-  dongle: varchar("dongle").notNull().default('none'),
-  laptopReason: text("laptop_reason"), // Reason for unreturned laptop
-  headsetsReason: text("headsets_reason"), // Reason for unreturned headsets
-  dongleReason: text("dongle_reason"), // Reason for unreturned dongle
+  assetType: varchar("asset_type").notNull(), // laptop, headsets, dongle
+  currentState: varchar("current_state").notNull(), // ready_for_collection, collected, not_collected, returned, not_returned, lost
+  confirmedBy: varchar("confirmed_by").references(() => users.id), // who confirmed the state
+  confirmedAt: timestamp("confirmed_at"), // when state was confirmed
+  reason: text("reason"), // reason for current state if applicable
   agentName: varchar("agent_name"), // Cache for performance
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Define asset status types for type safety
-export type AssetStatus = 'none' | 'collected' | 'not_collected' | 'returned' | 'not_returned';
-export type BookingType = 'book_in' | 'book_out';
+// Asset state audit (tracking all state changes)
+export const assetStateAudit = pgTable("asset_state_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dailyStateId: varchar("daily_state_id").notNull().references(() => assetDailyStates.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  assetType: varchar("asset_type").notNull(), // laptop, headsets, dongle
+  previousState: varchar("previous_state"), // previous state (null for initial state)
+  newState: varchar("new_state").notNull(), // new state
+  reason: text("reason"), // reason for state change
+  changedBy: varchar("changed_by").notNull().references(() => users.id), // who made the change
+  changedAt: timestamp("changed_at").notNull().defaultNow(), // when change was made
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Asset incidents (tracking asset-related incidents and issues)
+export const assetIncidents = pgTable("asset_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  assetType: varchar("asset_type").notNull(), // laptop, headsets, dongle
+  incidentType: varchar("incident_type").notNull(), // lost, damaged, missing, unreturned, maintenance
+  description: text("description").notNull(),
+  reportedBy: varchar("reported_by").notNull().references(() => users.id),
+  reportedAt: timestamp("reported_at").notNull().defaultNow(),
+  status: varchar("status").notNull().default('reported'), // reported, investigating, resolved, closed
+  resolution: text("resolution"), // resolution description
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Define asset state types for type safety
+export type AssetState = 'ready_for_collection' | 'collected' | 'not_collected' | 'returned' | 'not_returned' | 'lost';
+export type IncidentType = 'lost' | 'damaged' | 'missing' | 'unreturned' | 'maintenance';
+export type IncidentStatus = 'reported' | 'investigating' | 'resolved' | 'closed';
 
 // Asset details (comprehensive asset information)
 export const assetDetails = pgTable("asset_details", {
@@ -252,7 +282,18 @@ export const insertHistoricalAssetRecordSchema = createInsertSchema(historicalAs
   createdAt: true,
 });
 
-export const insertAssetBookingSchema = createInsertSchema(assetBookings).omit({
+export const insertAssetDailyStateSchema = createInsertSchema(assetDailyStates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssetStateAuditSchema = createInsertSchema(assetStateAudit).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAssetIncidentSchema = createInsertSchema(assetIncidents).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -285,7 +326,11 @@ export type AssetLossRecord = typeof assetLossRecords.$inferSelect;
 export type InsertAssetLossRecord = z.infer<typeof insertAssetLossRecordSchema>;
 export type HistoricalAssetRecord = typeof historicalAssetRecords.$inferSelect;
 export type InsertHistoricalAssetRecord = z.infer<typeof insertHistoricalAssetRecordSchema>;
-export type AssetBooking = typeof assetBookings.$inferSelect;
-export type InsertAssetBooking = z.infer<typeof insertAssetBookingSchema>;
+export type AssetDailyState = typeof assetDailyStates.$inferSelect;
+export type InsertAssetDailyState = z.infer<typeof insertAssetDailyStateSchema>;
+export type AssetStateAudit = typeof assetStateAudit.$inferSelect;
+export type InsertAssetStateAudit = z.infer<typeof insertAssetStateAuditSchema>;
+export type AssetIncident = typeof assetIncidents.$inferSelect;
+export type InsertAssetIncident = z.infer<typeof insertAssetIncidentSchema>;
 export type AssetDetails = typeof assetDetails.$inferSelect;
 export type InsertAssetDetails = z.infer<typeof insertAssetDetailsSchema>;
