@@ -631,7 +631,7 @@ export class DatabaseStorage implements IStorage {
       });
     });
 
-    // Get all assets with 'not_returned' state from asset daily states
+    // Get all assets with 'not_returned' OR 'lost' state from asset daily states
     const unreturnedStates = await db
       .select({
         userId: assetDailyStates.userId,
@@ -648,7 +648,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(assetDailyStates)
       .leftJoin(users, eq(assetDailyStates.userId, users.id))
-      .where(eq(assetDailyStates.currentState, 'not_returned'));
+      .where(sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`);
 
     // Add not returned assets from daily states
     for (const state of unreturnedStates) {
@@ -667,7 +667,7 @@ export class DatabaseStorage implements IStorage {
           userId: state.userId,
           agentName: displayName,
           assetType: state.assetType,
-          status: 'Not Returned Yet',
+          status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
           date: state.date,
           reason: state.reason || undefined
         });
@@ -691,13 +691,13 @@ export class DatabaseStorage implements IStorage {
       return true;
     }
 
-    // Check if user has any unresolved unreturned assets from daily states
+    // Check if user has any unresolved unreturned or lost assets from daily states
     const unreturnedStates = await db
       .select({ count: sql`count(*)`.mapWith(Number) })
       .from(assetDailyStates)
       .where(and(
         eq(assetDailyStates.userId, userId),
-        eq(assetDailyStates.currentState, 'not_returned')
+        sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`
       ));
 
     if (unreturnedStates[0]?.count > 0) {
