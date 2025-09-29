@@ -126,6 +126,7 @@ export interface IStorage {
   // Asset state audit management
   createAssetStateAudit(audit: InsertAssetStateAudit): Promise<AssetStateAudit>;
   getAssetStateAuditByUserId(userId: string): Promise<AssetStateAudit[]>;
+  deleteAssetStateAuditByDailyStateId(dailyStateId: string): Promise<void>;
   
   // Asset incident management
   createAssetIncident(incident: InsertAssetIncident): Promise<AssetIncident>;
@@ -802,6 +803,12 @@ export class DatabaseStorage implements IStorage {
       .from(assetStateAudit)
       .where(eq(assetStateAudit.userId, userId))
       .orderBy(desc(assetStateAudit.changedAt));
+  }
+
+  async deleteAssetStateAuditByDailyStateId(dailyStateId: string): Promise<void> {
+    await db
+      .delete(assetStateAudit)
+      .where(eq(assetStateAudit.dailyStateId, dailyStateId));
   }
 
   // Enhanced daily reset functionality
