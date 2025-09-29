@@ -707,25 +707,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get today's date
       const today = new Date().toISOString().split('T')[0];
 
-      // Delete all of agent's daily states for today
+      // Get all of agent's daily states for today
       const existingStates = await storage.getAssetDailyStatesByUserAndDate(agentId, today);
       
+      // First, delete the existing audit records for these daily states to avoid constraint issues
       for (const state of existingStates) {
-        // Create audit trail for reset
-        await storage.createAssetStateAudit({
-          dailyStateId: state.id,
-          userId: agentId,
-          assetType: state.assetType,
-          previousState: state.currentState,
-          newState: 'ready_for_collection',
-          reason: `Records reset by team leader: ${user.username}`,
-          changedBy: user.id,
-          changedAt: new Date()
-        });
+        // Delete any existing audit records that reference this daily state
+        await storage.deleteAssetStateAuditByDailyStateId(state.id);
       }
 
       // Remove the agent's daily states for today (this will reset their assets to default state)
       await storage.deleteAssetDailyStatesByUserAndDate(agentId, today);
+
+      // Now create new audit records for the reset action (without dailyStateId since states are deleted)
+      for (const state of existingStates) {
+        await storage.createAssetIncident({
+          userId: agentId,
+          assetType: state.assetType,
+          incidentType: 'maintenance',
+          description: `Asset records reset by team leader: ${user.username}. Previous state was: ${state.currentState}`,
+          reportedBy: user.id,
+          status: 'resolved',
+          resolution: 'Records reset - agent can start fresh booking process',
+          resolvedBy: user.id,
+          resolvedAt: new Date()
+        });
+      }
 
       res.json({ 
         message: "Agent asset records reset successfully",
