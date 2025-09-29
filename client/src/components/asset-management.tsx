@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [showViewReasonDialog, setShowViewReasonDialog] = useState(false);
   const [showMarkFoundDialog, setShowMarkFoundDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showPasswordConfirmDialog, setShowPasswordConfirmDialog] = useState(false);
 
   // Pending action states
   const [pendingBookIn, setPendingBookIn] = useState<{
@@ -100,6 +103,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   const [reasonInput, setReasonInput] = useState('');
   const [viewReason, setViewReason] = useState('');
+  const [selectedResetAgent, setSelectedResetAgent] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState('');
 
   // Helper function to get current date
   const getCurrentDate = () => {
@@ -205,11 +210,29 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     );
   }
 
-  // For team leaders - fetch team members
-  const { data: teamMembers = [] } = useQuery<User[]>({
+  // For team leaders - fetch their specific team members
+  const { data: leaderTeams = [] } = useQuery<any[]>({
+    queryKey: [`/api/teams/leader/${currentUser?.id}`],
+    enabled: currentUser?.role === 'team_leader' && !!currentUser?.id,
+  });
+
+  const teamId = leaderTeams[0]?.id; // Assuming team leader has one team
+
+  const { data: teamMembersList = [] } = useQuery<User[]>({
+    queryKey: [`/api/teams/${teamId}/members`],
+    enabled: currentUser?.role === 'team_leader' && !!teamId,
+    select: (members) => members || [],
+  });
+
+  // For other roles (admin, hr, etc.) - fetch all agents
+  const { data: allAgents = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     select: (users) => users.filter(user => user.role === 'agent'),
+    enabled: currentUser?.role !== 'team_leader',
   });
+
+  // Use appropriate team members based on role
+  const agentsToShow = currentUser?.role === 'team_leader' ? teamMembersList : allAgents;
 
   // Fetch daily states for all team members
   const { data: allDailyStates = [], isLoading: dailyStatesLoading } = useQuery<AssetDailyState[]>({
@@ -306,7 +329,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Helper functions
   const getAgentName = (userId: string) => {
-    const user = teamMembers.find(u => u.id === userId);
+    const user = agentsToShow.find(u => u.id === userId);
     return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
   };
 
@@ -407,6 +430,61 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     setShowViewReasonDialog(true);
   };
 
+  // Reset agent mutation
+  const resetAgentMutation = useMutation({
+    mutationFn: async (data: { agentId: string; password: string }) => {
+      return await apiRequest('POST', '/api/assets/reset-agent', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
+      setShowPasswordConfirmDialog(false);
+      setShowResetDialog(false);
+      setSelectedResetAgent('');
+      setPasswordInput('');
+      toast({
+        title: "Agent Reset Successful",
+        description: "Agent's asset records have been reset for today.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Reset Failed",
+        description: error.message || "Failed to reset agent. Please check your password and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleResetConfirm = () => {
+    if (!selectedResetAgent) {
+      toast({
+        title: "No Agent Selected",
+        description: "Please select an agent to reset.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowResetDialog(false);
+    setShowPasswordConfirmDialog(true);
+  };
+
+  const handlePasswordConfirm = () => {
+    if (!passwordInput.trim()) {
+      toast({
+        title: "Password Required",
+        description: "Please enter your password to confirm the reset.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    resetAgentMutation.mutate({
+      agentId: selectedResetAgent,
+      password: passwordInput,
+    });
+  };
+
   if (dailyStatesLoading) {
     return <div className="text-center py-8">Loading asset states...</div>;
   }
@@ -434,7 +512,22 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           <CardTitle>Asset Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex justify-between items-center mb-4">
+            {currentUser?.role === 'team_leader' && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowResetDialog(true)}
+                data-testid="button-reset-agent"
+                className="ml-auto"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset Agent
+              </Button>
+            )}
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="book_in" data-testid="tab-book-in">Book In</TabsTrigger>
               <TabsTrigger value="book_out" data-testid="tab-book-out">Book Out</TabsTrigger>
@@ -462,7 +555,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teamMembers.map(agent => (
+                  {agentsToShow.map(agent => (
                     <TableRow key={agent.id}>
                       <TableCell className="font-medium">
                         {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
@@ -535,7 +628,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teamMembers.map(agent => (
+                  {agentsToShow.map(agent => (
                     <TableRow key={agent.id}>
                       <TableCell className="font-medium">
                         {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
@@ -858,6 +951,90 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               data-testid="button-confirm-mark-found"
             >
               {markFoundMutation.isPending ? "Updating..." : "Mark as Found"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Agent Selection Dialog */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Agent Asset Records</DialogTitle>
+            <DialogDescription>
+              Select an agent to reset their asset book in/book out records for today. This will clear their daily states and make all assets available for booking again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label htmlFor="agent-select">Select Agent</Label>
+            <Select value={selectedResetAgent} onValueChange={setSelectedResetAgent}>
+              <SelectTrigger data-testid="select-reset-agent">
+                <SelectValue placeholder="Choose an agent..." />
+              </SelectTrigger>
+              <SelectContent>
+                {agentsToShow.map(agent => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleResetConfirm}
+              disabled={!selectedResetAgent}
+              data-testid="button-confirm-reset-selection"
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Confirmation Dialog */}
+      <Dialog open={showPasswordConfirmDialog} onOpenChange={setShowPasswordConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Reset with Password</DialogTitle>
+            <DialogDescription>
+              {selectedResetAgent && (
+                <>
+                  You are about to reset all asset records for{' '}
+                  <strong>
+                    {agentsToShow.find(a => a.id === selectedResetAgent)?.firstName || 'Unknown'}{' '}
+                    {agentsToShow.find(a => a.id === selectedResetAgent)?.lastName || ''}
+                  </strong>{' '}
+                  for today. This action cannot be undone. Please enter your password to confirm.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label htmlFor="password">Your Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Enter your password..."
+              data-testid="input-password-confirm"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordConfirmDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handlePasswordConfirm}
+              disabled={!passwordInput.trim() || resetAgentMutation.isPending}
+              data-testid="button-confirm-reset-password"
+            >
+              {resetAgentMutation.isPending ? "Resetting..." : "Reset Agent Records"}
             </Button>
           </DialogFooter>
         </DialogContent>

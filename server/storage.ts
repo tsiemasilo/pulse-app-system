@@ -121,6 +121,7 @@ export interface IStorage {
   getAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<AssetDailyState[]>;
   upsertAssetDailyState(dailyState: InsertAssetDailyState): Promise<AssetDailyState>;
   getAllAssetDailyStatesByDate(date: string): Promise<AssetDailyState[]>;
+  deleteAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<void>;
   
   // Asset state audit management
   createAssetStateAudit(audit: InsertAssetStateAudit): Promise<AssetStateAudit>;
@@ -775,6 +776,15 @@ export class DatabaseStorage implements IStorage {
       .from(assetDailyStates)
       .where(eq(assetDailyStates.date, date))
       .orderBy(assetDailyStates.userId, assetDailyStates.assetType);
+  }
+
+  async deleteAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<void> {
+    await db
+      .delete(assetDailyStates)
+      .where(and(
+        eq(assetDailyStates.userId, userId),
+        eq(assetDailyStates.date, date)
+      ));
   }
 
   // Asset state audit management

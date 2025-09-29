@@ -664,6 +664,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset Agent Asset Records Route - Team leaders can reset their team members' daily asset states
+  app.post('/api/assets/reset-agent', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden - Team leaders only" });
+      }
+
+      const { agentId, password } = z.object({
+        agentId: z.string(),
+        password: z.string(),
+      }).parse(req.body);
+
+      // Import comparePasswords function
+      const { comparePasswords } = await import('./replitAuth');
+
+      // Verify team leader's password
+      const isPasswordValid = await comparePasswords(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: "Invalid password" });
+      }
+
+      // Get the agent to verify they belong to team leader's team
+      const agent = await storage.getUserById(agentId);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Verify the agent belongs to team leader's team
+      const leaderTeams = await storage.getTeamsByLeader(user.id);
+      if (leaderTeams.length === 0) {
+        return res.status(403).json({ message: "You are not assigned as a team leader" });
+      }
+
+      const teamMembers = await storage.getTeamMembers(leaderTeams[0].id);
+      const isAgentInTeam = teamMembers.some(member => member.id === agentId);
+      if (!isAgentInTeam) {
+        return res.status(403).json({ message: "Agent is not in your team" });
+      }
+
+      // Get today's date
+      const today = new Date().toISOString().split('T')[0];
+
+      // Delete all of agent's daily states for today
+      const existingStates = await storage.getAssetDailyStatesByUserAndDate(agentId, today);
+      
+      for (const state of existingStates) {
+        // Create audit trail for reset
+        await storage.createAssetStateAudit({
+          dailyStateId: state.id,
+          userId: agentId,
+          assetType: state.assetType,
+          previousState: state.currentState,
+          newState: 'ready_for_collection',
+          reason: `Records reset by team leader: ${user.username}`,
+          changedBy: user.id,
+          changedAt: new Date()
+        });
+      }
+
+      // Remove the agent's daily states for today (this will reset their assets to default state)
+      await storage.deleteAssetDailyStatesByUserAndDate(agentId, today);
+
+      res.json({ 
+        message: "Agent asset records reset successfully",
+        agentId,
+        date: today,
+        resetBy: user.username,
+        statesReset: existingStates.length
+      });
+    } catch (error) {
+      console.error("Error resetting agent:", error);
+      res.status(500).json({ message: "Failed to reset agent" });
+    }
+  });
+
   // Enhanced Daily Reset Route - Intelligent state management across days
   app.post('/api/assets/daily-reset', isAuthenticated, async (req: any, res) => {
     try {
