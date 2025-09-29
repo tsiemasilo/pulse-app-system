@@ -45,7 +45,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").$type<UserRole>().notNull().default('agent'),
   departmentId: varchar("department_id").references(() => departments.id),
-  reportsTo: varchar("reports_to").references(() => users.id),
+  reportsTo: varchar("reports_to"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
