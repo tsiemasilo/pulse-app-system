@@ -687,7 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the agent to verify they belong to team leader's team
-      const agent = await storage.getUserById(agentId);
+      const agent = await storage.getUser(agentId);
       if (!agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
@@ -834,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalStates: dailyStates.length,
         stateBreakdown: stateGroups,
         lastActivity: dailyStates.length > 0 ? 
-          Math.max(...dailyStates.map(s => new Date(s.updatedAt || s.createdAt).getTime())) : null
+          Math.max(...dailyStates.map(s => new Date(s.updatedAt || s.createdAt || new Date()).getTime())) : null
       });
     } catch (error) {
       console.error("Error checking daily reset status:", error);
