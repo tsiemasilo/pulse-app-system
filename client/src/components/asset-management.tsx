@@ -95,6 +95,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     userId: string;
     assetType: AssetType;
     agentName: string;
+    date: string;
   } | null>(null);
 
   const [reasonInput, setReasonInput] = useState('');
@@ -280,7 +281,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // Mark found mutation
   const markFoundMutation = useMutation({
-    mutationFn: async (data: { userId: string; assetType: string; recoveryReason: string }) => {
+    mutationFn: async (data: { userId: string; assetType: string; date: string; recoveryReason: string }) => {
       return await apiRequest('POST', '/api/assets/mark-found', data);
     },
     onSuccess: () => {
@@ -384,9 +385,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   };
 
-  const handleMarkAsFound = (userId: string, assetType: AssetType) => {
+  const handleMarkAsFound = (userId: string, assetType: AssetType, date: string) => {
     const agentName = getAgentName(userId);
-    setPendingMarkFound({ userId, assetType, agentName });
+    setPendingMarkFound({ userId, assetType, agentName, date });
     setShowMarkFoundDialog(true);
   };
 
@@ -396,6 +397,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     markFoundMutation.mutate({
       userId: pendingMarkFound.userId,
       assetType: pendingMarkFound.assetType,
+      date: pendingMarkFound.date,
       recoveryReason: reasonInput,
     });
   };
@@ -621,14 +623,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {new Date(asset.dateLost).toLocaleDateString()}
+                          {new Date(asset.date).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleMarkAsFound(asset.userId, asset.assetType)}
+                              onClick={() => handleMarkAsFound(asset.userId, asset.assetType, asset.date)}
                               data-testid={`button-mark-found-${asset.userId}-${asset.assetType}`}
                             >
                               <RotateCcw className="w-4 h-4 mr-1" />
