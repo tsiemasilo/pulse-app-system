@@ -27,8 +27,8 @@ function Router() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main>
+    <div className="min-h-screen bg-background pb-96">
+      <main className="pb-32">
         <Switch>
           <Route path="/" component={() => {
             if (!user?.role) {
