@@ -42,13 +42,13 @@ export default function Navigation({ user }: NavigationProps) {
   return (
     <nav className="bg-card border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-6">
             <div className="flex-shrink-0 flex items-center">
               <img 
                 src={alteramLogo} 
                 alt="Alteram Solutions" 
-                className="h-8 w-auto mr-3"
+                className="h-8 w-auto"
               />
             </div>
             
@@ -77,12 +77,12 @@ export default function Navigation({ user }: NavigationProps) {
 
           </div>
           <div className="flex items-center">
-            <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-2 border border-border">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-semibold text-foreground" data-testid="text-username">
+            <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+              <div className="flex flex-col items-end justify-center">
+                <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
                   {user?.firstName || user?.email || 'User'}
                 </span>
-                <span className="text-xs text-muted-foreground" data-testid="text-user-role">
+                <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role">
                   {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
                 </span>
               </div>
@@ -91,10 +91,10 @@ export default function Navigation({ user }: NavigationProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
                 data-testid="button-logout"
               >
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4 mr-1.5" />
                 <span className="text-sm">Logout</span>
               </Button>
             </div>
