@@ -257,86 +257,111 @@ export default function TeamLeaderDashboard() {
         return <Reports />;
       case 'employees':
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Team Members ({teamMembers.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {teamMembers.map((member) => {
-                  const memberAttendance = attendanceRecords.find(att => att.userId === member.id);
-                  const attendanceStatus = memberAttendance?.status || 'absent';
-                  const memberManager = member.reportsTo ? userLookupMap.get(member.reportsTo) : null;
-                  
-                  return (
-                    <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                            {`${member.firstName?.[0] || ''}${member.lastName?.[0] || ''}`.toUpperCase() || 'A'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {member.firstName && member.lastName 
-                              ? `${member.firstName} ${member.lastName}` 
-                              : member.username || 'Unknown User'}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">@{member.username}</p>
-                        </div>
-                        <Badge 
-                          className={`text-xs ${
-                            attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
-                            attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {member.email && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <Mail className="h-4 w-4" />
-                            <span className="truncate">{member.email}</span>
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                          <UserIcon className="h-4 w-4 flex-shrink-0" />
-                          <span className="flex-1 truncate">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Reports To: </span>
-                            {memberManager ? (
-                              <span className="font-medium text-gray-700 dark:text-gray-300">
-                                {memberManager.firstName && memberManager.lastName 
-                                  ? `${memberManager.firstName} ${memberManager.lastName}`
-                                  : memberManager.username}
-                              </span>
-                            ) : (
-                              <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
-                            )}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 text-sm">
-                          <Badge variant="outline" className="text-xs">
-                            {member.role === 'agent' ? 'Agent' : member.role}
-                          </Badge>
-                          <span className="text-xs text-gray-500">
-                            {member.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                      </div>
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Team Leader Reports To Section */}
+            {reportingManager && (
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-100 dark:border-blue-800/30">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        Team Leader Reports To
+                      </p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        {reportingManager.firstName} {reportingManager.lastName}
+                        <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
+                          ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                        </span>
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Team Members Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Team Members ({teamMembers.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {teamMembers.map((member) => {
+                    const memberAttendance = attendanceRecords.find(att => att.userId === member.id);
+                    const attendanceStatus = memberAttendance?.status || 'absent';
+                    const memberManager = member.reportsTo ? userLookupMap.get(member.reportsTo) : null;
+                    
+                    return (
+                      <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                              {`${member.firstName?.[0] || ''}${member.lastName?.[0] || ''}`.toUpperCase() || 'A'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {member.firstName && member.lastName 
+                                ? `${member.firstName} ${member.lastName}` 
+                                : member.username || 'Unknown User'}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">@{member.username}</p>
+                          </div>
+                          <Badge 
+                            className={`text-xs ${
+                              attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
+                              attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {member.email && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                              <Mail className="h-4 w-4" />
+                              <span className="truncate">{member.email}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <UserIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="flex-1 truncate">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Reports To: </span>
+                              {memberManager ? (
+                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                  {memberManager.firstName && memberManager.lastName 
+                                    ? `${memberManager.firstName} ${memberManager.lastName}`
+                                    : memberManager.username}
+                                </span>
+                              ) : (
+                                <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
+                              )}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="text-xs">
+                              {member.role === 'agent' ? 'Agent' : member.role}
+                            </Badge>
+                            <span className="text-xs text-gray-500">
+                              {member.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         );
       case 'onboarding':
         return <OnboardingManagement />;
