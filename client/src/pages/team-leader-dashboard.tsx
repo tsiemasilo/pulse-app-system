@@ -489,6 +489,28 @@ export default function TeamLeaderDashboard() {
                  'Team management tools'}
               </p>
             </div>
+            
+            {/* User Info and Logout */}
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-header-username">
+                  Welcome, {user?.firstName || user?.username || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="text-header-role">
+                  Team Leader
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = '/api/logout'}
+                className="gap-2"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
           </div>
         </header>
 
