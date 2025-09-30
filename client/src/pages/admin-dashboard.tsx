@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   const issues = assets.filter(a => a.status === 'missing').length;
 
   return (
-    <div className="fade-in pb-64">
+    <div className="fade-in">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">System Administration</h1>
         <p className="text-muted-foreground">Manage users, departments, and system settings</p>

@@ -43,7 +43,7 @@ export default function ContactCenterDashboard() {
   }
 
   return (
-    <div className="fade-in pb-64">
+    <div className="fade-in">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">Contact Center Management</h1>
         <p className="text-muted-foreground">Monitor operations and team performance</p>
