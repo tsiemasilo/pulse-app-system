@@ -470,6 +470,7 @@ export class DatabaseStorage implements IStorage {
         profileImageUrl: users.profileImageUrl,
         role: users.role,
         departmentId: users.departmentId,
+        reportsTo: users.reportsTo,
         isActive: users.isActive,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
