@@ -440,37 +440,6 @@ export default function TeamLeaderDashboard() {
           </nav>
         </div>
         
-        {/* Bottom section with Notification Tab and Profile */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          {/* Notification Tab */}
-          <div className="mb-4">
-            <button
-              className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-              data-testid="button-notifications"
-            >
-              <Bell className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-              Notifications
-              <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
-            </button>
-          </div>
-          
-          {/* Profile Section at Very Bottom */}
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                <UserIcon className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-gray-900 dark:text-white" data-testid="text-username">
-                {user?.firstName || user?.email || 'User'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" data-testid="text-user-role">
-                Team Leader
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
@@ -501,16 +470,39 @@ export default function TeamLeaderDashboard() {
               </p>
             </div>
             
-            {/* User Info and Logout */}
+            {/* Notifications, Profile and Logout */}
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-header-username">
-                  Welcome, {user?.firstName || user?.username || 'User'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="text-header-role">
-                  Team Leader
-                </p>
+              {/* Notifications */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative"
+                data-testid="button-notifications"
+              >
+                <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  3
+                </span>
+              </Button>
+
+              {/* Profile */}
+              <div className="flex items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    <UserIcon className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-header-username">
+                    {user?.firstName || user?.username || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="text-header-role">
+                    Team Leader
+                  </p>
+                </div>
               </div>
+
+              {/* Logout */}
               <Button
                 variant="outline"
                 size="sm"
