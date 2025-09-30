@@ -44,6 +44,11 @@ export default function TeamLeaderDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('attendance');
 
+  // Scroll to top when tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   const handleLogout = async () => {
     try {
       await apiRequest("POST", "/api/logout");

@@ -21,6 +21,11 @@ export default function HRDashboard() {
   const { toast } = useToast();
   const [activeView, setActiveView] = useState('dashboard');
 
+  // Scroll to top when tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeView]);
+
   const { data: attendanceRecords = [] } = useQuery<Attendance[]>({
     queryKey: ["/api/attendance/today"],
   });
