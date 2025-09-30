@@ -385,14 +385,12 @@ export default function TeamLeaderDashboard() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-center">
-            <img 
-              src={alteramLogo} 
-              alt="Alteram Solutions" 
-              className="h-12 w-auto max-w-full object-contain"
-            />
-          </div>
+        <div className="h-[88px] px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
+          <img 
+            src={alteramLogo} 
+            alt="Alteram Solutions" 
+            className="h-12 w-auto max-w-full object-contain"
+          />
         </div>
         
         <div className="p-4 flex-1 flex flex-col">
@@ -445,8 +443,8 @@ export default function TeamLeaderDashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex items-center justify-between">
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {activeTab === 'attendance' ? 'Attendance Management' :
