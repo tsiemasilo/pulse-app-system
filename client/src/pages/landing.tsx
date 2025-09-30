@@ -47,7 +47,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative py-24 pb-48">
+    <div className="min-h-screen flex items-center justify-center relative py-32 pb-96">
       {/* Background with low opacity logo */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
         <div 
