@@ -10,7 +10,6 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
-import Navigation from "@/components/navigation";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -29,7 +28,6 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation user={user || null} />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <Switch>
           <Route path="/" component={() => {
