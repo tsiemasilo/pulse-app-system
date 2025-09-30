@@ -44,6 +44,17 @@ export default function TeamLeaderDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('attendance');
 
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Force reload even if logout fails to clear the session
+      window.location.reload();
+    }
+  };
+
   const { data: attendanceRecords = [] } = useQuery<Attendance[]>({
     queryKey: ["/api/attendance/today"],
   });
@@ -503,7 +514,7 @@ export default function TeamLeaderDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.location.href = '/api/logout'}
+                onClick={handleLogout}
                 className="gap-2"
                 data-testid="button-logout"
               >
