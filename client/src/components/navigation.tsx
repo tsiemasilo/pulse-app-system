@@ -76,25 +76,28 @@ export default function Navigation({ user }: NavigationProps) {
             )}
 
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Welcome,</span>
-              <span className="font-medium text-foreground ml-1" data-testid="text-username">
-                {user?.firstName || user?.email || 'User'}
-              </span>
+          <div className="flex items-center">
+            <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-2 border border-border">
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-semibold text-foreground" data-testid="text-username">
+                  {user?.firstName || user?.email || 'User'}
+                </span>
+                <span className="text-xs text-muted-foreground" data-testid="text-user-role">
+                  {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
+                </span>
+              </div>
+              <div className="h-8 w-px bg-border"></div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                <span className="text-sm">Logout</span>
+              </Button>
             </div>
-            <div className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full" data-testid="text-user-role">
-              {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground"
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>
