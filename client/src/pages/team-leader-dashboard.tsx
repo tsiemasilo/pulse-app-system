@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +75,18 @@ export default function TeamLeaderDashboard() {
     },
     enabled: leaderTeams.length > 0,
   });
+
+  // Fetch all users to get manager information for team members
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Create a memoized lookup map for efficient manager lookups
+  const userLookupMap = useMemo(() => {
+    const map = new Map<string, User>();
+    allUsers.forEach(user => map.set(user.id, user));
+    return map;
+  }, [allUsers]);
 
   // Fetch reporting manager information
   const { data: reportingManager = null } = useQuery<User | null>({
@@ -257,6 +269,7 @@ export default function TeamLeaderDashboard() {
                 {teamMembers.map((member) => {
                   const memberAttendance = attendanceRecords.find(att => att.userId === member.id);
                   const attendanceStatus = memberAttendance?.status || 'absent';
+                  const memberManager = member.reportsTo ? userLookupMap.get(member.reportsTo) : null;
                   
                   return (
                     <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -292,6 +305,22 @@ export default function TeamLeaderDashboard() {
                             <span className="truncate">{member.email}</span>
                           </div>
                         )}
+                        
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <UserIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1 truncate">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Reports To: </span>
+                            {memberManager ? (
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {memberManager.firstName && memberManager.lastName 
+                                  ? `${memberManager.firstName} ${memberManager.lastName}`
+                                  : memberManager.username}
+                              </span>
+                            ) : (
+                              <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
+                            )}
+                          </span>
+                        </div>
                         
                         <div className="flex items-center gap-2 text-sm">
                           <Badge variant="outline" className="text-xs">
