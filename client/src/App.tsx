@@ -28,7 +28,7 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main>
         <Switch>
           <Route path="/" component={() => {
             if (!user?.role) {
