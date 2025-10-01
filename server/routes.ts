@@ -1028,9 +1028,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status } = z.object({ 
-        status: z.enum(['present', 'absent', 'sick', 'on leave', 'AWOL', 'suspended'])
+        status: z.enum(['present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
       }).parse(req.body);
 
+      // First, fetch the attendance record to get the userId
+      const [attendanceRecord] = await db
+        .select()
+        .from(attendance)
+        .where(eq(attendance.id, req.params.attendanceId));
+
+      if (!attendanceRecord) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+
+      // If the user is a team leader, verify the userId belongs to their team
+      if (user.role === 'team_leader') {
+        const leaderTeams = await storage.getTeamsByLeader(user.id);
+        
+        if (leaderTeams.length === 0) {
+          return res.status(403).json({ message: "You are not assigned as a team leader" });
+        }
+
+        // Get all team members across all teams this leader manages
+        let isInTeam = false;
+        for (const team of leaderTeams) {
+          const teamMembers = await storage.getTeamMembers(team.id);
+          if (teamMembers.some(member => member.id === attendanceRecord.userId)) {
+            isInTeam = true;
+            break;
+          }
+        }
+
+        if (!isInTeam) {
+          return res.status(403).json({ message: "You can only modify attendance for your team members" });
+        }
+      }
+
+      // Update the attendance status
       const updatedRecord = await db
         .update(attendance)
         .set({ status })
@@ -1038,22 +1072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       if (!updatedRecord || updatedRecord.length === 0) {
-        return res.status(404).json({ message: "Attendance record not found" });
-      }
-
-      // Create termination record if status is not "present"
-      if (status !== 'present') {
-        const today = new Date();
-        await storage.createTermination({
-          userId: updatedRecord[0].userId,
-          terminationType: status === 'on leave' ? 'leave' : status,
-          terminationDate: today,
-          lastWorkingDay: today,
-          reason: `Status changed to ${status} via attendance tracking`,
-          exitInterviewCompleted: false,
-          assetReturnStatus: 'pending',
-          processedBy: user.id,
-        });
+        return res.status(404).json({ message: "Failed to update attendance record" });
       }
 
       res.json(updatedRecord[0]);
@@ -1182,10 +1201,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const terminationData = terminationApiSchema.parse(req.body);
+      
+      // Check for existing active termination (idempotency check)
+      const allTerminations = await storage.getAllTerminations();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const activeTermination = allTerminations.find(t => 
+        t.userId === terminationData.userId && 
+        (new Date(t.terminationDate) >= today || new Date(t.lastWorkingDay) >= today)
+      );
+      
+      if (activeTermination) {
+        return res.status(400).json({ 
+          message: "User already has an active termination record",
+          existingTermination: activeTermination
+        });
+      }
+      
+      // Create the termination
       const termination = await storage.createTermination(terminationData);
       
       // Deactivate the user when termination is processed
       await storage.updateUserStatus(terminationData.userId, false);
+      
+      // Update today's attendance status based on termination type
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      const todayAttendance = await storage.getAttendanceByUser(
+        terminationData.userId, 
+        todayStart, 
+        todayEnd
+      );
+      
+      if (todayAttendance.length > 0) {
+        // Map termination type to attendance status
+        let attendanceStatus = 'absent';
+        switch (terminationData.terminationType) {
+          case 'retirement':
+            attendanceStatus = 'on leave';
+            break;
+          case 'voluntary':
+          case 'involuntary':
+          case 'layoff':
+          default:
+            attendanceStatus = 'absent';
+            break;
+        }
+        
+        await db
+          .update(attendance)
+          .set({ status: attendanceStatus })
+          .where(eq(attendance.id, todayAttendance[0].id));
+      }
       
       res.json(termination);
     } catch (error) {

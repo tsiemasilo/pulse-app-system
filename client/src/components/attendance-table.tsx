@@ -130,6 +130,7 @@ export default function AttendanceTable() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="present">Present</SelectItem>
+                        <SelectItem value="late">Late</SelectItem>
                         <SelectItem value="absent">Absent</SelectItem>
                         <SelectItem value="sick">Sick</SelectItem>
                         <SelectItem value="on leave">On Leave</SelectItem>
