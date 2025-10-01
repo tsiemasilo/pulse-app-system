@@ -59,6 +59,45 @@ The project is now fully configured and running in Replit:
 
 ### Recent Updates (October 1, 2025)
 
+#### Attendance & Termination System Improvements (Complete)
+Enhanced attendance tracking and termination processing with improved security and integration:
+
+**Changes Implemented**:
+1. **Process Termination Fix** (`server/routes.ts`):
+   - Fixed date validation error by adding schema transformation for date strings to Date objects
+   - Termination button now processes successfully without ZodError
+   - Added idempotency check to prevent duplicate terminations for the same user
+
+2. **Team Leader Attendance Filtering** (`client/src/components/attendance-table.tsx`):
+   - Today's attendance table now shows ONLY agents assigned to the logged-in team leader
+   - Admins and HR continue to see all attendance records
+   - Proper authorization scope prevents cross-team access
+
+3. **Attendance Table Column Reorganization**:
+   - Status column moved to left of Clock In column
+   - New order: Employee | Status | Clock In | Clock Out | Hours
+
+4. **Status Dropdown Enhancement**:
+   - Replaced static status badge with interactive dropdown for team leaders
+   - Status options: present, absent, sick, on leave, late, AWOL, suspended
+   - Only authorized roles (team_leader, admin, hr) can modify status
+   - Team leaders restricted to modifying their own team members only
+
+5. **Termination-Attendance Integration** (`server/routes.ts`):
+   - When termination is processed, attendance status automatically updates for that day
+   - Termination types map to attendance status: retirement → 'on leave', voluntary/involuntary/layoff → 'absent'
+   - Present status does NOT trigger termination processing
+
+6. **Default Status for Working Hours** (`server/storage.ts`):
+   - Clock-in during working hours (7:30 AM - 4:30 PM SAST) sets status to "present"
+   - Clock-in outside working hours sets status to "late"
+   - Proper timezone handling for South African Time (Africa/Johannesburg)
+
+**Security Improvements**:
+- Team leaders can only modify attendance for their assigned team members
+- Proper authorization checks prevent privilege escalation
+- Idempotency prevents duplicate termination records
+
 #### Asset Control Logic Fix (Complete)
 Fixed asset booking logic to properly handle unreturned and lost assets from previous days:
 
