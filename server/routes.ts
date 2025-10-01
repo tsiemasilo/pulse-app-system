@@ -1249,20 +1249,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const terminationData = terminationApiSchema.parse(req.body);
       
-      // Check for existing active termination (idempotency check)
+      // Check for duplicate termination (same user, same termination date)
       const allTerminations = await storage.getAllTerminations();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       
-      const activeTermination = allTerminations.find(t => 
-        t.userId === terminationData.userId && 
-        (new Date(t.terminationDate) >= today || new Date(t.lastWorkingDay) >= today)
-      );
+      const duplicateTermination = allTerminations.find(t => {
+        const existingDate = new Date(t.terminationDate);
+        const newDate = new Date(terminationData.terminationDate);
+        existingDate.setHours(0, 0, 0, 0);
+        newDate.setHours(0, 0, 0, 0);
+        
+        return t.userId === terminationData.userId && 
+               existingDate.getTime() === newDate.getTime();
+      });
       
-      if (activeTermination) {
+      if (duplicateTermination) {
         return res.status(400).json({ 
-          message: "User already has an active termination record",
-          existingTermination: activeTermination
+          message: "A termination record already exists for this user on this date. Please use a different termination date or delete the existing record first.",
+          existingTermination: duplicateTermination
         });
       }
       
