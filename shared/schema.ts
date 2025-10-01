@@ -128,7 +128,6 @@ export const terminations = pgTable("terminations", {
   terminationDate: timestamp("termination_date").notNull(),
   lastWorkingDay: timestamp("last_working_day").notNull(),
   reason: text("reason"),
-  exitInterviewCompleted: boolean("exit_interview_completed").default(false),
   assetReturnStatus: varchar("asset_return_status").default('pending'), // pending, partial, completed
   processedBy: varchar("processed_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

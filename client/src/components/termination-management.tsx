@@ -21,11 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTerminationSchema } from "@shared/schema";
-import { UserX, Calendar, User, CheckCircle2, AlertCircle } from "lucide-react";
+import { UserX, Calendar, User } from "lucide-react";
 import { z } from "zod";
 import type { Termination, User as UserType, Team } from "@shared/schema";
 
-const terminationFormSchema = insertTerminationSchema.omit({ exitInterviewCompleted: true }).extend({
+const terminationFormSchema = insertTerminationSchema.extend({
   terminationDate: z.string().min(1, "Termination date is required"),
   lastWorkingDay: z.string().min(1, "Last working day is required"),
 });
@@ -334,7 +334,6 @@ export default function TerminationManagement() {
                 <TableHead>Termination Date</TableHead>
                 <TableHead>Last Working Day</TableHead>
                 <TableHead>Asset Return Status</TableHead>
-                <TableHead className="w-[120px] text-center">Exit Interview</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Processed By</TableHead>
               </TableRow>
@@ -342,7 +341,7 @@ export default function TerminationManagement() {
             <TableBody>
               {terminations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No terminations on record.
                   </TableCell>
                 </TableRow>
@@ -375,13 +374,6 @@ export default function TerminationManagement() {
                       <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')} data-testid={`badge-asset-status-${termination.id}`}>
                         {termination.assetReturnStatus || 'pending'}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {termination.exitInterviewCompleted ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" data-testid={`icon-interview-completed-${termination.id}`} />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-yellow-600 mx-auto" data-testid={`icon-interview-pending-${termination.id}`} />
-                      )}
                     </TableCell>
                     <TableCell className="max-w-xs" data-testid={`text-reason-${termination.id}`}>
                       {termination.reason ? (
