@@ -419,13 +419,24 @@ export class DatabaseStorage implements IStorage {
 
   async clockIn(userId: string): Promise<Attendance> {
     const now = new Date();
+    
+    // Check if current time is within working hours (7:30 AM - 4:30 PM South African Time - UTC+2)
+    const saTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Johannesburg' }));
+    const hours = saTime.getHours();
+    const minutes = saTime.getMinutes();
+    const currentTimeInMinutes = hours * 60 + minutes;
+    const workingStartMinutes = 7 * 60 + 30; // 7:30 AM
+    const workingEndMinutes = 16 * 60 + 30; // 4:30 PM
+    
+    const isWorkingHours = currentTimeInMinutes >= workingStartMinutes && currentTimeInMinutes <= workingEndMinutes;
+    
     const [record] = await db
       .insert(attendance)
       .values({
         userId,
         date: now,
         clockIn: now,
-        status: 'present',
+        status: isWorkingHours ? 'present' : 'late',
       })
       .returning();
     return record;

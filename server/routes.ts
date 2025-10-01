@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, users } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, users, attendance } from "@shared/schema";
 import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
@@ -1020,6 +1020,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/attendance/:attendanceId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { status } = z.object({ 
+        status: z.enum(['present', 'absent', 'sick', 'on leave', 'AWOL', 'suspended'])
+      }).parse(req.body);
+
+      const updatedRecord = await db
+        .update(attendance)
+        .set({ status })
+        .where(eq(attendance.id, req.params.attendanceId))
+        .returning();
+
+      if (!updatedRecord || updatedRecord.length === 0) {
+        return res.status(404).json({ message: "Attendance record not found" });
+      }
+
+      // Create termination record if status is not "present"
+      if (status !== 'present') {
+        const today = new Date();
+        await storage.createTermination({
+          userId: updatedRecord[0].userId,
+          terminationType: status === 'on leave' ? 'leave' : status,
+          terminationDate: today,
+          lastWorkingDay: today,
+          reason: `Status changed to ${status} via attendance tracking`,
+          exitInterviewCompleted: false,
+          assetReturnStatus: 'pending',
+          processedBy: user.id,
+        });
+      }
+
+      res.json(updatedRecord[0]);
+    } catch (error) {
+      console.error("Error updating attendance status:", error);
+      res.status(500).json({ message: "Failed to update attendance status" });
+    }
+  });
+
   // Team management
   app.get('/api/teams', isAuthenticated, async (req: any, res) => {
     try {
@@ -1132,7 +1175,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const terminationData = insertTerminationSchema.parse(req.body);
+      // Create API schema that accepts date strings and converts them
+      const terminationApiSchema = insertTerminationSchema.extend({
+        terminationDate: z.string().transform((str) => new Date(str)),
+        lastWorkingDay: z.string().transform((str) => new Date(str)),
+      });
+
+      const terminationData = terminationApiSchema.parse(req.body);
       const termination = await storage.createTermination(terminationData);
       
       // Deactivate the user when termination is processed

@@ -1,30 +1,54 @@
-import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import type { Attendance, User } from "@shared/schema";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Attendance, User, Team } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface AttendanceRecord extends Attendance {
   user?: User;
 }
 
 export default function AttendanceTable() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   const { data: attendanceRecords = [], isLoading } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance/today"],
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'present':
-        return "bg-green-100 text-green-800";
-      case 'late':
-        return "bg-yellow-100 text-yellow-800";
-      case 'absent':
-        return "bg-red-100 text-red-800";
-      case 'leave':
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  // Fetch team leader's teams
+  const { data: leaderTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/leader", user?.id],
+    enabled: user?.role === 'team_leader' && !!user?.id,
+  });
+
+  // Fetch team members
+  const { data: teamMembers = [] } = useQuery<User[]>({
+    queryKey: ["/api/teams", leaderTeams[0]?.id, "members"],
+    enabled: user?.role === 'team_leader' && leaderTeams.length > 0,
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ attendanceId, status }: { attendanceId: string; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/attendance/${attendanceId}/status`, { status });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
+      toast({
+        title: "Status Updated",
+        description: "Attendance status has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const formatTime = (date: Date | null) => {
     if (!date) return "-";
@@ -34,9 +58,20 @@ export default function AttendanceTable() {
     });
   };
 
+  // Filter attendance records for team leaders
+  const filteredRecords = user?.role === 'team_leader' 
+    ? attendanceRecords.filter(record => 
+        teamMembers.some(member => member.id === record.userId && member.role === 'agent')
+      )
+    : attendanceRecords;
+
   if (isLoading) {
     return <div className="text-center py-8">Loading attendance data...</div>;
   }
+
+  const handleStatusChange = (attendanceId: string, status: string) => {
+    updateStatusMutation.mutate({ attendanceId, status });
+  };
 
   return (
     <div className="bg-card rounded-lg border border-border shadow-sm">
@@ -48,21 +83,21 @@ export default function AttendanceTable() {
           <thead className="bg-muted">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Clock In</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Clock Out</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Hours</th>
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
-            {attendanceRecords.length === 0 ? (
+            {filteredRecords.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                   No attendance records found for today
                 </td>
               </tr>
             ) : (
-              attendanceRecords.map((record) => (
+              filteredRecords.map((record) => (
                 <tr key={record.id} data-testid={`row-attendance-${record.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -81,19 +116,33 @@ export default function AttendanceTable() {
                       </div>
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Select
+                      value={record.status}
+                      onValueChange={(value) => handleStatusChange(record.id, value)}
+                      disabled={user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr'}
+                    >
+                      <SelectTrigger 
+                        className="w-[130px]" 
+                        data-testid={`select-status-${record.id}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="present">Present</SelectItem>
+                        <SelectItem value="absent">Absent</SelectItem>
+                        <SelectItem value="sick">Sick</SelectItem>
+                        <SelectItem value="on leave">On Leave</SelectItem>
+                        <SelectItem value="AWOL">AWOL</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-clock-in-${record.id}`}>
                     {formatTime(record.clockIn)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-clock-out-${record.id}`}>
                     {formatTime(record.clockOut)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge 
-                      className={getStatusColor(record.status)}
-                      data-testid={`badge-status-${record.id}`}
-                    >
-                      {record.status}
-                    </Badge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-hours-${record.id}`}>
                     {record.hoursWorked || 0}h
