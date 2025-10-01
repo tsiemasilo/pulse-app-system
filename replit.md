@@ -57,6 +57,15 @@ The project is now fully configured and running in Replit:
 - ✅ Build process verified and working correctly
 - ✅ Secure session secret configured via Replit Secrets
 
+### Recent Updates (October 1, 2025)
+
+#### Asset Control Logic Fix
+Fixed asset booking logic to properly handle unreturned and lost assets:
+- **Issue**: Assets marked as unreturned or lost from previous days were still showing book-in/book-out options
+- **Fix**: Updated Book In tab to display status badges for all asset states (collected, not_collected, returned, not_returned, lost)
+- **Behavior**: Assets with unreturned or lost status now show their status badge and cannot be booked in/out until marked as "found" in the Unreturned Assets tab
+- **File Modified**: `client/src/components/asset-management.tsx` - Line 570
+
 ### Setup for New Users
 When importing this project:
 1. Copy `.env.example` to `.env` to use the shared database

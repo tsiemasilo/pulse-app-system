@@ -563,7 +563,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                       {ASSET_TYPES.map(asset => {
                         const state = getAssetState(agent.id, asset.id);
                         const isDisabled = isAssetDisabled(agent.id, asset.id);
-                        const hasState = state && ['collected', 'not_collected'].includes(state.currentState);
+                        // Show status badge for any existing state, including unreturned/lost assets
+                        const hasState = state && ['collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
                         
                         return (
                           <TableCell key={asset.id} className="text-center">
