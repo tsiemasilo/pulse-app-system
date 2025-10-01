@@ -59,12 +59,27 @@ The project is now fully configured and running in Replit:
 
 ### Recent Updates (October 1, 2025)
 
-#### Asset Control Logic Fix
-Fixed asset booking logic to properly handle unreturned and lost assets:
-- **Issue**: Assets marked as unreturned or lost from previous days were still showing book-in/book-out options
-- **Fix**: Updated Book In tab to display status badges for all asset states (collected, not_collected, returned, not_returned, lost)
-- **Behavior**: Assets with unreturned or lost status now show their status badge and cannot be booked in/out until marked as "found" in the Unreturned Assets tab
-- **File Modified**: `client/src/components/asset-management.tsx` - Line 570
+#### Asset Control Logic Fix (Complete)
+Fixed asset booking logic to properly handle unreturned and lost assets from previous days:
+
+**Root Cause**: Two issues were preventing proper asset state management:
+1. **Frontend Display Issue**: Book In tab only checked for 'collected' and 'not_collected' states, missing 'not_returned' and 'lost'
+2. **Scheduler Timing Issue**: Daily reset only ran if server was active at exactly 1:00 AM, missing resets if server started later
+
+**Fixes Applied**:
+1. **Frontend Fix** (`client/src/components/asset-management.tsx` - Line 570):
+   - Updated to display status badges for ALL asset states: collected, not_collected, returned, not_returned, lost
+   - Assets with unreturned/lost status now show orange/red badges instead of booking buttons
+   
+2. **Scheduler Fix** (`server/scheduler.ts` - Line 51):
+   - Changed from `currentHour === resetTimeHour` to `currentHour >= resetTimeHour`
+   - Now runs reset if it's past 1 AM AND reset hasn't been done yet for today
+   - Ensures reset happens even if server starts after 1 AM
+
+**Behavior**: 
+- Assets marked as unreturned/lost from previous days persist to next day via daily reset
+- These assets show status badges and cannot be booked in/out
+- Only after marking as "found" in Unreturned Assets tab do they become available again
 
 ### Setup for New Users
 When importing this project:

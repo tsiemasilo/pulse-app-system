@@ -43,12 +43,12 @@ export class DailyResetScheduler {
       const now = new Date();
       const today = now.toISOString().split('T')[0];
       
-      // Check if we're in the reset time window (within 1 hour of reset time)
+      // Check if we're past the reset time for today
       const currentHour = now.getHours();
-      const isResetTime = currentHour === this.resetTimeHour;
+      const isPastResetTime = currentHour >= this.resetTimeHour;
       
-      if (!isResetTime) {
-        // Not time for reset yet
+      if (!isPastResetTime) {
+        // Not time for reset yet (still before reset hour)
         return;
       }
 
