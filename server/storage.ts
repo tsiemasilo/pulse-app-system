@@ -445,7 +445,7 @@ export class DatabaseStorage implements IStorage {
   async clockInWithStatus(userId: string, status: string): Promise<Attendance> {
     const now = new Date();
     
-    const [record] = await db
+    const result = await db
       .insert(attendance)
       .values({
         userId,
@@ -454,7 +454,14 @@ export class DatabaseStorage implements IStorage {
         status,
       })
       .returning();
-    return record;
+    
+    console.log("Insert result:", result);
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create attendance record");
+    }
+    
+    return result[0];
   }
 
   async clockOut(userId: string): Promise<Attendance> {

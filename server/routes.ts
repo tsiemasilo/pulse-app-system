@@ -1048,6 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create attendance record with the specified status
       const record = await storage.clockInWithStatus(userId, status);
+      console.log("Created attendance record:", record);
       res.json(record);
     } catch (error) {
       console.error("Error creating attendance:", error);
