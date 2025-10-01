@@ -331,8 +331,8 @@ export default function TerminationManagement() {
               <TableRow>
                 <TableHead className="w-[180px]">Employee</TableHead>
                 <TableHead>Termination Type</TableHead>
-                <TableHead>Termination Date</TableHead>
-                <TableHead>Effective Date</TableHead>
+                <TableHead>From Date</TableHead>
+                <TableHead>To Date</TableHead>
                 <TableHead>Asset Return Status</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Processed By</TableHead>
