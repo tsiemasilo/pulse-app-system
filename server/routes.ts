@@ -1009,6 +1009,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/attendance/clock-in-for-user', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Only team leaders, HR, and admins can create attendance for other users
+      if (user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { userId, status } = z.object({ 
+        userId: z.string(),
+        status: z.enum(['present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
+      }).parse(req.body);
+
+      // If the user is a team leader, verify the userId belongs to their team
+      if (user.role === 'team_leader') {
+        const leaderTeams = await storage.getTeamsByLeader(user.id);
+        
+        if (leaderTeams.length === 0) {
+          return res.status(403).json({ message: "You are not assigned as a team leader" });
+        }
+
+        // Get all team members across all teams this leader manages
+        let isInTeam = false;
+        for (const team of leaderTeams) {
+          const teamMembers = await storage.getTeamMembers(team.id);
+          if (teamMembers.some(member => member.id === userId)) {
+            isInTeam = true;
+            break;
+          }
+        }
+
+        if (!isInTeam) {
+          return res.status(403).json({ message: "You can only create attendance for your team members" });
+        }
+      }
+
+      // Create attendance record with the specified status
+      const record = await storage.clockInWithStatus(userId, status);
+      res.json(record);
+    } catch (error) {
+      console.error("Error creating attendance:", error);
+      res.status(500).json({ message: "Failed to create attendance" });
+    }
+  });
+
   app.post('/api/attendance/clock-out', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;

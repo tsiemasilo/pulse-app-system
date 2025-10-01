@@ -30,9 +30,20 @@ export default function AttendanceTable() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ attendanceId, status }: { attendanceId: string; status: string }) => {
-      const res = await apiRequest("PATCH", `/api/attendance/${attendanceId}/status`, { status });
-      return await res.json();
+    mutationFn: async ({ attendanceId, status, userId }: { attendanceId: string; status: string; userId?: string }) => {
+      // If this is a placeholder record, create attendance first
+      if (attendanceId.startsWith('placeholder-') && userId) {
+        // Clock in the user first to create an attendance record
+        const clockInRes = await apiRequest("POST", `/api/attendance/clock-in-for-user`, { 
+          userId,
+          status 
+        });
+        return await clockInRes.json();
+      } else {
+        // Update existing attendance record
+        const res = await apiRequest("PATCH", `/api/attendance/${attendanceId}/status`, { status });
+        return await res.json();
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
@@ -58,19 +69,37 @@ export default function AttendanceTable() {
     });
   };
 
-  // Filter attendance records for team leaders
-  const filteredRecords = user?.role === 'team_leader' 
-    ? attendanceRecords.filter(record => 
-        teamMembers.some(member => member.id === record.userId && member.role === 'agent')
-      )
+  // For team leaders: show all team members with their attendance (or create placeholder if no attendance)
+  const displayRecords = user?.role === 'team_leader' 
+    ? teamMembers
+        .filter(member => member.role === 'agent')
+        .map(member => {
+          const attendanceRecord = attendanceRecords.find(record => record.userId === member.id);
+          if (attendanceRecord) {
+            return { ...attendanceRecord, user: member };
+          } else {
+            // Create a placeholder record for team members who haven't clocked in
+            return {
+              id: `placeholder-${member.id}`,
+              userId: member.id,
+              date: new Date(),
+              clockIn: null,
+              clockOut: null,
+              status: 'absent',
+              hoursWorked: 0,
+              createdAt: new Date(),
+              user: member,
+            } as AttendanceRecord;
+          }
+        })
     : attendanceRecords;
 
   if (isLoading) {
     return <div className="text-center py-8">Loading attendance data...</div>;
   }
 
-  const handleStatusChange = (attendanceId: string, status: string) => {
-    updateStatusMutation.mutate({ attendanceId, status });
+  const handleStatusChange = (attendanceId: string, status: string, userId?: string) => {
+    updateStatusMutation.mutate({ attendanceId, status, userId });
   };
 
   return (
@@ -90,14 +119,14 @@ export default function AttendanceTable() {
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
-            {filteredRecords.length === 0 ? (
+            {displayRecords.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                  No attendance records found for today
+                  No team members found
                 </td>
               </tr>
             ) : (
-              filteredRecords.map((record) => (
+              displayRecords.map((record) => (
                 <tr key={record.id} data-testid={`row-attendance-${record.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -119,7 +148,7 @@ export default function AttendanceTable() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Select
                       value={record.status}
-                      onValueChange={(value) => handleStatusChange(record.id, value)}
+                      onValueChange={(value) => handleStatusChange(record.id, value, record.userId)}
                       disabled={user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr'}
                     >
                       <SelectTrigger 

@@ -442,6 +442,21 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
+  async clockInWithStatus(userId: string, status: string): Promise<Attendance> {
+    const now = new Date();
+    
+    const [record] = await db
+      .insert(attendance)
+      .values({
+        userId,
+        date: now,
+        clockIn: now,
+        status,
+      })
+      .returning();
+    return record;
+  }
+
   async clockOut(userId: string): Promise<Attendance> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
