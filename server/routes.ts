@@ -1285,23 +1285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (todayAttendance.length > 0) {
-        // Map termination type to attendance status
-        let attendanceStatus = 'absent';
-        switch (terminationData.terminationType) {
-          case 'retirement':
-            attendanceStatus = 'on leave';
-            break;
-          case 'voluntary':
-          case 'involuntary':
-          case 'layoff':
-          default:
-            attendanceStatus = 'absent';
-            break;
-        }
-        
+        // Set attendance status to the termination type
         await db
           .update(attendance)
-          .set({ status: attendanceStatus })
+          .set({ status: terminationData.terminationType })
           .where(eq(attendance.id, todayAttendance[0].id));
       }
       
