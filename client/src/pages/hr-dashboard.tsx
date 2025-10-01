@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import Navigation from "@/components/navigation";
 import TransferManagement from "@/components/transfer-management";
 import TerminationManagement from "@/components/termination-management";
 import AssetManagement from "@/components/asset-management";
@@ -332,9 +333,11 @@ export default function HRDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 h-screen sticky top-0">
+    <>
+      {user?.role === 'admin' && <Navigation user={user} />}
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Sidebar */}
+        <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 h-screen sticky top-0">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -443,5 +446,6 @@ export default function HRDashboard() {
         </main>
       </div>
     </div>
+    </>
   );
 }

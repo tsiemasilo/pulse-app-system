@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import Navigation from "@/components/navigation";
 import { StatCard } from "@/components/dashboard-stats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Headphones, Users, TrendingUp, Clock } from "lucide-react";
@@ -43,11 +44,13 @@ export default function ContactCenterDashboard() {
   }
 
   return (
-    <div className="fade-in">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Contact Center Management</h1>
-        <p className="text-muted-foreground">Monitor operations and team performance</p>
-      </div>
+    <>
+      {user?.role === 'admin' && <Navigation user={user} />}
+      <div className="fade-in max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground">Contact Center Management</h1>
+          <p className="text-muted-foreground">Monitor operations and team performance</p>
+        </div>
 
       {/* CC Manager Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -127,6 +130,7 @@ export default function ContactCenterDashboard() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }
