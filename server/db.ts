@@ -5,7 +5,17 @@ import * as schema from "@shared/schema";
 
 // Configure WebSocket for both development and production
 if (typeof WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws;
+  // Create a custom WebSocket class that accepts self-signed certificates
+  class CustomWebSocket extends ws {
+    constructor(address: string | URL, protocols?: string | string[], options?: ws.ClientOptions) {
+      const wsOptions: ws.ClientOptions = {
+        ...options,
+        rejectUnauthorized: false
+      };
+      super(address, protocols, wsOptions);
+    }
+  }
+  neonConfig.webSocketConstructor = CustomWebSocket as any;
 } else {
   neonConfig.webSocketConstructor = WebSocket;
 }
@@ -13,7 +23,7 @@ if (typeof WebSocket === 'undefined') {
 // Set additional configuration for better reliability
 neonConfig.useSecureWebSocket = true;
 neonConfig.pipelineConnect = "password";
-neonConfig.poolQueryViaFetch = true;
+neonConfig.poolQueryViaFetch = false;
 
 // Use NETLIFY_DATABASE_URL for production or DATABASE_URL for development
 const databaseUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;

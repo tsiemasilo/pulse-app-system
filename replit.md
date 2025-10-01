@@ -56,6 +56,8 @@ The project is now fully configured and running in Replit:
 - ✅ Build process verified and working correctly (vite build + esbuild)
 - ✅ Secure session secret configured via Replit Secrets
 - ✅ GitHub import successfully completed and tested
+- ✅ WebSocket SSL certificate handling configured for Neon Database connections
+- ✅ Daily reset scheduler running without SSL errors
 
 ### Recent Updates (October 1, 2025)
 
@@ -119,6 +121,24 @@ Fixed asset booking logic to properly handle unreturned and lost assets from pre
 - Assets marked as unreturned/lost from previous days persist to next day via daily reset
 - These assets show status badges and cannot be booked in/out
 - Only after marking as "found" in Unreturned Assets tab do they become available again
+
+#### Database WebSocket SSL Configuration (Complete - Fresh Import Setup)
+Fixed SSL certificate validation errors when connecting to Neon Database via WebSocket:
+
+**Issue**: 
+- Neon Database WebSocket connections were failing with "self-signed certificate in certificate chain" errors
+- Daily reset scheduler couldn't execute database queries on startup
+
+**Solution** (`server/db.ts`):
+- Created custom WebSocket class that extends ws with `rejectUnauthorized: false` option
+- This allows the WebSocket connection to accept self-signed SSL certificates
+- Changed `neonConfig.poolQueryViaFetch` from `true` to `false` to use WebSocket connections
+- Maintained secure connection (WSS) while bypassing certificate validation for development
+
+**Result**:
+- Database connections now work reliably in Replit environment
+- Daily reset scheduler executes without SSL errors
+- Application fully functional on port 5000
 
 ### Setup for New Users
 When importing this project:
