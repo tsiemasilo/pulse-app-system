@@ -658,14 +658,13 @@ export class DatabaseStorage implements IStorage {
       const fullName = `${state.user?.firstName || ''} ${state.user?.lastName || ''}`.trim();
       const displayName = fullName || state.agentName || state.user?.username || 'Unknown User';
       
-      // Check if this asset is already marked as lost
-      const isAlreadyLost = unreturnedAssets.some(
+      // Check if this asset is already in the unreturned list (either as lost or not returned)
+      const alreadyExists = unreturnedAssets.some(
         asset => asset.userId === state.userId && 
-                asset.assetType === state.assetType && 
-                asset.status === 'Lost'
+                asset.assetType === state.assetType
       );
       
-      if (!isAlreadyLost) {
+      if (!alreadyExists) {
         unreturnedAssets.push({
           userId: state.userId,
           agentName: displayName,
