@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { insertUserSchema } from "@shared/schema";
-import type { User, Team } from "@shared/schema";
+import type { User } from "@shared/schema";
+import { z } from "zod";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -26,13 +27,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     queryKey: ["/api/team-leaders"],
   });
 
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
-  });
-
-
   const form = useForm({
-    resolver: zodResolver(insertUserSchema.omit({ departmentId: true })),
+    resolver: zodResolver(
+      insertUserSchema
+        .omit({ departmentId: true })
+        .extend({ 
+          teamLeaderId: z.string().optional() 
+        })
+    ),
     defaultValues: {
       username: "",
       password: "",
@@ -50,15 +52,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       const { teamLeaderId, ...userDataForAPI } = userData;
       const user = await apiRequest("POST", "/api/users", userDataForAPI) as any;
       
-      // If agent role and team leader selected, create team membership
+      // If agent role and team leader selected, use the reassign-team-leader endpoint
+      // This endpoint automatically creates a team if the team leader doesn't have one
       if (userData.role === 'agent' && teamLeaderId && teamLeaderId !== 'none') {
-        const team = teams.find(t => t.leaderId === teamLeaderId);
-        if (team) {
-          await apiRequest("POST", "/api/team-members", {
-            teamId: team.id,
-            userId: user.id,
-          });
-        }
+        await apiRequest("POST", `/api/users/${user.id}/reassign-team-leader`, {
+          teamLeaderId: teamLeaderId,
+        });
       }
       
       return user;
