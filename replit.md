@@ -70,7 +70,48 @@ Successfully set up fresh clone from GitHub repository:
 - ✅ Application login page loading correctly with HMR working
 - ✅ All dependencies installed and Node.js 20 module active
 
-### Recent Updates (October 1, 2025)
+### Recent Updates
+
+#### Team Leader Reports & Analytics Enhancement (Complete - October 2, 2025)
+Fixed critical data filtering issues in the Reports tab to ensure team leaders only see their assigned agents' data:
+
+**Issues Fixed**:
+1. **Reports Data Filtering** (`client/src/pages/reports.tsx`):
+   - Reports component now accepts user and teamMembers props for proper scoping
+   - All data (attendance, users, assets, historical records) filtered to show only team leader's assigned agents
+   - Team leaders with zero assigned agents now see empty datasets instead of all users' data
+   - Team performance data restricted to only teams led by the logged-in user
+
+2. **Team Size Calculation Fix**:
+   - Fixed incorrect team performance calculation that was using non-existent `u.teamId` field
+   - Now properly uses team_members table join to calculate accurate team sizes
+   - Charts display correct team member counts based on actual assignments
+
+3. **Historical Data & Analytics**:
+   - Added date picker (Calendar component with Popover) to select and view historical dates
+   - Three main tabs: "Reports", "Analytics", "History" for comprehensive data organization
+   - Advanced charts added:
+     * Attendance trend line chart (last 7 days)
+     * Asset usage area chart showing booking patterns
+     * Team performance comparison bar charts
+     * Comparative analytics (today vs yesterday)
+   - Export functionality to download reports as JSON
+
+4. **Backend Enhancements** (`server/routes.ts`, `server/storage.ts`):
+   - Added GET `/api/team-members` endpoint to fetch all team members
+   - Added GET `/api/attendance/range` endpoint for date range queries
+   - Implemented `getAllTeamMembers()` and `getAttendanceByDateRange()` storage methods
+   - Added proper TypeScript interfaces to IStorage
+
+**Security Improvements**:
+- Team leaders cannot see data for teams they don't manage
+- Proper role-based filtering prevents privilege escalation
+- Empty array returns when team leader has no assigned agents (no data leakage)
+- All downstream consumers (stats, charts, exports) properly handle filtered datasets
+
+**Architect Verification**: ✅ Passed full security review - all data scoping correctly restricts team leaders to their assigned agents
+
+#### Previous Updates (October 1, 2025)
 
 #### Attendance & Termination System Improvements (Complete)
 Enhanced attendance tracking and termination processing with improved security and integration:
