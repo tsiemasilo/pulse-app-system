@@ -50,7 +50,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
       const { teamLeaderId, ...userDataForAPI } = userData;
-      const user = await apiRequest("POST", "/api/users", userDataForAPI) as any;
+      const response = await apiRequest("POST", "/api/users", userDataForAPI);
+      const user = await response.json();
       
       // If agent role and team leader selected, use the reassign-team-leader endpoint
       // This endpoint automatically creates a team if the team leader doesn't have one
