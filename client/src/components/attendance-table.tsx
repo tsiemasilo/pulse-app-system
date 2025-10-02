@@ -85,7 +85,7 @@ export default function AttendanceTable() {
               date: new Date(),
               clockIn: null,
               clockOut: null,
-              status: 'absent',
+              status: '-',
               hoursWorked: 0,
               createdAt: new Date(),
               user: member,
@@ -158,6 +158,7 @@ export default function AttendanceTable() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="-">-</SelectItem>
                         <SelectItem value="present">Present</SelectItem>
                         <SelectItem value="late">Late</SelectItem>
                         <SelectItem value="absent">Absent</SelectItem>
