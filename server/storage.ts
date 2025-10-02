@@ -75,6 +75,7 @@ export interface IStorage {
   // Attendance management
   getAttendanceByDate(date: Date): Promise<Attendance[]>;
   getAttendanceByUser(userId: string, startDate: Date, endDate: Date): Promise<Attendance[]>;
+  getAttendanceByDateRange(startDate: Date, endDate: Date): Promise<Attendance[]>;
   clockIn(userId: string): Promise<Attendance>;
   clockOut(userId: string): Promise<Attendance>;
   
@@ -82,6 +83,7 @@ export interface IStorage {
   getAllTeams(): Promise<Team[]>;
   getTeamsByLeader(leaderId: string): Promise<Team[]>;
   getTeamMembers(teamId: string): Promise<User[]>;
+  getAllTeamMembers(): Promise<TeamMember[]>;
   addTeamMember(teamId: string, userId: string): Promise<any>;
   removeTeamMember(teamId: string, userId: string): Promise<any>;
   getUserTeams(userId: string): Promise<Team[]>;
@@ -417,6 +419,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(attendance.date));
   }
 
+  async getAttendanceByDateRange(startDate: Date, endDate: Date): Promise<Attendance[]> {
+    return await db
+      .select()
+      .from(attendance)
+      .where(and(
+        gte(attendance.date, startDate),
+        lte(attendance.date, endDate)
+      ))
+      .orderBy(desc(attendance.date));
+  }
+
   async clockIn(userId: string): Promise<Attendance> {
     const now = new Date();
     
@@ -511,6 +524,10 @@ export class DatabaseStorage implements IStorage {
       .from(teamMembers)
       .innerJoin(users, eq(teamMembers.userId, users.id))
       .where(eq(teamMembers.teamId, teamId));
+  }
+
+  async getAllTeamMembers(): Promise<TeamMember[]> {
+    return await db.select().from(teamMembers);
   }
 
   async addTeamMember(teamId: string, userId: string): Promise<any> {

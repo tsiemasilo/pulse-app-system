@@ -998,6 +998,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/attendance/range', isAuthenticated, async (req: any, res) => {
+    try {
+      const { start, end } = req.query;
+      if (!start || !end) {
+        return res.status(400).json({ message: "Start and end dates are required" });
+      }
+      
+      const startDate = new Date(start as string);
+      const endDate = new Date(end as string);
+      
+      const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
+      res.json(attendanceRecords);
+    } catch (error) {
+      console.error("Error fetching attendance range:", error);
+      res.status(500).json({ message: "Failed to fetch attendance range" });
+    }
+  });
+
   app.post('/api/attendance/clock-in', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -1156,6 +1174,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(members);
     } catch (error) {
       console.error("Error fetching team members:", error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  app.get('/api/team-members', isAuthenticated, async (req: any, res) => {
+    try {
+      const teamMembers = await storage.getAllTeamMembers();
+      res.json(teamMembers);
+    } catch (error) {
+      console.error("Error fetching all team members:", error);
       res.status(500).json({ message: "Failed to fetch team members" });
     }
   });

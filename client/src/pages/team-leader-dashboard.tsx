@@ -270,7 +270,7 @@ export default function TeamLeaderDashboard() {
       case 'assets':
         return <AssetManagement />;
       case 'reports':
-        return <Reports />;
+        return <Reports user={user} teamMembers={teamMembers} />;
       case 'employees':
         return (
           <div className="space-y-6 animate-in fade-in-50 duration-500">
