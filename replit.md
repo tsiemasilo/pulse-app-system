@@ -1,255 +1,63 @@
 # Pulse - Workforce Management System
 
 ## Overview
-
-Pulse is a comprehensive workforce management system designed for contact center operations. The application provides role-based dashboards and functionality for administrators, HR managers, contact center managers, team leaders, and agents. Key features include user management, attendance tracking, asset management, and team coordination tools.
-
-The system is built as a full-stack web application with a React frontend and Express.js backend, utilizing PostgreSQL for data persistence and Replit's authentication system for user management.
+Pulse is a comprehensive workforce management system for contact centers, providing role-based dashboards and functionalities for administrators, HR, contact center managers, team leaders, and agents. It includes user management, attendance tracking, asset management, and team coordination. The system is a full-stack web application with a React frontend, Express.js backend, PostgreSQL database, and Replit authentication. Its vision is to streamline contact center operations, enhance workforce efficiency, and provide robust management tools for diverse user roles.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
-
-## Git Configuration
-- Repository: https://github.com/tsiemasilo/pulse-app-system.git
-- Branch: main
-- Format: Always provide git commands with token authentication
 
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework**: React with TypeScript for type safety and better developer experience
-- **Routing**: Wouter for lightweight client-side routing with role-based dashboard redirection
-- **State Management**: TanStack Query (React Query) for server state management and caching
-- **UI Framework**: shadcn/ui components built on Radix UI primitives with Tailwind CSS for styling
-- **Form Handling**: React Hook Form with Zod validation for type-safe form management
-- **Build Tool**: Vite for fast development and optimized production builds
+- **Framework**: React with TypeScript
+- **Routing**: Wouter for client-side routing and role-based redirection
+- **State Management**: TanStack Query for server state management and caching
+- **UI Framework**: shadcn/ui built on Radix UI with Tailwind CSS
+- **Form Handling**: React Hook Form with Zod validation
+- **Build Tool**: Vite for fast development and optimized builds
 
 ### Backend Architecture
-- **Framework**: Express.js with TypeScript for API development
-- **Database ORM**: Drizzle ORM for type-safe database operations and schema management
-- **Authentication**: Replit's OpenID Connect (OIDC) authentication system with Passport.js
-- **Session Management**: Express sessions with PostgreSQL storage using connect-pg-simple
-- **Database Migrations**: Drizzle Kit for schema migrations and database management
+- **Framework**: Express.js with TypeScript
+- **Database ORM**: Drizzle ORM for type-safe operations
+- **Authentication**: Replit's OpenID Connect (OIDC) with Passport.js
+- **Session Management**: Express sessions with PostgreSQL storage
+- **Database Migrations**: Drizzle Kit
 
 ### Database Design
-- **Primary Database**: PostgreSQL with connection pooling via Neon Database serverless driver
-- **Database Configuration**: Uses environment variables DATABASE_URL or NETLIFY_DATABASE_URL for secure connection
-- **Schema Structure**: 
-  - Users table with role-based access control (admin, hr, contact_center_ops_manager, contact_center_manager, team_leader, agent)
-  - Departments table for organizational structure
-  - Assets table for equipment tracking and assignment
-  - Attendance table for time tracking and presence management
-  - Teams and team members tables for organizational hierarchy
-  - Sessions table for authentication session persistence
+- **Primary Database**: PostgreSQL with Neon Database serverless driver
+- **Schema Structure**: Includes tables for Users (with role-based access: admin, hr, contact_center_ops_manager, contact_center_manager, team_leader, agent), Departments, Assets, Attendance, Teams, Team Members, and Sessions.
 
-### Replit Environment Setup (Completed - October 2, 2025)
-The project is now fully configured and running in Replit:
-- ✅ Environment variables configured via Replit Secrets (DATABASE_URL, SESSION_SECRET)
-- ✅ **Production database connected** - DATABASE_URL configured via Replit Secrets
-- ✅ Database schema synchronized with production Neon PostgreSQL database
-- ✅ Frontend workflow configured on port 5000 with webview output
-- ✅ Vite dev server running with host set to 0.0.0.0 and allowedHosts enabled for proxy compatibility
-- ✅ Deployment configured for autoscale with build and start scripts
-- ✅ Application accessible and fully functional on port 5000
-- ✅ .env file added to .gitignore for security
-- ✅ Build process verified and working correctly (vite build + esbuild)
-- ✅ Secure session secret configured via Replit Secrets
-- ✅ GitHub import successfully completed and tested
-- ✅ WebSocket SSL certificate handling configured for Neon Database connections
-- ✅ Daily reset scheduler running without SSL errors
-
-#### Fresh GitHub Import & Production Database Connection - October 2, 2025
-Successfully set up fresh clone from GitHub repository and connected to production Neon PostgreSQL database:
-
-**GitHub Import Setup:**
-- ✅ Verified existing Vite configuration (host: 0.0.0.0, allowedHosts: true, port: 5000)
-- ✅ Confirmed Express server setup with Vite middleware integration
-- ✅ Workflow "Start application" configured with webview output on port 5000
-- ✅ Build process tested and verified (vite build + esbuild successful)
-- ✅ Deployment configuration set to autoscale with build and run scripts
-- ✅ All dependencies installed and Node.js 20 module active
-
-**Production Database Connection:**
-- ✅ DATABASE_URL and NETLIFY_DATABASE_URL configured via Replit Secrets
-- ✅ Connected to production Neon PostgreSQL database at ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech
-- ✅ All 15 database tables verified and accessible:
-  - Users, Departments, Teams, Team Members
-  - Attendance tracking system
-  - Asset management (assets, asset_details, asset_daily_states, asset_incidents, asset_loss_records, asset_state_audit, historical_asset_records)
-  - Terminations, Transfers, Sessions
-- ✅ Database queries working correctly in development environment
-- ✅ Daily reset scheduler functioning without errors
-- ✅ Application login page loading correctly with HMR working
-- ✅ Both development and production environments use the same production database
-
-### Recent Updates
-
-#### Team Leader Reports & Analytics Enhancement (Complete - October 2, 2025)
-Fixed critical data filtering issues in the Reports tab to ensure team leaders only see their assigned agents' data:
-
-**Issues Fixed**:
-1. **Reports Data Filtering** (`client/src/pages/reports.tsx`):
-   - Reports component now accepts user and teamMembers props for proper scoping
-   - All data (attendance, users, assets, historical records) filtered to show only team leader's assigned agents
-   - Team leaders with zero assigned agents now see empty datasets instead of all users' data
-   - Team performance data restricted to only teams led by the logged-in user
-
-2. **Team Size Calculation Fix**:
-   - Fixed incorrect team performance calculation that was using non-existent `u.teamId` field
-   - Now properly uses team_members table join to calculate accurate team sizes
-   - Charts display correct team member counts based on actual assignments
-
-3. **Historical Data & Analytics**:
-   - Added date picker (Calendar component with Popover) to select and view historical dates
-   - Three main tabs: "Reports", "Analytics", "History" for comprehensive data organization
-   - Advanced charts added:
-     * Attendance trend line chart (last 7 days)
-     * Asset usage area chart showing booking patterns
-     * Team performance comparison bar charts
-     * Comparative analytics (today vs yesterday)
-   - Export functionality to download reports as JSON
-
-4. **Backend Enhancements** (`server/routes.ts`, `server/storage.ts`):
-   - Added GET `/api/team-members` endpoint to fetch all team members
-   - Added GET `/api/attendance/range` endpoint for date range queries
-   - Implemented `getAllTeamMembers()` and `getAttendanceByDateRange()` storage methods
-   - Added proper TypeScript interfaces to IStorage
-
-**Security Improvements**:
-- Team leaders cannot see data for teams they don't manage
-- Proper role-based filtering prevents privilege escalation
-- Empty array returns when team leader has no assigned agents (no data leakage)
-- All downstream consumers (stats, charts, exports) properly handle filtered datasets
-
-**Architect Verification**: ✅ Passed full security review - all data scoping correctly restricts team leaders to their assigned agents
-
-#### Previous Updates (October 1, 2025)
-
-#### Attendance & Termination System Improvements (Complete)
-Enhanced attendance tracking and termination processing with improved security and integration:
-
-**Changes Implemented**:
-1. **Process Termination Fix** (`server/routes.ts`):
-   - Fixed date validation error by adding schema transformation for date strings to Date objects
-   - Termination button now processes successfully without ZodError
-   - Added idempotency check to prevent duplicate terminations for the same user
-
-2. **Team Leader Attendance Filtering** (`client/src/components/attendance-table.tsx`):
-   - Today's attendance table now shows ONLY agents assigned to the logged-in team leader
-   - Admins and HR continue to see all attendance records
-   - Proper authorization scope prevents cross-team access
-
-3. **Attendance Table Column Reorganization**:
-   - Status column moved to left of Clock In column
-   - New order: Employee | Status | Clock In | Clock Out | Hours
-
-4. **Status Dropdown Enhancement**:
-   - Replaced static status badge with interactive dropdown for team leaders
-   - Status options: present, absent, sick, on leave, late, AWOL, suspended
-   - Only authorized roles (team_leader, admin, hr) can modify status
-   - Team leaders restricted to modifying their own team members only
-
-5. **Termination-Attendance Integration** (`server/routes.ts`):
-   - When termination is processed, attendance status automatically updates for that day
-   - Termination types map to attendance status: retirement → 'on leave', voluntary/involuntary/layoff → 'absent'
-   - Present status does NOT trigger termination processing
-
-6. **Default Status for Working Hours** (`server/storage.ts`):
-   - Clock-in during working hours (7:30 AM - 4:30 PM SAST) sets status to "present"
-   - Clock-in outside working hours sets status to "late"
-   - Proper timezone handling for South African Time (Africa/Johannesburg)
-
-**Security Improvements**:
-- Team leaders can only modify attendance for their assigned team members
-- Proper authorization checks prevent privilege escalation
-- Idempotency prevents duplicate termination records
-
-#### Asset Control Logic Fix (Complete)
-Fixed asset booking logic to properly handle unreturned and lost assets from previous days:
-
-**Root Cause**: Two issues were preventing proper asset state management:
-1. **Frontend Display Issue**: Book In tab only checked for 'collected' and 'not_collected' states, missing 'not_returned' and 'lost'
-2. **Scheduler Timing Issue**: Daily reset only ran if server was active at exactly 1:00 AM, missing resets if server started later
-
-**Fixes Applied**:
-1. **Frontend Fix** (`client/src/components/asset-management.tsx` - Line 570):
-   - Updated to display status badges for ALL asset states: collected, not_collected, returned, not_returned, lost
-   - Assets with unreturned/lost status now show orange/red badges instead of booking buttons
-   
-2. **Scheduler Fix** (`server/scheduler.ts` - Line 51):
-   - Changed from `currentHour === resetTimeHour` to `currentHour >= resetTimeHour`
-   - Now runs reset if it's past 1 AM AND reset hasn't been done yet for today
-   - Ensures reset happens even if server starts after 1 AM
-
-**Behavior**: 
-- Assets marked as unreturned/lost from previous days persist to next day via daily reset
-- These assets show status badges and cannot be booked in/out
-- Only after marking as "found" in Unreturned Assets tab do they become available again
-
-#### Database WebSocket SSL Configuration (Complete - Fresh Import Setup)
-Fixed SSL certificate validation errors when connecting to Neon Database via WebSocket:
-
-**Issue**: 
-- Neon Database WebSocket connections were failing with "self-signed certificate in certificate chain" errors
-- Daily reset scheduler couldn't execute database queries on startup
-
-**Solution** (`server/db.ts`):
-- Created custom WebSocket class that extends ws with `rejectUnauthorized: false` option
-- This allows the WebSocket connection to accept self-signed SSL certificates
-- Changed `neonConfig.poolQueryViaFetch` from `true` to `false` to use WebSocket connections
-- Maintained secure connection (WSS) while bypassing certificate validation for development
-
-**Result**:
-- Database connections now work reliably in Replit environment
-- Daily reset scheduler executes without SSL errors
-- Application fully functional on port 5000
-
-### Setup for New Users
-When importing this project:
-1. Copy `.env.example` to `.env` to use the shared database
-2. Run `npm install` to install dependencies
-3. Run `npm run db:push` to sync database schema
-4. Run `npm run dev` to start the application
-
-### Role-Based Access Control
-- **Admin**: Full system access including user management, system configuration, and reporting
-- **HR**: Employee management, attendance oversight, and organizational reporting
-- **Contact Center Managers**: Team performance monitoring, operational metrics, and resource allocation
-- **Team Leaders**: Team member oversight, attendance management, and asset coordination
-- **Agents**: Personal dashboard with attendance tracking, asset viewing, and task management
-
-### API Architecture
-- **RESTful Design**: Standard HTTP methods with consistent response formats
-- **Route Protection**: Authentication middleware ensuring role-appropriate access
-- **Error Handling**: Centralized error handling with proper HTTP status codes
-- **Request Validation**: Zod schema validation for all API endpoints
+### System Design Choices
+- **Role-Based Access Control**: Granular permissions for Admin, HR, Contact Center Managers, Team Leaders, and Agents.
+- **UI/UX**: Utilizes shadcn/ui for consistent design, with a focus on intuitive dashboards and data visualization.
+- **Technical Implementations**:
+    - **Team Leader Reports**: Data filtering ensures team leaders only view data for their assigned agents (attendance, users, assets, historical records). Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality.
+    - **Attendance System**: Enhanced tracking with interactive status dropdowns for team leaders, restricted to their team members. Integrates with termination processes to update attendance status automatically. Default status logic based on clock-in times.
+    - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Frontend displays all asset states, and a resilient daily scheduler ensures asset state updates even if the server starts late.
+- **API Architecture**: RESTful design with route protection, centralized error handling, and Zod schema validation.
 
 ## External Dependencies
 
 ### Authentication Services
-- **Replit OIDC**: Primary authentication provider with OAuth 2.0/OpenID Connect integration
-- **Passport.js**: Authentication middleware for Express.js applications
+- **Replit OIDC**: Primary authentication provider.
+- **Passport.js**: Authentication middleware for Express.js.
 
 ### Database Services
-- **Neon Database**: Serverless PostgreSQL hosting with connection pooling
-- **Production Database**: Configured via NETLIFY_DATABASE_URL environment variable
-- **WebSocket Support**: Real-time database connections via ws library
+- **Neon Database**: Serverless PostgreSQL hosting.
+- **WebSocket Support**: For real-time database connections.
 
 ### UI and Styling
-- **Radix UI**: Accessible component primitives for complex UI elements
-- **Tailwind CSS**: Utility-first CSS framework for responsive design
-- **Lucide React**: Icon library for consistent iconography
-- **shadcn/ui**: Pre-built component library with customizable themes
+- **Radix UI**: Accessible component primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Lucide React**: Icon library.
+- **shadcn/ui**: Pre-built component library.
 
 ### Development Tools
-- **TypeScript**: Static type checking across frontend and backend
-- **Vite**: Frontend build tool with hot module replacement
-- **ESBuild**: Fast JavaScript bundler for production builds
-- **PostCSS**: CSS processing with Autoprefixer for browser compatibility
+- **TypeScript**: Static type checking.
+- **Vite**: Frontend build tool.
+- **ESBuild**: Fast JavaScript bundler.
 
 ### Additional Libraries
-- **date-fns**: Date manipulation and formatting utilities
-- **clsx**: Conditional className utility for dynamic styling
-- **memoizee**: Function memoization for performance optimization
-- **nanoid**: Unique ID generation for database records
+- **date-fns**: Date manipulation.
+- **clsx**: Conditional className utility.
+- **nanoid**: Unique ID generation.
