@@ -561,6 +561,11 @@ export class DatabaseStorage implements IStorage {
     // First remove from all existing teams
     await db.delete(teamMembers).where(eq(teamMembers.userId, agentId));
     
+    // Update the agent's reportsTo field to the new team leader
+    await db.update(users)
+      .set({ reportsTo: newTeamLeaderId })
+      .where(eq(users.id, agentId));
+    
     // Find or create team for the new team leader
     let team = await db
       .select()
