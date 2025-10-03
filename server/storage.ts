@@ -668,41 +668,11 @@ export class DatabaseStorage implements IStorage {
       reason?: string;
     }> = [];
 
-    // Get all lost assets (these are permanently lost)
-    const lostAssets = await db
-      .select({
-        userId: assetLossRecords.userId,
-        assetType: assetLossRecords.assetType,
-        dateLost: assetLossRecords.dateLost,
-        reason: assetLossRecords.reason,
-        user: {
-          firstName: users.firstName,
-          lastName: users.lastName,
-          username: users.username,
-        }
-      })
-      .from(assetLossRecords)
-      .leftJoin(users, eq(assetLossRecords.userId, users.id))
-      .where(eq(assetLossRecords.status, 'reported')); // Only unresolved losses
+    // Get TODAY's date to fetch current states
+    const today = new Date().toISOString().split('T')[0];
 
-    // Add lost assets
-    lostAssets.forEach(asset => {
-      const fullName = `${asset.user?.firstName || ''} ${asset.user?.lastName || ''}`.trim();
-      const displayName = fullName || asset.user?.username || 'Unknown User';
-      
-      unreturnedAssets.push({
-        userId: asset.userId,
-        agentName: displayName,
-        assetType: asset.assetType,
-        status: 'Lost',
-        date: asset.dateLost instanceof Date 
-          ? asset.dateLost.toISOString().split('T')[0]
-          : asset.dateLost,
-        reason: asset.reason
-      });
-    });
-
-    // Get all assets with 'not_returned' OR 'lost' state from asset daily states
+    // Get all assets with 'not_returned' OR 'lost' state from TODAY's asset daily states
+    // These represent the CURRENT state of assets
     const unreturnedStates = await db
       .select({
         userId: assetDailyStates.userId,
@@ -720,34 +690,29 @@ export class DatabaseStorage implements IStorage {
       })
       .from(assetDailyStates)
       .leftJoin(users, eq(assetDailyStates.userId, users.id))
-      .where(sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`);
+      .where(and(
+        eq(assetDailyStates.date, today),
+        sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`
+      ));
 
-    // Add not returned assets from daily states
+    // Add assets from today's daily states (these are the current states)
     for (const state of unreturnedStates) {
       const fullName = `${state.user?.firstName || ''} ${state.user?.lastName || ''}`.trim();
       const displayName = fullName || state.agentName || state.user?.username || 'Unknown User';
       
-      // Check if this asset is already in the unreturned list (either as lost or not returned)
-      const alreadyExists = unreturnedAssets.some(
-        asset => asset.userId === state.userId && 
-                asset.assetType === state.assetType
-      );
+      // Use dateLost if available (original date when asset was lost), otherwise fallback to today
+      const lostDate = state.dateLost 
+        ? (state.dateLost instanceof Date ? state.dateLost.toISOString().split('T')[0] : state.dateLost)
+        : state.date;
       
-      if (!alreadyExists) {
-        // Use dateLost if available (original date when asset was lost), otherwise fallback to state date
-        const lostDate = state.dateLost 
-          ? (state.dateLost instanceof Date ? state.dateLost.toISOString().split('T')[0] : state.dateLost)
-          : state.date;
-        
-        unreturnedAssets.push({
-          userId: state.userId,
-          agentName: displayName,
-          assetType: state.assetType,
-          status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
-          date: lostDate,
-          reason: state.reason || undefined
-        });
-      }
+      unreturnedAssets.push({
+        userId: state.userId,
+        agentName: displayName,
+        assetType: state.assetType,
+        status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
+        date: lostDate,
+        reason: state.reason || undefined
+      });
     }
 
     return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
