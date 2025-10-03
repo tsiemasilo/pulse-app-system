@@ -705,13 +705,32 @@ export class DatabaseStorage implements IStorage {
         ? (state.dateLost instanceof Date ? state.dateLost.toISOString().split('T')[0] : state.dateLost)
         : state.date;
       
+      // Try to get the most meaningful reason
+      let displayReason = state.reason;
+      
+      // If the daily state reason is generic/system-generated, try to get the original reason from loss records
+      const isGenericReason = !displayReason || 
+        displayReason.includes('Persisting') || 
+        displayReason.includes('Daily reset') ||
+        displayReason.includes('Asset was not returned from previous day');
+      
+      if (isGenericReason) {
+        // Check if there's a loss record with a more specific reason
+        const lossRecord = await this.getAssetLossRecordByUserAndType(state.userId, state.assetType);
+        if (lossRecord && lossRecord.reason && 
+            !lossRecord.reason.includes('Daily reset') && 
+            !lossRecord.reason.includes('Asset was not returned')) {
+          displayReason = lossRecord.reason;
+        }
+      }
+      
       unreturnedAssets.push({
         userId: state.userId,
         agentName: displayName,
         assetType: state.assetType,
         status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
         date: lostDate,
-        reason: state.reason || undefined
+        reason: displayReason || undefined
       });
     }
 
@@ -969,7 +988,8 @@ export class DatabaseStorage implements IStorage {
               // Persistent states - keep the same state for ALL users (active and inactive)
               if (!currentState) {
                 newState = previousState.currentState;
-                reason = `Persisting ${previousState.currentState} state from previous day`;
+                // PRESERVE the original reason from the previous state
+                reason = previousState.reason || `Asset marked as ${previousState.currentState}`;
                 actionTaken = 'persist_problematic_state';
                 
                 // Get the original dateLost from loss record or previous state

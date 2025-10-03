@@ -7,6 +7,8 @@ Pulse is a comprehensive workforce management system for contact centers, provid
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 3, 2025)
+
+### Initial Setup
 - **GitHub Import Setup**: Successfully imported and configured the Pulse Workforce Management System in Replit environment
 - **Environment Configuration**: Created .env file with database credentials (Neon PostgreSQL) and session secret
 - **Workflow Setup**: Configured "Start application" workflow to run on port 5000 with webview output
@@ -14,6 +16,14 @@ Preferred communication style: Simple, everyday language.
 - **Verification**: Application is running correctly, login page displaying properly with Alteram Solutions branding
 - **Database Schema**: Verified database schema is synced and up-to-date using Drizzle Kit
 - **Vite Configuration**: Frontend properly configured with host 0.0.0.0:5000 and allowedHosts enabled for Replit proxy compatibility
+
+### Asset Management Bug Fixes
+- **Mark as Found Bug Fix**: Fixed critical bug where "Mark as Found" functionality was checking historical dates instead of current state. Now correctly validates and updates TODAY's asset state when marking assets as found/returned.
+- **Asset Status Display Fix**: Fixed display logic to show correct current status ("Lost" vs "Not Returned Yet") based on today's asset state instead of historical loss records.
+- **Reason Preservation Fix**: Fixed issue where original loss/unreturned reasons were being overwritten by generic system messages during daily resets. Implemented two-tier approach:
+  1. Daily reset now preserves original reasons when persisting lost/unreturned states across days
+  2. Display logic falls back to original reasons from loss records when daily state has generic messages
+  3. Users now see the actual reason they entered when marking assets as lost/unreturned, even after multiple daily resets
 
 ## System Architecture
 
