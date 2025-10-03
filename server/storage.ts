@@ -707,6 +707,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         userId: assetDailyStates.userId,
         date: assetDailyStates.date,
+        dateLost: assetDailyStates.dateLost,
         assetType: assetDailyStates.assetType,
         currentState: assetDailyStates.currentState,
         reason: assetDailyStates.reason,
@@ -733,12 +734,17 @@ export class DatabaseStorage implements IStorage {
       );
       
       if (!alreadyExists) {
+        // Use dateLost if available (original date when asset was lost), otherwise fallback to state date
+        const lostDate = state.dateLost 
+          ? (state.dateLost instanceof Date ? state.dateLost.toISOString().split('T')[0] : state.dateLost)
+          : state.date;
+        
         unreturnedAssets.push({
           userId: state.userId,
           agentName: displayName,
           assetType: state.assetType,
           status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
-          date: state.date,
+          date: lostDate,
           reason: state.reason || undefined
         });
       }
