@@ -643,13 +643,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId, assetType, date, recoveryReason } = z.object({
         userId: z.string(),
         assetType: z.string(),
-        date: z.string(), // YYYY-MM-DD format of the day when asset was lost
+        date: z.string(), // YYYY-MM-DD format of the day when asset was lost (not used for validation)
         recoveryReason: z.string(),
       }).parse(req.body);
 
-      // Find the lost/unreturned asset state
-      const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
-      const existingState = currentStates.find(s => s.assetType === assetType);
+      // Get today's date - we need to check and update TODAY's state, not the old lost date
+      const today = new Date().toISOString().split('T')[0];
+
+      // Find the current state (today's state) for this asset
+      const todayStates = await storage.getAssetDailyStatesByUserAndDate(userId, today);
+      const existingState = todayStates.find(s => s.assetType === assetType);
       
       if (!existingState || !['not_returned', 'lost'].includes(existingState.currentState)) {
         return res.status(400).json({ 
@@ -657,9 +660,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Update TODAY's state to returned
       const dailyStateData = {
         userId,
-        date,
+        date: today, // Use today's date, not the old lost date
         assetType,
         currentState: 'returned' as const,
         confirmedBy: user.id,
@@ -681,6 +685,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         changedBy: user.id,
         changedAt: new Date()
       });
+
+      // Resolve any asset loss records for this asset
+      try {
+        await storage.deleteAssetLossRecord(userId, assetType);
+      } catch (lossRecordError) {
+        console.log("No loss record to delete or error deleting:", lossRecordError);
+      }
 
       res.json(dailyState);
     } catch (error) {
