@@ -100,6 +100,7 @@ export interface IStorage {
   // Asset loss record management
   getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
   getAssetLossRecordsByDate(date: string): Promise<AssetLossRecord[]>;
+  getAssetLossRecordByUserAndType(userId: string, assetType: string): Promise<AssetLossRecord | undefined>;
   createAssetLossRecord(assetLossRecord: InsertAssetLossRecord): Promise<AssetLossRecord>;
   deleteAssetLossRecord(userId: string, assetType: string, date?: string): Promise<void>;
   
@@ -618,6 +619,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(assetLossRecords.createdAt));
   }
 
+  async getAssetLossRecordByUserAndType(userId: string, assetType: string): Promise<AssetLossRecord | undefined> {
+    const [record] = await db.select().from(assetLossRecords)
+      .where(and(
+        eq(assetLossRecords.userId, userId),
+        eq(assetLossRecords.assetType, assetType),
+        eq(assetLossRecords.status, 'reported')
+      ))
+      .orderBy(desc(assetLossRecords.createdAt))
+      .limit(1);
+    return record;
+  }
+
   async createAssetLossRecord(assetLossData: InsertAssetLossRecord): Promise<AssetLossRecord> {
     const [assetLossRecord] = await db.insert(assetLossRecords).values(assetLossData).returning();
     return assetLossRecord;
@@ -887,9 +900,8 @@ export class DatabaseStorage implements IStorage {
     previousDay.setDate(previousDay.getDate() - 1);
     const previousDate = previousDay.toISOString().split('T')[0];
 
-    // Get all active users
+    // Get ALL users (including inactive) because terminated users can still have unreturned assets
     const allUsers = await this.getAllUsers();
-    const activeUsers = allUsers.filter(u => u.isActive);
     
     const assetTypes = ['laptop', 'headsets', 'dongle'];
     const resetDetails: Array<{
@@ -905,7 +917,7 @@ export class DatabaseStorage implements IStorage {
     let incidentsCreated = 0;
 
     // Process each user and asset type
-    for (const user of activeUsers) {
+    for (const user of allUsers) {
       const agentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
       
       for (const assetType of assetTypes) {
@@ -920,48 +932,82 @@ export class DatabaseStorage implements IStorage {
         let actionTaken = '';
         let newState = '';
         let reason = '';
+        let dateLost = null;
         
         if (previousState) {
           // Handle based on previous day's state
           switch (previousState.currentState) {
             case 'collected':
               // Asset was collected but not returned - mark as unreturned and create incident
-              newState = 'not_returned';
-              reason = 'Asset was not returned/booked out from previous day';
-              actionTaken = 'auto_mark_unreturned';
-              
-              // Create incident for unreturned asset
-              await this.createAssetIncident({
-                userId: user.id,
-                assetType,
-                incidentType: 'unreturned',
-                description: `Asset was collected on ${previousDate} but was not returned. Automatically marked as not returned during daily reset.`,
-                reportedBy: resetPerformedBy
-              });
-              incidentsCreated++;
+              // Only do this for active users
+              if (user.isActive) {
+                newState = 'not_returned';
+                reason = 'Asset was not returned/booked out from previous day';
+                actionTaken = 'auto_mark_unreturned';
+                
+                // Check if a loss record exists, otherwise create one
+                const existingLossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
+                if (existingLossRecord) {
+                  dateLost = existingLossRecord.dateLost;
+                } else {
+                  dateLost = new Date(previousDate);
+                  await this.createAssetLossRecord({
+                    userId: user.id,
+                    assetType,
+                    dateLost,
+                    reason: 'Asset was not returned during daily reset',
+                    reportedBy: resetPerformedBy,
+                    status: 'reported'
+                  });
+                }
+                
+                // Create incident for unreturned asset
+                await this.createAssetIncident({
+                  userId: user.id,
+                  assetType,
+                  incidentType: 'unreturned',
+                  description: `Asset was collected on ${previousDate} but was not returned. Automatically marked as not returned during daily reset.`,
+                  reportedBy: resetPerformedBy
+                });
+                incidentsCreated++;
+              }
               break;
               
             case 'returned':
               // Asset completed full cycle - reset to ready for collection
-              newState = 'ready_for_collection';
-              reason = 'Daily reset - asset completed full cycle';
-              actionTaken = 'reset_completed_cycle';
+              // Only reset for active users
+              if (user.isActive) {
+                newState = 'ready_for_collection';
+                reason = 'Daily reset - asset completed full cycle';
+                actionTaken = 'reset_completed_cycle';
+              }
               break;
               
             case 'not_collected':
               // Asset was not collected - reset to ready for collection
-              newState = 'ready_for_collection';
-              reason = 'Daily reset - asset was not collected previous day';
-              actionTaken = 'reset_not_collected';
+              // Only reset for active users
+              if (user.isActive) {
+                newState = 'ready_for_collection';
+                reason = 'Daily reset - asset was not collected previous day';
+                actionTaken = 'reset_not_collected';
+              }
               break;
               
             case 'not_returned':
             case 'lost':
-              // Persistent states - keep the same state
+              // Persistent states - keep the same state for ALL users (active and inactive)
               if (!currentState) {
                 newState = previousState.currentState;
                 reason = `Persisting ${previousState.currentState} state from previous day`;
                 actionTaken = 'persist_problematic_state';
+                
+                // Get the original dateLost from loss record or previous state
+                const existingLossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
+                if (existingLossRecord) {
+                  dateLost = existingLossRecord.dateLost;
+                } else if (previousState.dateLost) {
+                  dateLost = previousState.dateLost;
+                }
               } else {
                 // State already exists, skip
                 continue;
@@ -970,28 +1016,37 @@ export class DatabaseStorage implements IStorage {
               
             case 'ready_for_collection':
               // Was ready but not collected - reset to ready again
-              newState = 'ready_for_collection';
-              reason = 'Daily reset - asset remained ready for collection';
-              actionTaken = 'reset_ready_state';
+              // Only reset for active users
+              if (user.isActive) {
+                newState = 'ready_for_collection';
+                reason = 'Daily reset - asset remained ready for collection';
+                actionTaken = 'reset_ready_state';
+              }
               break;
               
             default:
               // Unknown state - reset to ready for collection
-              newState = 'ready_for_collection';
-              reason = 'Daily reset - unknown previous state';
-              actionTaken = 'reset_unknown_state';
+              // Only reset for active users
+              if (user.isActive) {
+                newState = 'ready_for_collection';
+                reason = 'Daily reset - unknown previous state';
+                actionTaken = 'reset_unknown_state';
+              }
               break;
           }
         } else {
           // No previous state - initialize as ready for collection
-          newState = 'ready_for_collection';
-          reason = 'Daily reset - initializing new asset state';
-          actionTaken = 'initialize_new_state';
+          // Only initialize for active users
+          if (user.isActive) {
+            newState = 'ready_for_collection';
+            reason = 'Daily reset - initializing new asset state';
+            actionTaken = 'initialize_new_state';
+          }
         }
         
         // Only create/update state if we have an action to take and no current state exists
         if (actionTaken && !currentState) {
-          const dailyStateData = {
+          const dailyStateData: any = {
             userId: user.id,
             date: targetDate,
             assetType,
@@ -1001,6 +1056,11 @@ export class DatabaseStorage implements IStorage {
             reason,
             agentName
           };
+          
+          // Include dateLost if this is a lost/not_returned state
+          if (dateLost && (newState === 'not_returned' || newState === 'lost')) {
+            dailyStateData.dateLost = dateLost;
+          }
           
           const createdState = await this.upsertAssetDailyState(dailyStateData);
           

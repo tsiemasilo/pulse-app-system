@@ -575,6 +575,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      let dateLost = null;
+      
+      // If marking as lost or not_returned, create/check asset loss record
+      if (status === 'lost' || status === 'not_returned') {
+        // Check if a loss record already exists for this user/asset
+        const existingLossRecord = await storage.getAssetLossRecordByUserAndType(userId, assetType);
+        
+        if (existingLossRecord) {
+          // Use existing dateLost
+          dateLost = existingLossRecord.dateLost;
+        } else {
+          // Create new loss record with current date
+          dateLost = new Date(date);
+          await storage.createAssetLossRecord({
+            userId,
+            assetType,
+            dateLost,
+            reason: reason || `Asset marked as ${status}`,
+            reportedBy: user.id,
+            status: 'reported'
+          });
+        }
+      }
+
       const dailyStateData = {
         userId,
         date,
@@ -583,7 +607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confirmedBy: user.id,
         confirmedAt: new Date(),
         reason: reason || null,
-        agentName: await getUserFullName(userId)
+        agentName: await getUserFullName(userId),
+        dateLost
       };
 
       const dailyState = await storage.upsertAssetDailyState(dailyStateData);

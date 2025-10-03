@@ -158,6 +158,7 @@ export const assetDailyStates = pgTable("asset_daily_states", {
   confirmedAt: timestamp("confirmed_at"), // when state was confirmed
   reason: text("reason"), // reason for current state if applicable
   agentName: varchar("agent_name"), // Cache for performance
+  dateLost: timestamp("date_lost"), // Original date when asset was first marked as lost/unreturned
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
