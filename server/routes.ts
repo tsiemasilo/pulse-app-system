@@ -461,6 +461,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/assets/most-recent-state/user/:userId/asset/:assetType', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== req.params.userId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const mostRecentState = await storage.getMostRecentAssetState(req.params.userId, req.params.assetType);
+      res.json(mostRecentState || null);
+    } catch (error) {
+      console.error("Error fetching most recent asset state:", error);
+      res.status(500).json({ message: "Failed to fetch most recent asset state" });
+    }
+  });
+
   app.post('/api/assets/daily-state', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;

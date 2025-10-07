@@ -125,6 +125,7 @@ export interface IStorage {
   upsertAssetDailyState(dailyState: InsertAssetDailyState): Promise<AssetDailyState>;
   getAllAssetDailyStatesByDate(date: string): Promise<AssetDailyState[]>;
   deleteAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<void>;
+  getMostRecentAssetState(userId: string, assetType: string): Promise<AssetDailyState | undefined>;
   
   // Asset state audit management
   createAssetStateAudit(audit: InsertAssetStateAudit): Promise<AssetStateAudit>;
@@ -668,100 +669,70 @@ export class DatabaseStorage implements IStorage {
       reason?: string;
     }> = [];
 
-    // Get TODAY's date to fetch current states
-    const today = new Date().toISOString().split('T')[0];
+    // Get all users and asset types to check for most recent states
+    const allUsers = await this.getAllUsers();
+    const assetTypes = ['laptop', 'headsets', 'dongle'];
 
-    // Get all assets with 'not_returned' OR 'lost' state from TODAY's asset daily states
-    // These represent the CURRENT state of assets
-    const unreturnedStates = await db
-      .select({
-        userId: assetDailyStates.userId,
-        date: assetDailyStates.date,
-        dateLost: assetDailyStates.dateLost,
-        assetType: assetDailyStates.assetType,
-        currentState: assetDailyStates.currentState,
-        reason: assetDailyStates.reason,
-        agentName: assetDailyStates.agentName,
-        user: {
-          firstName: users.firstName,
-          lastName: users.lastName,
-          username: users.username,
-        }
-      })
-      .from(assetDailyStates)
-      .leftJoin(users, eq(assetDailyStates.userId, users.id))
-      .where(and(
-        eq(assetDailyStates.date, today),
-        sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`
-      ));
-
-    // Add assets from today's daily states (these are the current states)
-    for (const state of unreturnedStates) {
-      const fullName = `${state.user?.firstName || ''} ${state.user?.lastName || ''}`.trim();
-      const displayName = fullName || state.agentName || state.user?.username || 'Unknown User';
-      
-      // Use dateLost if available (original date when asset was lost), otherwise fallback to today
-      const lostDate = state.dateLost 
-        ? (state.dateLost instanceof Date ? state.dateLost.toISOString().split('T')[0] : state.dateLost)
-        : state.date;
-      
-      // Try to get the most meaningful reason
-      let displayReason = state.reason;
-      
-      // If the daily state reason is generic/system-generated, try to get the original reason from loss records
-      const isGenericReason = !displayReason || 
-        displayReason.includes('Persisting') || 
-        displayReason.includes('Daily reset') ||
-        displayReason.includes('Asset was not returned from previous day');
-      
-      if (isGenericReason) {
-        // Check if there's a loss record with a more specific reason
-        const lossRecord = await this.getAssetLossRecordByUserAndType(state.userId, state.assetType);
-        if (lossRecord && lossRecord.reason && 
-            !lossRecord.reason.includes('Daily reset') && 
-            !lossRecord.reason.includes('Asset was not returned')) {
-          displayReason = lossRecord.reason;
+    // For each user and asset type, get the most recent state
+    for (const user of allUsers) {
+      for (const assetType of assetTypes) {
+        const mostRecentState = await this.getMostRecentAssetState(user.id, assetType);
+        
+        // If the most recent state is lost or not_returned, add to unreturned assets
+        if (mostRecentState && (mostRecentState.currentState === 'lost' || mostRecentState.currentState === 'not_returned')) {
+          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+          const displayName = fullName || user.username || 'Unknown User';
+          
+          // Use dateLost if available (original date when asset was lost), otherwise fallback to state date
+          const lostDate = mostRecentState.dateLost 
+            ? (mostRecentState.dateLost instanceof Date ? mostRecentState.dateLost.toISOString().split('T')[0] : mostRecentState.dateLost)
+            : mostRecentState.date;
+          
+          // Try to get the most meaningful reason
+          let displayReason = mostRecentState.reason;
+          
+          // If the daily state reason is generic/system-generated, try to get the original reason from loss records
+          const isGenericReason = !displayReason || 
+            displayReason.includes('Persisting') || 
+            displayReason.includes('Daily reset') ||
+            displayReason.includes('Asset was not returned from previous day');
+          
+          if (isGenericReason) {
+            // Check if there's a loss record with a more specific reason
+            const lossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
+            if (lossRecord && lossRecord.reason && 
+                !lossRecord.reason.includes('Daily reset') && 
+                !lossRecord.reason.includes('Asset was not returned')) {
+              displayReason = lossRecord.reason;
+            }
+          }
+          
+          unreturnedAssets.push({
+            userId: user.id,
+            agentName: displayName,
+            assetType: assetType,
+            status: mostRecentState.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
+            date: lostDate,
+            reason: displayReason || undefined
+          });
         }
       }
-      
-      unreturnedAssets.push({
-        userId: state.userId,
-        agentName: displayName,
-        assetType: state.assetType,
-        status: state.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
-        date: lostDate,
-        reason: displayReason || undefined
-      });
     }
 
     return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
   }
 
   async hasUnreturnedAssets(userId: string): Promise<boolean> {
-    // Check if user has any lost assets
-    const lostAssetsCount = await db
-      .select({ count: sql`count(*)`.mapWith(Number) })
-      .from(assetLossRecords)
-      .where(and(
-        eq(assetLossRecords.userId, userId),
-        eq(assetLossRecords.status, 'reported') // Only unresolved losses
-      ));
-
-    if (lostAssetsCount[0]?.count > 0) {
-      return true;
-    }
-
-    // Check if user has any unresolved unreturned or lost assets from daily states
-    const unreturnedStates = await db
-      .select({ count: sql`count(*)`.mapWith(Number) })
-      .from(assetDailyStates)
-      .where(and(
-        eq(assetDailyStates.userId, userId),
-        sql`${assetDailyStates.currentState} IN ('not_returned', 'lost')`
-      ));
-
-    if (unreturnedStates[0]?.count > 0) {
-      return true;
+    // Check the most recent state for each asset type
+    const assetTypes = ['laptop', 'headsets', 'dongle'];
+    
+    for (const assetType of assetTypes) {
+      const mostRecentState = await this.getMostRecentAssetState(userId, assetType);
+      
+      // If the most recent state is lost or not_returned, user has unreturned assets
+      if (mostRecentState && (mostRecentState.currentState === 'lost' || mostRecentState.currentState === 'not_returned')) {
+        return true;
+      }
     }
 
     return false;
@@ -805,6 +776,11 @@ export class DatabaseStorage implements IStorage {
       ));
     
     if (existingStates.length > 0) {
+      // Preserve dateLost from existing state if not provided in update
+      const dateLostToUse = dailyStateData.dateLost !== undefined 
+        ? dailyStateData.dateLost 
+        : existingStates[0].dateLost;
+      
       // Update existing state
       const [updatedState] = await db
         .update(assetDailyStates)
@@ -814,10 +790,26 @@ export class DatabaseStorage implements IStorage {
           confirmedAt: dailyStateData.confirmedAt,
           reason: dailyStateData.reason,
           agentName: dailyStateData.agentName,
+          dateLost: dateLostToUse,
           updatedAt: new Date(),
         })
         .where(eq(assetDailyStates.id, existingStates[0].id))
         .returning();
+      
+      // If marking as lost or not_returned, handle future states
+      if (dailyStateData.currentState === 'lost' || dailyStateData.currentState === 'not_returned') {
+        // Delete all future ready_for_collection states for this user/asset
+        // They will be recreated by daily reset with the correct persistent state
+        await db
+          .delete(assetDailyStates)
+          .where(and(
+            eq(assetDailyStates.userId, dailyStateData.userId),
+            eq(assetDailyStates.assetType, dailyStateData.assetType),
+            sql`${assetDailyStates.date} > ${dailyStateData.date}`,
+            eq(assetDailyStates.currentState, 'ready_for_collection')
+          ));
+      }
+      
       return updatedState;
     } else {
       // Create new state
@@ -825,6 +817,20 @@ export class DatabaseStorage implements IStorage {
         .insert(assetDailyStates)
         .values(dailyStateData)
         .returning();
+      
+      // If marking as lost or not_returned, handle future states
+      if (dailyStateData.currentState === 'lost' || dailyStateData.currentState === 'not_returned') {
+        // Delete all future ready_for_collection states for this user/asset
+        await db
+          .delete(assetDailyStates)
+          .where(and(
+            eq(assetDailyStates.userId, dailyStateData.userId),
+            eq(assetDailyStates.assetType, dailyStateData.assetType),
+            sql`${assetDailyStates.date} > ${dailyStateData.date}`,
+            eq(assetDailyStates.currentState, 'ready_for_collection')
+          ));
+      }
+      
       return newState;
     }
   }
@@ -844,6 +850,20 @@ export class DatabaseStorage implements IStorage {
         eq(assetDailyStates.userId, userId),
         eq(assetDailyStates.date, date)
       ));
+  }
+
+  async getMostRecentAssetState(userId: string, assetType: string): Promise<AssetDailyState | undefined> {
+    const [mostRecentState] = await db
+      .select()
+      .from(assetDailyStates)
+      .where(and(
+        eq(assetDailyStates.userId, userId),
+        eq(assetDailyStates.assetType, assetType)
+      ))
+      .orderBy(desc(assetDailyStates.date))
+      .limit(1);
+    
+    return mostRecentState;
   }
 
   // Asset state audit management
@@ -913,7 +933,13 @@ export class DatabaseStorage implements IStorage {
       for (const assetType of assetTypes) {
         // Get previous day's state for this user/asset type
         const previousStates = await this.getAssetDailyStatesByUserAndDate(user.id, previousDate);
-        const previousState = previousStates.find(s => s.assetType === assetType);
+        let previousState = previousStates.find(s => s.assetType === assetType);
+        
+        // If no state for previous day, check for the most recent state from any day
+        // This ensures lost/not_returned states persist even if there are gaps in days
+        if (!previousState) {
+          previousState = await this.getMostRecentAssetState(user.id, assetType);
+        }
         
         // Get current state to check if it exists
         const currentStates = await this.getAssetDailyStatesByUserAndDate(user.id, targetDate);

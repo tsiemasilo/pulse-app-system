@@ -344,10 +344,25 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   const isAssetDisabled = (userId: string, assetType: AssetType): boolean => {
     const state = getAssetState(userId, assetType);
-    if (!state) return false;
     
-    // Disable if asset is in a final state (returned, not_returned, lost)
-    return ['returned', 'not_returned', 'lost'].includes(state.currentState);
+    // Check if there's a state for today
+    if (state) {
+      // Disable if asset is in a final state (returned, not_returned, lost)
+      return ['returned', 'not_returned', 'lost'].includes(state.currentState);
+    }
+    
+    // If no state for today, check if asset is in unreturned assets from previous days
+    // This handles cases where an asset was lost/not_returned on a previous day
+    if (unreturnedAssets && unreturnedAssets.length > 0) {
+      const hasUnreturnedAsset = unreturnedAssets.some(
+        asset => asset.userId === userId && asset.assetType === assetType
+      );
+      if (hasUnreturnedAsset) {
+        return true; // Disable booking if asset is in unreturned list
+      }
+    }
+    
+    return false;
   };
 
   // Event handlers
