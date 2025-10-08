@@ -62,11 +62,7 @@ export default function AttendanceTable() {
   });
 
   const formatTime = (date: Date | null) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    return "-";
   };
 
   // For team leaders: show all team members with their attendance (or create placeholder if no attendance)
@@ -85,7 +81,7 @@ export default function AttendanceTable() {
               date: new Date(),
               clockIn: null,
               clockOut: null,
-              status: '-',
+              status: 'at work',
               hoursWorked: 0,
               createdAt: new Date(),
               user: member,
@@ -157,9 +153,9 @@ export default function AttendanceTable() {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5}>
                         <SelectItem value="-">-</SelectItem>
-                        <SelectItem value="present">Present</SelectItem>
+                        <SelectItem value="at work">At Work</SelectItem>
                         <SelectItem value="late">Late</SelectItem>
                         <SelectItem value="absent">Absent</SelectItem>
                         <SelectItem value="sick">Sick</SelectItem>
@@ -176,7 +172,7 @@ export default function AttendanceTable() {
                     {formatTime(record.clockOut)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-hours-${record.id}`}>
-                    {record.hoursWorked || 0}h
+                    -
                   </td>
                 </tr>
               ))
