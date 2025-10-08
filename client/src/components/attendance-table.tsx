@@ -103,7 +103,7 @@ export default function AttendanceTable() {
       <div className="p-6 border-b border-border">
         <h2 className="text-xl font-semibold text-foreground">Today's Attendance</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-y-visible">
         <table className="w-full">
           <thead className="bg-muted">
             <tr>
@@ -153,7 +153,7 @@ export default function AttendanceTable() {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent position="popper" side="bottom" align="start" sideOffset={4}>
+                      <SelectContent position="item-aligned">
                         <SelectItem value="-">-</SelectItem>
                         <SelectItem value="at work">At Work</SelectItem>
                         <SelectItem value="late">Late</SelectItem>
