@@ -194,11 +194,11 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
     totalEmployees: allUsers.length,
     activeEmployees: allUsers.filter(u => u.isActive).length,
     totalTeams: isTeamLeader ? (teamMembers.length > 0 ? 1 : 0) : teamsData.length,
-    presentToday: attendanceData.filter(a => a.status === 'at work').length,
+    presentToday: attendanceData.filter(a => a.status === 'present').length,
     absentToday: attendanceData.filter(a => a.status === 'absent').length,
     lateToday: attendanceData.filter(a => a.status === 'late').length,
     attendanceRate: attendanceData.length > 0 
-      ? ((attendanceData.filter(a => a.status === 'at work').length / attendanceData.length) * 100).toFixed(1)
+      ? ((attendanceData.filter(a => a.status === 'present').length / attendanceData.length) * 100).toFixed(1)
       : '0',
   };
 
@@ -266,7 +266,7 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
       const memberIds = teamMembersForTeam.map((tm: any) => tm.userId);
       
       const teamAttendance = attendanceDataRaw.filter(a => memberIds.includes(a.userId));
-      const presentCount = teamAttendance.filter(a => a.status === 'at work').length;
+      const presentCount = teamAttendance.filter(a => a.status === 'present').length;
       const attendancePercentage = teamAttendance.length > 0 
         ? Math.round((presentCount / teamAttendance.length) * 100)
         : 0;
@@ -290,7 +290,7 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
       
       return {
         date: format(date, 'MMM dd'),
-        present: dayAttendance.filter((a: any) => a.status === 'at work').length,
+        present: dayAttendance.filter((a: any) => a.status === 'present').length,
         absent: dayAttendance.filter((a: any) => a.status === 'absent').length,
         late: dayAttendance.filter((a: any) => a.status === 'late').length,
       };
@@ -341,9 +341,9 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
       format(new Date(a.date), 'yyyy-MM-dd') === yesterday
     );
     return {
-      present: yesterdayAttendance.filter((a: any) => a.status === 'at work').length,
+      present: yesterdayAttendance.filter((a: any) => a.status === 'present').length,
       rate: yesterdayAttendance.length > 0 
-        ? ((yesterdayAttendance.filter((a: any) => a.status === 'at work').length / yesterdayAttendance.length) * 100).toFixed(1)
+        ? ((yesterdayAttendance.filter((a: any) => a.status === 'present').length / yesterdayAttendance.length) * 100).toFixed(1)
         : '0'
     };
   }, [filteredHistoricalAttendance, selectedDate]);

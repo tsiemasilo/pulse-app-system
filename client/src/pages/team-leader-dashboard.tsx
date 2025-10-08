@@ -141,7 +141,7 @@ export default function TeamLeaderDashboard() {
   const teamSize = teamMembers.length;
   const teamMemberIds = teamMembers.map(m => m.id);
   const presentToday = attendanceRecords.filter(record => 
-    teamMemberIds.includes(record.userId) && record.status === 'at work'
+    teamMemberIds.includes(record.userId) && record.status === 'present'
   ).length;
   const lateArrivals = attendanceRecords.filter(record => 
     teamMemberIds.includes(record.userId) && record.status === 'late'

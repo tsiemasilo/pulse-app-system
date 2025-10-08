@@ -69,7 +69,7 @@ export default function HRAttendanceView() {
 
   const summary = {
     total: filteredRecords.length,
-    present: filteredRecords.filter(r => r.status === 'at work').length,
+    present: filteredRecords.filter(r => r.status === 'present').length,
     absent: filteredRecords.filter(r => r.status === 'absent').length,
     late: filteredRecords.filter(r => r.status === 'late').length,
     onLeave: filteredRecords.filter(r => r.status === 'leave').length,
