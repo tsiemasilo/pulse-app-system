@@ -153,7 +153,7 @@ export default function AttendanceTable() {
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent position="popper" sideOffset={5}>
+                      <SelectContent position="popper" side="bottom" align="start" sideOffset={4}>
                         <SelectItem value="-">-</SelectItem>
                         <SelectItem value="at work">At Work</SelectItem>
                         <SelectItem value="late">Late</SelectItem>
