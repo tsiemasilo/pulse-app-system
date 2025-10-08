@@ -1090,7 +1090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { userId, status } = z.object({ 
         userId: z.string(),
-        status: z.enum(['present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
+        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
       }).parse(req.body);
 
       // If the user is a team leader, verify the userId belongs to their team
@@ -1145,7 +1145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status } = z.object({ 
-        status: z.enum(['present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
+        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
       }).parse(req.body);
 
       // First, fetch the attendance record to get the userId
