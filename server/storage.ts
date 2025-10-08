@@ -955,38 +955,36 @@ export class DatabaseStorage implements IStorage {
           switch (previousState.currentState) {
             case 'collected':
               // Asset was collected but not returned - mark as unreturned and create incident
-              // Only do this for active users
-              if (user.isActive) {
-                newState = 'not_returned';
-                reason = 'Asset was not returned/booked out from previous day';
-                actionTaken = 'auto_mark_unreturned';
-                
-                // Check if a loss record exists, otherwise create one
-                const existingLossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
-                if (existingLossRecord) {
-                  dateLost = existingLossRecord.dateLost;
-                } else {
-                  dateLost = new Date(previousDate);
-                  await this.createAssetLossRecord({
-                    userId: user.id,
-                    assetType,
-                    dateLost,
-                    reason: 'Asset was not returned during daily reset',
-                    reportedBy: resetPerformedBy,
-                    status: 'reported'
-                  });
-                }
-                
-                // Create incident for unreturned asset
-                await this.createAssetIncident({
+              // This applies to ALL users (active and inactive) for asset accountability
+              newState = 'not_returned';
+              reason = 'Asset was not returned/booked out from previous day';
+              actionTaken = 'auto_mark_unreturned';
+              
+              // Check if a loss record exists, otherwise create one
+              const existingLossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
+              if (existingLossRecord) {
+                dateLost = existingLossRecord.dateLost;
+              } else {
+                dateLost = new Date(previousDate);
+                await this.createAssetLossRecord({
                   userId: user.id,
                   assetType,
-                  incidentType: 'unreturned',
-                  description: `Asset was collected on ${previousDate} but was not returned. Automatically marked as not returned during daily reset.`,
-                  reportedBy: resetPerformedBy
+                  dateLost,
+                  reason: 'Asset was not returned during daily reset',
+                  reportedBy: resetPerformedBy,
+                  status: 'reported'
                 });
-                incidentsCreated++;
               }
+              
+              // Create incident for unreturned asset
+              await this.createAssetIncident({
+                userId: user.id,
+                assetType,
+                incidentType: 'unreturned',
+                description: `Asset was collected on ${previousDate} but was not returned. Automatically marked as not returned during daily reset.`,
+                reportedBy: resetPerformedBy
+              });
+              incidentsCreated++;
               break;
               
             case 'returned':
