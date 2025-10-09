@@ -327,6 +327,36 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     },
   });
 
+  // Mark all found mutation
+  const markAllFoundMutation = useMutation({
+    mutationFn: async () => {
+      const promises = unreturnedAssets.map(asset => 
+        apiRequest('POST', '/api/assets/mark-found', {
+          userId: asset.userId,
+          assetType: asset.assetType,
+          date: asset.date,
+          recoveryReason: 'Bulk recovery - all assets marked as found',
+        })
+      );
+      return await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
+      toast({
+        title: "All Assets Marked as Found",
+        description: `Successfully marked ${unreturnedAssets.length} asset(s) as found and available for collection.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Bulk Update Failed",
+        description: error.message || "Failed to mark all assets as found. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions
   const getAgentName = (userId: string) => {
     const user = agentsToShow.find(u => u.id === userId);
@@ -438,6 +468,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       date: pendingMarkFound.date,
       recoveryReason: reasonInput,
     });
+  };
+
+  const handleMarkAllAsFound = () => {
+    if (unreturnedAssets.length === 0) return;
+    
+    markAllFoundMutation.mutate();
   };
 
   const handleViewReason = (reason: string) => {
@@ -689,79 +725,102 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
             {/* Unreturned Assets Tab */}
             <TabsContent value="unreturned" className="space-y-4">
-              <div className="text-sm text-muted-foreground mb-4">
-                Assets that are lost or not returned. Use "Mark as Found" to restore assets to available status.
+              <div className="flex items-center justify-between mb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold">Unreturned Assets</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Assets that are lost or not returned. Use "Mark as Found" to restore assets to available status.
+                  </p>
+                </div>
+                {!unreturnedLoading && unreturnedAssets.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleMarkAllAsFound}
+                    disabled={markAllFoundMutation.isPending}
+                    data-testid="button-mark-all-found"
+                    className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    {markAllFoundMutation.isPending ? "Processing..." : "Mark All as Found"}
+                  </Button>
+                )}
               </div>
               
               {unreturnedLoading ? (
-                <div className="text-center py-8">Loading unreturned assets...</div>
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center space-y-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-sm text-muted-foreground">Loading unreturned assets...</p>
+                  </div>
+                </div>
               ) : unreturnedAssets.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No unreturned assets found.
+                <div className="flex flex-col items-center justify-center py-12 px-4">
+                  <div className="rounded-full bg-green-50 p-3 mb-4">
+                    <Check className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">All Clear!</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-sm">
+                    No unreturned assets found. All assets are accounted for.
+                  </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Agent</TableHead>
-                      <TableHead>Asset Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date Lost</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unreturnedAssets.map((asset, index) => (
-                      <TableRow key={`${asset.userId}-${asset.assetType}-${index}`}>
-                        <TableCell className="font-medium">
-                          {asset.agentName || getAgentName(asset.userId)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {(() => {
-                              const assetType = ASSET_TYPES.find(t => t.id === asset.assetType);
-                              const IconComponent = assetType?.icon;
-                              return IconComponent ? <IconComponent className="w-4 h-4" /> : null;
-                            })()}
-                            <span className="capitalize">{asset.assetType}</span>
+                <div className="space-y-3">
+                  {unreturnedAssets.map((asset, index) => (
+                    <div 
+                      key={`${asset.userId}-${asset.assetType}-${index}`}
+                      className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                      data-testid={`unreturned-asset-card-${index}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-full bg-primary/10 p-2">
+                              {(() => {
+                                const assetType = ASSET_TYPES.find(t => t.id === asset.assetType);
+                                const IconComponent = assetType?.icon;
+                                return IconComponent ? <IconComponent className="w-5 h-5 text-primary" /> : null;
+                              })()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-semibold text-base">
+                                  {asset.agentName || getAgentName(asset.userId)}
+                                </span>
+                                <Badge className={asset.statusColor || 'bg-red-100 text-red-800'}>
+                                  {asset.status}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className="capitalize font-medium">{asset.assetType}</span>
+                                <span>•</span>
+                                <span>Lost on {new Date(asset.date).toLocaleDateString()}</span>
+                              </div>
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={asset.statusColor || 'bg-red-100 text-red-800'}>
-                            {asset.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(asset.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkAsFound(asset.userId, asset.assetType, asset.date)}
-                              data-testid={`button-mark-found-${asset.userId}-${asset.assetType}`}
-                            >
-                              <RotateCcw className="w-4 h-4 mr-1" />
-                              Mark as Found
-                            </Button>
-                            {asset.reason && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewReason(asset.reason)}
-                                data-testid={`button-view-reason-${asset.userId}-${asset.assetType}`}
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View Reason
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          {asset.reason && (
+                            <div className="bg-muted/50 rounded-md p-3 ml-11">
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">Reason:</span> {asset.reason}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkAsFound(asset.userId, asset.assetType, asset.date)}
+                            data-testid={`button-mark-found-${asset.userId}-${asset.assetType}`}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                          >
+                            <RotateCcw className="w-4 h-4 mr-1" />
+                            Mark as Found
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </TabsContent>
           </Tabs>
