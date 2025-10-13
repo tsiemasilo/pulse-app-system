@@ -671,7 +671,7 @@ export class DatabaseStorage implements IStorage {
 
     // Get all users and asset types to check for most recent states
     const allUsers = await this.getAllUsers();
-    const assetTypes = ['laptop', 'headsets', 'dongle'];
+    const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
 
     // For each user and asset type, get the most recent state
     for (const user of allUsers) {
@@ -724,7 +724,7 @@ export class DatabaseStorage implements IStorage {
 
   async hasUnreturnedAssets(userId: string): Promise<boolean> {
     // Check the most recent state for each asset type
-    const assetTypes = ['laptop', 'headsets', 'dongle'];
+    const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
     
     for (const assetType of assetTypes) {
       const mostRecentState = await this.getMostRecentAssetState(userId, assetType);
@@ -913,7 +913,7 @@ export class DatabaseStorage implements IStorage {
     // Get ALL users (including inactive) because terminated users can still have unreturned assets
     const allUsers = await this.getAllUsers();
     
-    const assetTypes = ['laptop', 'headsets', 'dongle'];
+    const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
     const resetDetails: Array<{
       userId: string;
       agentName: string;
