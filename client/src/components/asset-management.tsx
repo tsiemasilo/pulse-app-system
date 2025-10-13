@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw, Mouse, Cable } from "lucide-react";
 import type { User, AssetDailyState } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -26,6 +26,8 @@ const ASSET_TYPES = [
   { id: 'laptop', name: 'Laptop', icon: Laptop },
   { id: 'headsets', name: 'Headsets', icon: Headphones },
   { id: 'dongle', name: 'Dongle', icon: Usb },
+  { id: 'mouse', name: 'Mouse', icon: Mouse },
+  { id: 'lan_adapter', name: 'LAN Adapter', icon: Cable },
 ] as const;
 
 type AssetType = typeof ASSET_TYPES[number]['id'];
@@ -154,7 +156,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         'headset': 'headsets',
         'headsets': 'headsets',
         'dongle': 'dongle',
-        'usb dongle': 'dongle'
+        'usb dongle': 'dongle',
+        'mouse': 'mouse',
+        'lan adapter': 'lan_adapter',
+        'lan': 'lan_adapter'
       };
       
       const assetType = assetTypeMapping[assetName.toLowerCase()];
