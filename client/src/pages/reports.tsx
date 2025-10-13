@@ -189,16 +189,16 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
     return historicalAttendance;
   }, [historicalAttendance, user?.role, teamMemberIds]);
 
-  // Calculate statistics
+  // Calculate statistics - count unique users to avoid duplicate records
   const stats = {
     totalEmployees: allUsers.length,
     activeEmployees: allUsers.filter(u => u.isActive).length,
     totalTeams: isTeamLeader ? (teamMembers.length > 0 ? 1 : 0) : teamsData.length,
-    presentToday: attendanceData.filter(a => a.status === 'at work' || a.status === 'present').length,
-    absentToday: attendanceData.filter(a => a.status === 'absent').length,
-    lateToday: attendanceData.filter(a => a.status === 'late').length,
+    presentToday: new Set(attendanceData.filter(a => a.status === 'at work' || a.status === 'present').map(a => a.userId)).size,
+    absentToday: new Set(attendanceData.filter(a => a.status === 'absent').map(a => a.userId)).size,
+    lateToday: new Set(attendanceData.filter(a => a.status === 'late').map(a => a.userId)).size,
     attendanceRate: attendanceData.length > 0 
-      ? ((attendanceData.filter(a => a.status === 'at work' || a.status === 'present').length / attendanceData.length) * 100).toFixed(1)
+      ? ((new Set(attendanceData.filter(a => a.status === 'at work' || a.status === 'present').map(a => a.userId)).size / new Set(attendanceData.map(a => a.userId)).size) * 100).toFixed(1)
       : '0',
   };
 

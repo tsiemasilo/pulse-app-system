@@ -140,15 +140,28 @@ export default function TeamLeaderDashboard() {
   // Calculate real team stats
   const teamSize = teamMembers.length;
   const teamMemberIds = teamMembers.map(m => m.id);
-  const presentToday = attendanceRecords.filter(record => 
-    teamMemberIds.includes(record.userId) && (record.status === 'at work' || record.status === 'present')
-  ).length;
-  const lateArrivals = attendanceRecords.filter(record => 
-    teamMemberIds.includes(record.userId) && record.status === 'late'
-  ).length;
-  const absentToday = attendanceRecords.filter(record => 
-    teamMemberIds.includes(record.userId) && record.status === 'absent'
-  ).length;
+  
+  // Count unique users for each status to avoid duplicate records
+  const presentUserIds = new Set(
+    attendanceRecords
+      .filter(record => teamMemberIds.includes(record.userId) && (record.status === 'at work' || record.status === 'present'))
+      .map(record => record.userId)
+  );
+  const presentToday = presentUserIds.size;
+  
+  const lateUserIds = new Set(
+    attendanceRecords
+      .filter(record => teamMemberIds.includes(record.userId) && record.status === 'late')
+      .map(record => record.userId)
+  );
+  const lateArrivals = lateUserIds.size;
+  
+  const absentUserIds = new Set(
+    attendanceRecords
+      .filter(record => teamMemberIds.includes(record.userId) && record.status === 'absent')
+      .map(record => record.userId)
+  );
+  const absentToday = absentUserIds.size;
 
   const sidebarItems = [
     {
