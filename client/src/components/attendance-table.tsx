@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Attendance, User, Team } from "@shared/schema";
@@ -12,6 +13,7 @@ interface AttendanceRecord extends Attendance {
 export default function AttendanceTable() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const processedUsersRef = useRef<Set<string>>(new Set());
 
   const { data: attendanceRecords = [], isLoading } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance/today"],
@@ -64,6 +66,37 @@ export default function AttendanceTable() {
   const formatTime = (date: Date | null) => {
     return "-";
   };
+
+  // Auto-create attendance records for team members without records
+  useEffect(() => {
+    if (user?.role === 'team_leader' && teamMembers.length > 0 && attendanceRecords) {
+      const agentMembers = teamMembers.filter(member => member.role === 'agent');
+      const membersWithoutRecords = agentMembers.filter(
+        member => !attendanceRecords.some(record => record.userId === member.id) &&
+                  !processedUsersRef.current.has(member.id)
+      );
+
+      if (membersWithoutRecords.length === 0) return;
+
+      // Create attendance records for members without records
+      (async () => {
+        for (const member of membersWithoutRecords) {
+          try {
+            processedUsersRef.current.add(member.id);
+            await apiRequest("POST", `/api/attendance/clock-in-for-user`, {
+              userId: member.id,
+              status: 'at work'
+            });
+          } catch (error) {
+            console.error(`Failed to create attendance for ${member.username}:`, error);
+            processedUsersRef.current.delete(member.id);
+          }
+        }
+        // Refresh attendance records after creating all
+        queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
+      })();
+    }
+  }, [user?.role, teamMembers, attendanceRecords]);
 
   // For team leaders: show all team members with their attendance (or create placeholder if no attendance)
   const displayRecords = user?.role === 'team_leader' 
