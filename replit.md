@@ -6,9 +6,18 @@ Pulse is a comprehensive workforce management system for contact centers, provid
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (October 3, 2025)
+## Recent Changes
 
-### Initial Setup
+### October 13, 2025
+- **Attendance Count Fix**: Fixed critical bug where "Present Today" count showed 0 even though attendance table displayed team members with "at work" status. The issue was that the attendance table was creating frontend-only placeholder records that weren't in the database.
+  - Implemented automatic attendance record creation: When team leaders view the attendance tab, the system now automatically creates real database records for team members without attendance records
+  - Added ref-based deduplication to prevent duplicate record creation during rapid re-renders
+  - Records are created with status "at work" by default
+  - Present Today count now accurately reflects team members with "at work" or "present" status
+
+### October 3, 2025
+
+#### Initial Setup
 - **GitHub Import Setup**: Successfully imported and configured the Pulse Workforce Management System in Replit environment
 - **Environment Configuration**: Created .env file with database credentials (Neon PostgreSQL) and session secret
 - **Workflow Setup**: Configured "Start application" workflow to run on port 5000 with webview output
@@ -17,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 - **Database Schema**: Verified database schema is synced and up-to-date using Drizzle Kit
 - **Vite Configuration**: Frontend properly configured with host 0.0.0.0:5000 and allowedHosts enabled for Replit proxy compatibility
 
-### Asset Management Bug Fixes
+#### Asset Management Bug Fixes
 - **Mark as Found Bug Fix**: Fixed critical bug where "Mark as Found" functionality was checking historical dates instead of current state. Now correctly validates and updates TODAY's asset state when marking assets as found/returned.
 - **Asset Status Display Fix**: Fixed display logic to show correct current status ("Lost" vs "Not Returned Yet") based on today's asset state instead of historical loss records.
 - **Reason Preservation Fix**: Fixed issue where original loss/unreturned reasons were being overwritten by generic system messages during daily resets. Implemented two-tier approach:
