@@ -63,7 +63,9 @@ export default function HRAttendanceView() {
   const filteredRecords = attendanceRecords.filter(record => {
     const userInfo = getUserInfo(record.userId);
     const matchesSearch = userInfo.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || record.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "present" && (record.status === "present" || record.status === "at work")) ||
+      record.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
