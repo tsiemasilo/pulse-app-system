@@ -459,7 +459,34 @@ export class DatabaseStorage implements IStorage {
 
   async clockInWithStatus(userId: string, status: string): Promise<Attendance> {
     const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
     
+    // Check if attendance record already exists for this user today
+    const existingRecords = await db
+      .select()
+      .from(attendance)
+      .where(and(
+        eq(attendance.userId, userId),
+        gte(attendance.date, startOfDay),
+        lte(attendance.date, endOfDay)
+      ));
+    
+    // If record exists, update it instead of creating a new one
+    if (existingRecords.length > 0) {
+      const [updated] = await db
+        .update(attendance)
+        .set({ status })
+        .where(eq(attendance.id, existingRecords[0].id))
+        .returning();
+      
+      console.log("Updated existing attendance record:", updated);
+      return updated;
+    }
+    
+    // Otherwise create a new record
     const result = await db
       .insert(attendance)
       .values({
@@ -470,7 +497,7 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
-    console.log("Insert result:", result);
+    console.log("Created new attendance record:", result);
     
     if (!result || result.length === 0) {
       throw new Error("Failed to create attendance record");
