@@ -36,32 +36,32 @@ type AssetType = typeof ASSET_TYPES[number]['id'];
 const STATE_CONFIG = {
   ready_for_collection: { 
     label: 'Ready for Collection', 
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
     description: 'Asset is available for collection'
   },
   collected: { 
     label: 'Collected from Team Leader', 
-    color: 'bg-green-100 text-green-800',
+    color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
     description: 'Asset has been collected'
   },
   not_collected: { 
     label: 'Not Collected from Team Leader', 
-    color: 'bg-yellow-100 text-yellow-800',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
     description: 'Asset was not collected'
   },
   returned: { 
     label: 'Returned to Team Leader', 
-    color: 'bg-green-100 text-green-800',
+    color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
     description: 'Asset has been returned'
   },
   not_returned: { 
     label: 'Not Returned', 
-    color: 'bg-orange-100 text-orange-800',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
     description: 'Asset was not returned'
   },
   lost: { 
     label: 'Lost', 
-    color: 'bg-red-100 text-red-800',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
     description: 'Asset is lost'
   },
 } as const;
