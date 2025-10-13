@@ -146,8 +146,8 @@ export default function TeamLeaderDashboard() {
   const lateArrivals = attendanceRecords.filter(record => 
     teamMemberIds.includes(record.userId) && record.status === 'late'
   ).length;
-  const assignedAssets = teamAssets.filter(asset => 
-    asset.assignedToUserId && teamMemberIds.includes(asset.assignedToUserId)
+  const absentToday = attendanceRecords.filter(record => 
+    teamMemberIds.includes(record.userId) && record.status === 'absent'
   ).length;
 
   const sidebarItems = [
@@ -237,14 +237,14 @@ export default function TeamLeaderDashboard() {
                 testId="stat-late-arrivals"
               />
               <StatCard
-                title="Assets Assigned"
-                value={assignedAssets}
-                icon={Laptop}
-                cardColor="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border-purple-200 dark:border-purple-800/30"
-                textColor="text-purple-600 dark:text-purple-400"
-                iconBgColor="bg-purple-100 dark:bg-purple-900/50"
-                iconColor="text-purple-600 dark:text-purple-400"
-                testId="stat-assets-assigned"
+                title="Absent"
+                value={absentToday}
+                icon={UserX}
+                cardColor="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-800/30"
+                textColor="text-red-600 dark:text-red-400"
+                iconBgColor="bg-red-100 dark:bg-red-900/50"
+                iconColor="text-red-600 dark:text-red-400"
+                testId="stat-absent"
               />
             </div>
 
