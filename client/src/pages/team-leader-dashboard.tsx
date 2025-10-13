@@ -342,9 +342,8 @@ export default function TeamLeaderDashboard() {
                           </div>
                           <Badge 
                             className={`text-xs ${
-                              attendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
-                              attendanceStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
+                              attendanceStatus === 'at work' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' :
+                              'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
                             }`}
                           >
                             {attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)}
