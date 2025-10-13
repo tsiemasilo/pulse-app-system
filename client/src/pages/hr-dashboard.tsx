@@ -57,7 +57,7 @@ export default function HRDashboard() {
     return <div className="text-center py-8">Access denied. HR role required.</div>;
   }
 
-  const presentToday = attendanceRecords.filter(record => record.status === 'at work').length;
+  const presentToday = attendanceRecords.filter(record => record.status === 'at work' || record.status === 'present').length;
   const onLeave = attendanceRecords.filter(record => record.status === 'leave').length;
   const absent = attendanceRecords.filter(record => record.status === 'absent').length;
   const totalEmployees = allUsers.filter(u => u.isActive).length;
