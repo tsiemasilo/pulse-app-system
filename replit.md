@@ -8,6 +8,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 14, 2025
+- **Access Control System Overhaul**: Implemented new role-based access control system where only specific management roles have login/dashboard access:
+  - **Login Users (Dashboard Access)**: Admin, Team Leader, and Contact Center Manager - these roles require passwords and can sign into the system
+  - **Non-Login Users (No Dashboard)**: HR Manager and Agent - these roles do not require passwords, cannot sign in, and are managed by team leaders/managers
+  - **Schema Updates**: Made password field nullable in database to support non-login users
+  - **Authentication Logic**: Updated login validation to check both role eligibility and password presence
+  - **User Forms**: Password fields now conditionally appear based on role - only shown for login-enabled roles
+  - **Organizational Hierarchy Display**: Admin dashboard now shows a comprehensive organogram in the User Access Management table:
+    - "Access Type" column displays login access status (Login Access with shield icon vs No Login with user icon)
+    - "Reports To" column shows reporting structure and organizational hierarchy
+    - Visual indicators clearly distinguish between managers and non-login staff
+  - All changes tested and verified to work cohesively across the entire application
+
 ### October 13, 2025
 - **Attendance Count Fix**: Fixed critical bug where "Present Today" count showed 0 even though attendance table displayed team members with "at work" status. The issue was that the attendance table was creating frontend-only placeholder records that weren't in the database.
   - Implemented automatic attendance record creation: When team leaders view the attendance tab, the system now automatically creates real database records for team members without attendance records
@@ -56,7 +69,11 @@ Preferred communication style: Simple, everyday language.
 - **Schema Structure**: Includes tables for Users (with role-based access: admin, hr, contact_center_ops_manager, contact_center_manager, team_leader, agent), Departments, Assets, Attendance, Teams, Team Members, and Sessions.
 
 ### System Design Choices
-- **Role-Based Access Control**: Granular permissions for Admin, HR, Contact Center Managers, Team Leaders, and Agents.
+- **Role-Based Access Control**: 
+  - **Login-Enabled Roles (Dashboard Access)**: Admin, Team Leader, Contact Center Manager - these users authenticate with username/password and have access to role-specific dashboards
+  - **Non-Login Roles (Managed Users)**: HR Manager, Agent - these users do not have login credentials or dashboards; they are created and managed by administrators and team leaders
+  - Password field is optional in database schema to support non-login users
+  - Authentication middleware validates both role eligibility and password presence
 - **UI/UX**: Utilizes shadcn/ui for consistent design, with a focus on intuitive dashboards and data visualization.
 - **Technical Implementations**:
     - **Team Leader Reports**: Data filtering ensures team leaders only view data for their assigned agents (attendance, users, assets, historical records). Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality.
