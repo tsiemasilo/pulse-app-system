@@ -233,13 +233,13 @@ export default function UserManagementTable() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-blue-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reports To</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">User</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Role</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Reports To</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
