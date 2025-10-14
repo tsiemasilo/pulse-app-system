@@ -32,6 +32,7 @@ export default function UserManagementTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [roleTypeFilter, setRoleTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
   const { toast } = useToast();
@@ -133,9 +134,14 @@ export default function UserManagementTable() {
 
       const matchesRole = roleFilter === "all" || user.role === roleFilter;
 
-      return matchesSearch && matchesStatus && matchesRole;
+      const matchesRoleType = roleTypeFilter === "all" || 
+        (roleTypeFilter === "agents" && user.role === "agent") ||
+        (roleTypeFilter === "team_leaders" && user.role === "team_leader") ||
+        (roleTypeFilter === "cc_managers" && (user.role === "contact_center_manager" || user.role === "contact_center_ops_manager"));
+
+      return matchesSearch && matchesStatus && matchesRole && matchesRoleType;
     });
-  }, [users, searchQuery, statusFilter, roleFilter]);
+  }, [users, searchQuery, statusFilter, roleFilter, roleTypeFilter]);
 
   const totalPages = Math.ceil(filteredUsers.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
@@ -157,7 +163,7 @@ export default function UserManagementTable() {
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, roleFilter]);
+  }, [searchQuery, statusFilter, roleFilter, roleTypeFilter]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading users...</div>;
@@ -182,6 +188,18 @@ export default function UserManagementTable() {
           </div>
           
           <div className="flex gap-4">
+            <Select value={roleTypeFilter} onValueChange={setRoleTypeFilter}>
+              <SelectTrigger className="w-[180px]" data-testid="select-role-type-filter">
+                <SelectValue placeholder="All Positions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Positions</SelectItem>
+                <SelectItem value="agents">Agents</SelectItem>
+                <SelectItem value="team_leaders">Team Leaders</SelectItem>
+                <SelectItem value="cc_managers">CC Managers</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                 <SelectValue placeholder="All Status" />
@@ -233,13 +251,13 @@ export default function UserManagementTable() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-blue-900">
+            <thead style={{ backgroundColor: '#1a1f5c' }}>
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">User</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Role</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Reports To</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
+                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">User</th>
+                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Role</th>
+                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Reports To</th>
+                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
