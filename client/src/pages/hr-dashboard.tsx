@@ -60,7 +60,7 @@ export default function HRDashboard() {
   // Count unique users for each status to avoid duplicate records
   const presentToday = new Set(attendanceRecords.filter(record => record.status === 'at work' || record.status === 'present').map(r => r.userId)).size;
   const onLeave = new Set(attendanceRecords.filter(record => record.status === 'leave').map(r => r.userId)).size;
-  const absent = new Set(attendanceRecords.filter(record => record.status === 'absent').map(r => r.userId)).size;
+  const absent = new Set(attendanceRecords.filter(record => record.status !== 'at work' && record.status !== 'present' && record.status !== 'late').map(r => r.userId)).size;
   const totalEmployees = allUsers.filter(u => u.isActive).length;
 
   // Sample data for charts
