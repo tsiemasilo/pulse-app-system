@@ -195,7 +195,7 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
     activeEmployees: allUsers.filter(u => u.isActive).length,
     totalTeams: isTeamLeader ? (teamMembers.length > 0 ? 1 : 0) : teamsData.length,
     presentToday: new Set(attendanceData.filter(a => a.status === 'at work' || a.status === 'present').map(a => a.userId)).size,
-    absentToday: new Set(attendanceData.filter(a => a.status === 'absent').map(a => a.userId)).size,
+    absentToday: new Set(attendanceData.filter(a => a.status !== 'at work' && a.status !== 'present' && a.status !== 'late').map(a => a.userId)).size,
     lateToday: new Set(attendanceData.filter(a => a.status === 'late').map(a => a.userId)).size,
     attendanceRate: attendanceData.length > 0 
       ? ((new Set(attendanceData.filter(a => a.status === 'at work' || a.status === 'present').map(a => a.userId)).size / new Set(attendanceData.map(a => a.userId)).size) * 100).toFixed(1)
@@ -291,7 +291,7 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
       return {
         date: format(date, 'MMM dd'),
         present: dayAttendance.filter((a: any) => a.status === 'at work' || a.status === 'present').length,
-        absent: dayAttendance.filter((a: any) => a.status === 'absent').length,
+        absent: dayAttendance.filter((a: any) => a.status !== 'at work' && a.status !== 'present' && a.status !== 'late').length,
         late: dayAttendance.filter((a: any) => a.status === 'late').length,
       };
     });
