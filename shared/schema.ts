@@ -26,6 +26,11 @@ export const sessions = pgTable(
 // User roles enum
 export type UserRole = 'admin' | 'hr' | 'contact_center_ops_manager' | 'contact_center_manager' | 'team_leader' | 'agent';
 
+// Helper to determine if a role can log in (has dashboard access)
+export const canRoleLogin = (role: UserRole): boolean => {
+  return ['admin', 'team_leader', 'contact_center_manager'].includes(role);
+};
+
 // Departments
 export const departments = pgTable("departments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -38,7 +43,7 @@ export const departments = pgTable("departments", {
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: varchar("username").unique().notNull(),
-  password: text("password").notNull(),
+  password: text("password"),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
