@@ -18,6 +18,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { User, Team } from "@shared/schema";
+import { canRoleLogin } from "@shared/schema";
+import { Shield, User as UserIcon } from "lucide-react";
 
 export default function UserManagementTable() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -32,8 +34,10 @@ export default function UserManagementTable() {
     queryKey: ["/api/users"],
   });
 
-  // For now, we'll show basic role information
-  // TODO: Enhance to show actual team leader names for agents
+  const getReportsToUser = (userId: string | null) => {
+    if (!userId) return null;
+    return users.find(u => u.id === userId);
+  };
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -81,16 +85,16 @@ export default function UserManagementTable() {
     }
   };
 
-  const getTeamInfo = (user: User) => {
-    switch (user.role) {
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
       case 'admin':
-        return 'Admin';
+        return 'System Admin';
       case 'team_leader':
         return 'Team Leader';
       case 'agent':
         return 'Agent';
       case 'hr':
-        return 'HR';
+        return 'HR Manager';
       case 'contact_center_ops_manager':
         return 'CC Ops Manager';
       case 'contact_center_manager':
@@ -132,8 +136,9 @@ export default function UserManagementTable() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Access Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Team</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reports To</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -160,8 +165,27 @@ export default function UserManagementTable() {
                     className={roleColorMap[user.role as keyof typeof roleColorMap] || "bg-gray-100 text-gray-800"}
                     data-testid={`badge-role-${user.id}`}
                   >
-                    {user.role}
+                    {getRoleDisplayName(user.role)}
                   </Badge>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center space-x-2">
+                    {canRoleLogin(user.role) ? (
+                      <>
+                        <Shield className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-600" data-testid={`text-access-${user.id}`}>
+                          Login Access
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <UserIcon className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-500" data-testid={`text-access-${user.id}`}>
+                          No Login
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge 
@@ -172,8 +196,22 @@ export default function UserManagementTable() {
                   </Badge>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-muted-foreground" data-testid={`text-team-${user.id}`}>
-                    {getTeamInfo(user)}
+                  <div className="text-sm text-foreground" data-testid={`text-reports-to-${user.id}`}>
+                    {user.reportsTo ? (
+                      (() => {
+                        const manager = getReportsToUser(user.reportsTo);
+                        return manager ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium">{manager.firstName} {manager.lastName}</span>
+                            <span className="text-xs text-muted-foreground">({getRoleDisplayName(manager.role)})</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
