@@ -245,10 +245,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   });
 
   // Fetch unreturned assets
-  const { data: unreturnedAssets = [], isLoading: unreturnedLoading } = useQuery<any[]>({
+  const { data: unreturnedAssetsRaw = [], isLoading: unreturnedLoading } = useQuery<any[]>({
     queryKey: ['/api/unreturned-assets'],
     enabled: ['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(currentUser?.role || ''),
   });
+
+  // Filter unreturned assets for team leaders to show only their team members
+  const teamMemberIds = teamMembersList.map(member => member.id);
+  const unreturnedAssets = currentUser?.role === 'team_leader' 
+    ? unreturnedAssetsRaw.filter(asset => teamMemberIds.includes(asset.userId))
+    : unreturnedAssetsRaw;
 
   // Transform daily states by user and asset type for easier lookup
   const statesByUserAndAsset = allDailyStates.reduce((acc, state) => {
