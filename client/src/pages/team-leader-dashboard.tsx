@@ -158,7 +158,7 @@ export default function TeamLeaderDashboard() {
   
   const absentUserIds = new Set(
     attendanceRecords
-      .filter(record => teamMemberIds.includes(record.userId) && record.status === 'absent')
+      .filter(record => teamMemberIds.includes(record.userId) && record.status !== 'at work' && record.status !== 'present' && record.status !== 'late')
       .map(record => record.userId)
   );
   const absentToday = absentUserIds.size;
