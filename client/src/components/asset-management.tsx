@@ -561,11 +561,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               </div>
               
               <Table>
-                <TableHeader>
+                <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
                   <TableRow>
-                    <TableHead>Agent</TableHead>
+                    <TableHead className="text-white font-semibold">Agent</TableHead>
                     {ASSET_TYPES.map(asset => (
-                      <TableHead key={asset.id} className="text-center">
+                      <TableHead key={asset.id} className="text-center text-white font-semibold">
                         <div className="flex items-center justify-center space-x-2">
                           <asset.icon className="w-4 h-4" />
                           <span>{asset.name}</span>
@@ -635,11 +635,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               </div>
               
               <Table>
-                <TableHeader>
+                <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
                   <TableRow>
-                    <TableHead>Agent</TableHead>
+                    <TableHead className="text-white font-semibold">Agent</TableHead>
                     {ASSET_TYPES.map(asset => (
-                      <TableHead key={asset.id} className="text-center">
+                      <TableHead key={asset.id} className="text-center text-white font-semibold">
                         <div className="flex items-center justify-center space-x-2">
                           <asset.icon className="w-4 h-4" />
                           <span>{asset.name}</span>
@@ -706,13 +706,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
+                  <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
                     <TableRow>
-                      <TableHead>Agent</TableHead>
-                      <TableHead>Asset Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date Lost</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Agent</TableHead>
+                      <TableHead className="text-white font-semibold">Asset Type</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Date Lost</TableHead>
+                      <TableHead className="text-white font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

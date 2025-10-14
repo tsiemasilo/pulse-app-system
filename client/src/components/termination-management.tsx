@@ -1,27 +1,20 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTerminationSchema } from "@shared/schema";
-import { UserX, Calendar, User } from "lucide-react";
+import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { z } from "zod";
 import type { Termination, User as UserType, Team } from "@shared/schema";
 
@@ -32,6 +25,10 @@ const terminationFormSchema = insertTerminationSchema.extend({
 
 export default function TerminationManagement() {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -151,6 +148,42 @@ export default function TerminationManagement() {
     // If user is admin or HR, show all active users
     return activeUsers;
   };
+
+  // Filter and paginate terminations
+  const filteredTerminations = useMemo(() => {
+    return terminations.filter((termination) => {
+      const userName = getUserName(termination.userId);
+      const matchesSearch = searchQuery === "" || 
+        userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        termination.reason?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesType = typeFilter === "all" || termination.terminationType === typeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [terminations, searchQuery, typeFilter]);
+
+  const totalPages = Math.ceil(filteredTerminations.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedTerminations = filteredTerminations.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, typeFilter]);
 
   return (
     <Card className="shadow-sm">
@@ -325,73 +358,141 @@ export default function TerminationManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Employee</TableHead>
-                <TableHead>Termination Type</TableHead>
-                <TableHead>From Date</TableHead>
-                <TableHead>To Date</TableHead>
-                <TableHead>Asset Return Status</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Processed By</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {terminations.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    No terminations on record.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                terminations.map((termination) => (
-                  <TableRow key={termination.id} data-testid={`row-termination-${termination.id}`}>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium" data-testid={`text-user-${termination.id}`}>
-                          {getUserName(termination.userId)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getTerminationTypeColor(termination.terminationType)} data-testid={`badge-type-${termination.id}`}>
-                        {termination.terminationType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-termination-date-${termination.id}`}>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(termination.terminationDate).toLocaleDateString()}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-last-working-day-${termination.id}`}>
-                      {new Date(termination.lastWorkingDay).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')} data-testid={`badge-asset-status-${termination.id}`}>
-                        {termination.assetReturnStatus || 'pending'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs" data-testid={`text-reason-${termination.id}`}>
-                      {termination.reason ? (
-                        <span className="truncate block" title={termination.reason}>
-                          {termination.reason}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">No reason provided</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-processed-by-${termination.id}`}>
-                      {getUserName(termination.processedBy)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        {/* Search and Filter Section */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by employee name or reason..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-terminations"
+            />
+          </div>
+          
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="select-type-filter">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="absent">Absent</SelectItem>
+              <SelectItem value="AWOL">AWOL</SelectItem>
+              <SelectItem value="involuntary">Involuntary</SelectItem>
+              <SelectItem value="layoff">Layoff</SelectItem>
+              <SelectItem value="leave">Leave</SelectItem>
+              <SelectItem value="sick">Sick</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="voluntary">Voluntary</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Table */}
+        <div className="bg-card rounded-lg border border-border shadow-sm">
+          <div className="p-4 border-b border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredTerminations.length)} of {filteredTerminations.length} records
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead style={{ backgroundColor: '#1a1f5c' }}>
+                <tr>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Termination Type</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">To Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Asset Return</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Reason</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
+                </tr>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {paginatedTerminations.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
+                      No terminations found matching your search criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTerminations.map((termination) => (
+                    <tr key={termination.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-termination-${termination.id}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium" data-testid={`text-user-${termination.id}`}>
+                            {getUserName(termination.userId)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={getTerminationTypeColor(termination.terminationType)} data-testid={`badge-type-${termination.id}`}>
+                          {termination.terminationType}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-termination-date-${termination.id}`}>
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{new Date(termination.terminationDate).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-last-working-day-${termination.id}`}>
+                        {new Date(termination.lastWorkingDay).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')} data-testid={`badge-asset-status-${termination.id}`}>
+                          {termination.assetReturnStatus || 'pending'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 max-w-xs" data-testid={`text-reason-${termination.id}`}>
+                        {termination.reason ? (
+                          <span className="truncate block" title={termination.reason}>
+                            {termination.reason}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">No reason provided</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
+                        {getUserName(termination.processedBy)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages || 1}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                data-testid="button-previous-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage >= totalPages}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

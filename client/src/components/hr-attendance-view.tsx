@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Calendar, Search, Filter, Users } from "lucide-react";
+import { Clock, Calendar, Search, Filter, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import type { Attendance, User } from "@shared/schema";
 
@@ -13,6 +13,8 @@ export default function HRAttendanceView() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
 
   const { data: attendanceRecords = [] } = useQuery<Attendance[]>({
     queryKey: ["/api/attendance/today"],
@@ -68,6 +70,28 @@ export default function HRAttendanceView() {
       record.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const summary = {
     total: filteredRecords.length,
@@ -153,61 +177,97 @@ export default function HRAttendanceView() {
         </div>
 
         {/* Attendance Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Employee</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Role</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock In</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock Out</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Hours</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.length === 0 ? (
+        <div className="bg-card rounded-lg border border-border shadow-sm">
+          <div className="p-4 border-b border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredRecords.length)} of {filteredRecords.length} records
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead style={{ backgroundColor: '#1a1f5c' }}>
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No attendance records found for the selected filters.
-                  </td>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Role</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Clock In</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Clock Out</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Hours</th>
                 </tr>
-              ) : (
-                filteredRecords.map((record) => {
-                  const userInfo = getUserInfo(record.userId);
-                  const hoursWorked = calculateHours(record.clockIn, record.clockOut);
-                  
-                  return (
-                    <tr key={record.id} className="border-b border-border hover:bg-muted/50" data-testid={`row-attendance-${record.id}`}>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{userInfo.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground capitalize">
-                        {userInfo.role.replace('_', ' ')}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={getStatusColor(record.status)} data-testid={`badge-status-${record.id}`}>
-                          {record.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm" data-testid={`text-clock-in-${record.id}`}>
-                        {formatTime(record.clockIn)}
-                      </td>
-                      <td className="py-3 px-4 text-sm" data-testid={`text-clock-out-${record.id}`}>
-                        {formatTime(record.clockOut)}
-                      </td>
-                      <td className="py-3 px-4 text-sm" data-testid={`text-hours-${record.id}`}>
-                        {hoursWorked.toFixed(1)}h
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {paginatedRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No attendance records found for the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRecords.map((record) => {
+                    const userInfo = getUserInfo(record.userId);
+                    const hoursWorked = calculateHours(record.clockIn, record.clockOut);
+                    
+                    return (
+                      <tr key={record.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-attendance-${record.id}`}>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{userInfo.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-sm text-muted-foreground capitalize">
+                          {userInfo.role.replace('_', ' ')}
+                        </td>
+                        <td className="py-4 px-6">
+                          <Badge className={getStatusColor(record.status)} data-testid={`badge-status-${record.id}`}>
+                            {record.status}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-6 text-sm" data-testid={`text-clock-in-${record.id}`}>
+                          {formatTime(record.clockIn)}
+                        </td>
+                        <td className="py-4 px-6 text-sm" data-testid={`text-clock-out-${record.id}`}>
+                          {formatTime(record.clockOut)}
+                        </td>
+                        <td className="py-4 px-6 text-sm" data-testid={`text-hours-${record.id}`}>
+                          {hoursWorked.toFixed(1)}h
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages || 1}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                data-testid="button-previous-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage >= totalPages}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Export/Action buttons */}

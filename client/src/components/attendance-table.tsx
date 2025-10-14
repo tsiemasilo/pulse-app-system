@@ -138,13 +138,13 @@ export default function AttendanceTable() {
       </div>
       <div className="overflow-x-auto overflow-y-visible">
         <table className="w-full">
-          <thead className="bg-muted">
+          <thead style={{ backgroundColor: '#1a1f5c' }}>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Clock In</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Clock Out</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Hours</th>
+              <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
+              <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+              <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Clock In</th>
+              <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Clock Out</th>
+              <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Hours</th>
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
@@ -156,7 +156,7 @@ export default function AttendanceTable() {
               </tr>
             ) : (
               displayRecords.map((record) => (
-                <tr key={record.id} data-testid={`row-attendance-${record.id}`}>
+                <tr key={record.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-attendance-${record.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
