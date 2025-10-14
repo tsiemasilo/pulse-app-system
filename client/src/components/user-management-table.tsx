@@ -105,12 +105,12 @@ export default function UserManagementTable() {
   };
 
   const roleColorMap = {
-    admin: "bg-purple-100 text-purple-800",
-    hr: "bg-blue-100 text-blue-800",
-    contact_center_ops_manager: "bg-green-100 text-green-800",
-    contact_center_manager: "bg-green-100 text-green-800",
-    team_leader: "bg-yellow-100 text-yellow-800",
-    agent: "bg-gray-100 text-gray-800",
+    admin: "bg-slate-100 text-slate-700 border border-slate-200",
+    hr: "bg-slate-100 text-slate-700 border border-slate-200",
+    contact_center_ops_manager: "bg-slate-100 text-slate-700 border border-slate-200",
+    contact_center_manager: "bg-slate-100 text-slate-700 border border-slate-200",
+    team_leader: "bg-slate-100 text-slate-700 border border-slate-200",
+    agent: "bg-slate-100 text-slate-700 border border-slate-200",
   };
 
   if (isLoading) {
@@ -132,11 +132,10 @@ export default function UserManagementTable() {
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-muted">
+          <thead className="bg-muted/50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Access Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reports To</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
@@ -162,34 +161,15 @@ export default function UserManagementTable() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge 
-                    className={roleColorMap[user.role as keyof typeof roleColorMap] || "bg-gray-100 text-gray-800"}
+                    className={roleColorMap[user.role as keyof typeof roleColorMap] || "bg-slate-100 text-slate-700 border border-slate-200"}
                     data-testid={`badge-role-${user.id}`}
                   >
                     {getRoleDisplayName(user.role)}
                   </Badge>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    {canRoleLogin(user.role) ? (
-                      <>
-                        <Shield className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-600" data-testid={`text-access-${user.id}`}>
-                          Login Access
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <UserIcon className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-500" data-testid={`text-access-${user.id}`}>
-                          No Login
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
                   <Badge 
-                    className={user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                    className={user.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}
                     data-testid={`badge-status-${user.id}`}
                   >
                     {user.isActive ? "Active" : "Inactive"}
