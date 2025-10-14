@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { insertUserSchema } from "@shared/schema";
-import type { User } from "@shared/schema";
+import { insertUserSchema, canRoleLogin } from "@shared/schema";
+import type { User, UserRole } from "@shared/schema";
 import { z } from "zod";
 
 interface CreateUserDialogProps {
@@ -32,7 +32,17 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       insertUserSchema
         .omit({ departmentId: true })
         .extend({ 
-          teamLeaderId: z.string().optional() 
+          teamLeaderId: z.string().optional(),
+          password: z.string().optional()
+        })
+        .refine((data) => {
+          if (canRoleLogin(data.role as UserRole) && !data.password) {
+            return false;
+          }
+          return true;
+        }, {
+          message: "Password is required for roles with login access",
+          path: ["password"]
         })
     ),
     defaultValues: {
@@ -123,19 +133,22 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} data-testid="input-password" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Only show password field for roles that can log in */}
+            {canRoleLogin(form.watch('role') as UserRole) && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} data-testid="input-password" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

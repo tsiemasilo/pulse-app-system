@@ -12,7 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { User, Team } from "@shared/schema";
+import type { User, Team, UserRole } from "@shared/schema";
+import { canRoleLogin } from "@shared/schema";
 
 const editUserSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -249,19 +250,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password (leave blank to keep current)</FormLabel>
-                  <FormControl>
-                    <Input {...field} type="password" placeholder="Enter new password" data-testid="input-password" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Only show password field for roles that can log in */}
+            {canRoleLogin(form.watch('role') as UserRole) && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password (leave blank to keep current)</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="password" placeholder="Enter new password" data-testid="input-password" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

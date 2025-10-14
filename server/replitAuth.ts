@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser, canRoleLogin } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 
 declare global {
@@ -73,11 +73,24 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
+      
+      if (!user) {
         return done(null, false);
-      } else {
-        return done(null, user);
       }
+      
+      if (!canRoleLogin(user.role)) {
+        return done(null, false);
+      }
+      
+      if (!user.password) {
+        return done(null, false);
+      }
+      
+      if (!(await comparePasswords(password, user.password))) {
+        return done(null, false);
+      }
+      
+      return done(null, user);
     }),
   );
 
