@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -19,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { User, Team } from "@shared/schema";
 import { canRoleLogin } from "@shared/schema";
-import { Shield, User as UserIcon } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 
 export default function UserManagementTable() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -27,6 +29,9 @@ export default function UserManagementTable() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -113,114 +118,195 @@ export default function UserManagementTable() {
     agent: "bg-slate-100 text-slate-700 border border-slate-200",
   };
 
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch = searchQuery === "" || 
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "active" && user.isActive) ||
+        (statusFilter === "inactive" && !user.isActive);
+
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+  }, [users, searchQuery, statusFilter, roleFilter]);
+
   if (isLoading) {
     return <div className="text-center py-8">Loading users...</div>;
   }
 
   return (
-    <div className="bg-card rounded-lg border border-border shadow-sm">
-      <div className="p-6 border-b border-border">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">User Access Management</h2>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            data-testid="button-create-user"
-          >
-            <span className="mr-2">+</span>Create User
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <div className="bg-muted/30 rounded-lg p-6 border border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-1">Search & Filter Records</h2>
+        <p className="text-sm text-muted-foreground">Find and manage user accounts using the filters below</p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reports To</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-card divide-y divide-border">
-            {users.map((user) => (
-              <tr key={user.id} data-testid={`row-user-${user.id}`}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
-                      {((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || 'U'}
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-foreground" data-testid={`text-name-${user.id}`}>
-                        {user.firstName} {user.lastName}
-                      </div>
-                      <div className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
-                        {user.email}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Badge 
-                    className={roleColorMap[user.role as keyof typeof roleColorMap] || "bg-slate-100 text-slate-700 border border-slate-200"}
-                    data-testid={`badge-role-${user.id}`}
-                  >
-                    {getRoleDisplayName(user.role)}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Badge 
-                    className={user.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}
-                    data-testid={`badge-status-${user.id}`}
-                  >
-                    {user.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-foreground" data-testid={`text-reports-to-${user.id}`}>
-                    {user.reportsTo ? (
-                      (() => {
-                        const manager = getReportsToUser(user.reportsTo);
-                        return manager ? (
-                          <div className="flex flex-col">
-                            <span className="font-medium">{manager.firstName} {manager.lastName}</span>
-                            <span className="text-xs text-muted-foreground">({getRoleDisplayName(manager.role)})</span>
+
+      <div className="bg-card rounded-lg border border-border shadow-sm">
+        <div className="p-6 border-b border-border">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground">User Access Management</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Showing {filteredUsers.length} of {users.length} records
+              </p>
+            </div>
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              data-testid="button-create-user"
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, username..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search"
+              />
+            </div>
+            
+            <div className="flex gap-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[200px]" data-testid="select-role-filter">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">System Admin</SelectItem>
+                  <SelectItem value="hr">HR Manager</SelectItem>
+                  <SelectItem value="contact_center_ops_manager">CC Ops Manager</SelectItem>
+                  <SelectItem value="contact_center_manager">CC Manager</SelectItem>
+                  <SelectItem value="team_leader">Team Leader</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reports To</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-border">
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                    No users found matching your search criteria
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr key={user.id} data-testid={`row-user-${user.id}`} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                          {((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || 'U'}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-foreground" data-testid={`text-name-${user.id}`}>
+                            {user.firstName} {user.lastName}
                           </div>
+                          <div className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge 
+                        className={roleColorMap[user.role as keyof typeof roleColorMap] || "bg-slate-100 text-slate-700 border border-slate-200"}
+                        data-testid={`badge-role-${user.id}`}
+                      >
+                        {getRoleDisplayName(user.role)}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge 
+                        className={user.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}
+                        data-testid={`badge-status-${user.id}`}
+                      >
+                        {user.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-foreground" data-testid={`text-reports-to-${user.id}`}>
+                        {user.reportsTo ? (
+                          (() => {
+                            const manager = getReportsToUser(user.reportsTo);
+                            return manager ? (
+                              <div className="flex flex-col">
+                                <span className="font-medium">{manager.firstName} {manager.lastName}</span>
+                                <span className="text-xs text-muted-foreground">({getRoleDisplayName(manager.role)})</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            );
+                          })()
                         ) : (
                           <span className="text-muted-foreground">—</span>
-                        );
-                      })()
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                      className="text-blue-600 hover:text-blue-800"
-                      data-testid={`button-edit-${user.id}`}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteUser(user)}
-                      className="text-red-600 hover:text-red-800"
-                      disabled={deleteUserMutation.isPending}
-                      data-testid={`button-delete-${user.id}`}
-                    >
-                      {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          data-testid={`button-edit-${user.id}`}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                          disabled={deleteUserMutation.isPending}
+                          data-testid={`button-delete-${user.id}`}
+                        >
+                          {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       
       <CreateUserDialog
