@@ -57,10 +57,10 @@ export default function TerminationManagement() {
     resolver: zodResolver(terminationFormSchema),
     defaultValues: {
       userId: "",
-      terminationType: "",
+      statusType: "",
       terminationDate: "",
       lastWorkingDay: "",
-      reason: "",
+      comment: "",
       assetReturnStatus: "pending",
       processedBy: user?.id || "",
     },
@@ -100,7 +100,7 @@ export default function TerminationManagement() {
     terminationMutation.mutate(data);
   };
 
-  const getTerminationTypeColor = (type: string) => {
+  const getStatusTypeColor = (type: string) => {
     switch (type) {
       case 'voluntary':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -155,9 +155,9 @@ export default function TerminationManagement() {
       const userName = getUserName(termination.userId);
       const matchesSearch = searchQuery === "" || 
         userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        termination.reason?.toLowerCase().includes(searchQuery.toLowerCase());
+        termination.comment?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesType = typeFilter === "all" || termination.terminationType === typeFilter;
+      const matchesType = typeFilter === "all" || termination.statusType === typeFilter;
 
       return matchesSearch && matchesType;
     });
@@ -233,13 +233,13 @@ export default function TerminationManagement() {
 
                   <FormField
                     control={form.control}
-                    name="terminationType"
+                    name="statusType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Termination Type</FormLabel>
+                        <FormLabel>Status Type</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-termination-type">
+                            <SelectTrigger data-testid="select-status-type">
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>
                           </FormControl>
@@ -302,12 +302,12 @@ export default function TerminationManagement() {
 
                 <FormField
                   control={form.control}
-                  name="reason"
+                  name="comment"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reason for Termination</FormLabel>
+                      <FormLabel>Comment</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Provide termination reason" data-testid="textarea-reason" />
+                        <Textarea {...field} placeholder="Provide comment" data-testid="textarea-comment" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,7 +363,7 @@ export default function TerminationManagement() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by employee name or reason..."
+              placeholder="Search by employee name or comment..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -402,11 +402,11 @@ export default function TerminationManagement() {
               <thead style={{ backgroundColor: '#1a1f5c' }}>
                 <tr>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Termination Type</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status Type</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">To Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Asset Return</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Reason</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
                 </tr>
               </thead>
@@ -429,8 +429,8 @@ export default function TerminationManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge className={getTerminationTypeColor(termination.terminationType)} data-testid={`badge-type-${termination.id}`}>
-                          {termination.terminationType}
+                        <Badge className={getStatusTypeColor(termination.statusType)} data-testid={`badge-type-${termination.id}`}>
+                          {termination.statusType}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-termination-date-${termination.id}`}>
@@ -447,13 +447,13 @@ export default function TerminationManagement() {
                           {termination.assetReturnStatus || 'pending'}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 max-w-xs" data-testid={`text-reason-${termination.id}`}>
-                        {termination.reason ? (
-                          <span className="truncate block" title={termination.reason}>
-                            {termination.reason}
+                      <td className="px-6 py-4 max-w-xs" data-testid={`text-comment-${termination.id}`}>
+                        {termination.comment ? (
+                          <span className="truncate block" title={termination.comment}>
+                            {termination.comment}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">No reason provided</span>
+                          <span className="text-muted-foreground">No comment provided</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
