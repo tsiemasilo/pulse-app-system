@@ -124,6 +124,7 @@ export default function AttendanceTable() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/range"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/terminations"] });
       toast({
         title: "Status Updated",
         description: "Attendance status has been updated successfully.",
