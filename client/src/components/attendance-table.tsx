@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Search, Filter, Calendar } from "lucide-react";
 import { format } from "date-fns";
-import type { Attendance, User, Team } from "@shared/schema";
+import type { Attendance, User, Team, Termination } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,14 @@ export default function AttendanceTable() {
     userName: string;
   } | null>(null);
   const [terminationComment, setTerminationComment] = useState("");
+  const [backToWorkDialogOpen, setBackToWorkDialogOpen] = useState(false);
+  const [pendingBackToWork, setPendingBackToWork] = useState<{
+    attendanceId: string;
+    newStatus: string;
+    userId?: string;
+    userName: string;
+    currentStatus: string;
+  } | null>(null);
 
   const { data: attendanceRecords = [], isLoading } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance/range", selectedDate ? format(selectedDate, "yyyy-MM-dd") : "today"],
@@ -69,6 +77,33 @@ export default function AttendanceTable() {
     queryKey: ["/api/teams", leaderTeams[0]?.id, "members"],
     enabled: user?.role === 'team_leader' && leaderTeams.length > 0,
   });
+
+  // Fetch termination records
+  const { data: terminations = [], isSuccess: terminationsLoaded } = useQuery<Termination[]>({
+    queryKey: ["/api/terminations"],
+    enabled: user?.role === 'team_leader' && !!user?.id,
+  });
+
+  // Helper function to get the last termination status for a user
+  const getLastTerminationStatus = (userId: string): string | null => {
+    if (!terminations.length) return null;
+    
+    // Filter terminations for this user
+    const userTerminations = terminations
+      .filter(t => t.userId === userId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    
+    if (userTerminations.length === 0) return null;
+    
+    const lastTermination = userTerminations[0];
+    const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+    
+    if (terminationStatuses.includes(lastTermination.statusType)) {
+      return lastTermination.statusType;
+    }
+    
+    return null;
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ attendanceId, status, userId }: { attendanceId: string; status: string; userId?: string }) => {
@@ -145,6 +180,16 @@ export default function AttendanceTable() {
   // Auto-create attendance records for team members without records
   useEffect(() => {
     if (user?.role === 'team_leader' && teamMembers.length > 0 && attendanceRecords) {
+      // Only auto-create for today's date, not historical dates
+      const today = new Date();
+      const isViewingToday = !selectedDate || 
+        format(new Date(selectedDate), 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+
+      if (!isViewingToday) return; // Skip auto-creation for historical dates
+
+      // CRITICAL: Wait for terminations to load before auto-creating
+      if (!terminationsLoaded) return;
+
       const agentMembers = teamMembers.filter(member => member.role === 'agent');
       const membersWithoutRecords = agentMembers.filter(
         member => !attendanceRecords.some(record => record.userId === member.id) &&
@@ -158,9 +203,14 @@ export default function AttendanceTable() {
         for (const member of membersWithoutRecords) {
           try {
             processedUsersRef.current.add(member.id);
+            
+            // Check if user has a recent termination status
+            const terminationStatus = getLastTerminationStatus(member.id);
+            const statusToUse = terminationStatus || 'at work';
+            
             await apiRequest("POST", `/api/attendance/clock-in-for-user`, {
               userId: member.id,
-              status: 'at work'
+              status: statusToUse
             });
           } catch (error) {
             console.error(`Failed to create attendance for ${member.username}:`, error);
@@ -172,7 +222,7 @@ export default function AttendanceTable() {
         queryClient.invalidateQueries({ queryKey: ["/api/attendance/range"] });
       })();
     }
-  }, [user?.role, teamMembers, attendanceRecords]);
+  }, [user?.role, teamMembers, attendanceRecords, terminationsLoaded, terminations]);
 
   // For team leaders: show all team members with their attendance (or create placeholder if no attendance)
   const allDisplayRecords = user?.role === 'team_leader' 
@@ -184,13 +234,17 @@ export default function AttendanceTable() {
             return { ...attendanceRecord, user: member };
           } else {
             // Create a placeholder record for team members who haven't clocked in
+            // Check if user has a recent termination status
+            const terminationStatus = getLastTerminationStatus(member.id);
+            const statusToUse = terminationStatus || 'at work';
+            
             return {
               id: `placeholder-${member.id}`,
               userId: member.id,
               date: new Date(),
               clockIn: null,
               clockOut: null,
-              status: 'at work',
+              status: statusToUse,
               hoursWorked: 0,
               createdAt: new Date(),
               user: member,
@@ -228,20 +282,40 @@ export default function AttendanceTable() {
     return <div className="text-center py-8">Loading attendance data...</div>;
   }
 
-  const handleStatusChange = (attendanceId: string, status: string, userId?: string, userName?: string) => {
-    // Check if this is a termination status
-    if (['AWOL', 'suspended', 'resignation'].includes(status) && userId) {
+  const handleStatusChange = (attendanceId: string, newStatus: string, userId?: string, userName?: string) => {
+    // Find the current status of this record
+    const currentRecord = allDisplayRecords.find(r => r.id === attendanceId);
+    const currentStatus = currentRecord?.status;
+    
+    const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+    
+    // Check if changing FROM a termination status TO another status
+    if (currentStatus && terminationStatuses.includes(currentStatus) && !terminationStatuses.includes(newStatus)) {
+      // Show back-to-work confirmation dialog
+      setPendingBackToWork({
+        attendanceId,
+        newStatus,
+        userId,
+        userName: userName || 'Unknown User',
+        currentStatus
+      });
+      setBackToWorkDialogOpen(true);
+      return;
+    }
+    
+    // Check if this is a termination status (AWOL/suspended/resignation)
+    if (terminationStatuses.includes(newStatus) && userId) {
       // Show termination dialog
       setPendingTermination({
         attendanceId,
-        status,
+        status: newStatus,
         userId,
         userName: userName || 'Unknown User'
       });
       setTerminationDialogOpen(true);
     } else {
       // Regular status update
-      updateStatusMutation.mutate({ attendanceId, status, userId });
+      updateStatusMutation.mutate({ attendanceId, status: newStatus, userId });
     }
   };
 
@@ -261,6 +335,21 @@ export default function AttendanceTable() {
       userId: pendingTermination.userId,
       comment: terminationComment.trim(),
     });
+  };
+
+  const handleBackToWorkConfirm = () => {
+    if (!pendingBackToWork) return;
+    
+    // Update the status
+    updateStatusMutation.mutate({
+      attendanceId: pendingBackToWork.attendanceId,
+      status: pendingBackToWork.newStatus,
+      userId: pendingBackToWork.userId,
+    });
+    
+    // Close dialog and reset state
+    setBackToWorkDialogOpen(false);
+    setPendingBackToWork(null);
   };
 
   return (
@@ -463,6 +552,39 @@ export default function AttendanceTable() {
               data-testid="button-submit-termination"
             >
               {createTerminationMutation.isPending ? "Submitting..." : "Submit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={backToWorkDialogOpen} onOpenChange={setBackToWorkDialogOpen}>
+        <DialogContent data-testid="dialog-back-to-work-confirm">
+          <DialogHeader>
+            <DialogTitle>Confirm Employee Return</DialogTitle>
+            <DialogDescription>
+              <strong>{pendingBackToWork?.userName}</strong> is currently marked as <strong>{pendingBackToWork?.currentStatus}</strong>.
+              <br />
+              <br />
+              Are you sure <strong>{pendingBackToWork?.userName}</strong> is back to work?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBackToWorkDialogOpen(false);
+                setPendingBackToWork(null);
+              }}
+              data-testid="button-cancel-back-to-work"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBackToWorkConfirm}
+              disabled={updateStatusMutation.isPending}
+              data-testid="button-confirm-back-to-work"
+            >
+              {updateStatusMutation.isPending ? "Updating..." : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>
