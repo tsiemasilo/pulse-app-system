@@ -1145,7 +1145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status } = z.object({ 
-        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
+        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'resignation'])
       }).parse(req.body);
 
       // First, fetch the attendance record to get the userId
@@ -1196,6 +1196,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating attendance status:", error);
       res.status(500).json({ message: "Failed to update attendance status" });
+    }
+  });
+
+  // Create termination record from attendance status change
+  app.post('/api/attendance/:attendanceId/terminate', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { status, userId, comment } = z.object({
+        status: z.enum(['AWOL', 'suspended', 'resignation']),
+        userId: z.string(),
+        comment: z.string().min(1, "Comment is required"),
+      }).parse(req.body);
+
+      // Verify the user belongs to the team leader's team (if team leader)
+      if (user.role === 'team_leader') {
+        const leaderTeams = await storage.getTeamsByLeader(user.id);
+        
+        if (leaderTeams.length === 0) {
+          return res.status(403).json({ message: "You are not assigned as a team leader" });
+        }
+
+        let isInTeam = false;
+        for (const team of leaderTeams) {
+          const teamMembers = await storage.getTeamMembers(team.id);
+          if (teamMembers.some(member => member.id === userId)) {
+            isInTeam = true;
+            break;
+          }
+        }
+
+        if (!isInTeam) {
+          return res.status(403).json({ message: "You can only terminate your team members" });
+        }
+      }
+
+      // Update the attendance status
+      const attendanceId = req.params.attendanceId;
+      if (attendanceId.startsWith('placeholder-')) {
+        // Create attendance record first
+        await apiRequest("POST", `/api/attendance/clock-in-for-user`, { 
+          userId,
+          status 
+        });
+      } else {
+        // Update existing attendance
+        await db
+          .update(attendance)
+          .set({ status })
+          .where(eq(attendance.id, attendanceId));
+      }
+
+      // Create termination record
+      const termination = await storage.createTermination({
+        userId,
+        statusType: status,
+        effectiveDate: new Date(),
+        comment,
+        processedBy: user.id,
+      });
+
+      res.json(termination);
+    } catch (error) {
+      console.error("Error creating termination:", error);
+      res.status(500).json({ message: "Failed to create termination" });
     }
   });
 
@@ -1323,18 +1391,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create API schema that accepts date strings and converts them
       const terminationApiSchema = insertTerminationSchema.extend({
-        terminationDate: z.string().transform((str) => new Date(str)),
-        lastWorkingDay: z.string().transform((str) => new Date(str)),
+        effectiveDate: z.string().transform((str) => new Date(str)),
       });
 
       const terminationData = terminationApiSchema.parse(req.body);
       
-      // Check for duplicate termination (same user, same termination date)
+      // Check for duplicate termination (same user, same effective date)
       const allTerminations = await storage.getAllTerminations();
       
       const duplicateTermination = allTerminations.find(t => {
-        const existingDate = new Date(t.terminationDate);
-        const newDate = new Date(terminationData.terminationDate);
+        const existingDate = new Date(t.effectiveDate);
+        const newDate = new Date(terminationData.effectiveDate);
         existingDate.setHours(0, 0, 0, 0);
         newDate.setHours(0, 0, 0, 0);
         
@@ -1344,7 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (duplicateTermination) {
         return res.status(400).json({ 
-          message: "A termination record already exists for this user on this date. Please use a different termination date or delete the existing record first.",
+          message: "A termination record already exists for this user on this date. Please use a different effective date or delete the existing record first.",
           existingTermination: duplicateTermination
         });
       }
