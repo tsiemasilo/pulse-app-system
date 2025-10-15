@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Search, Filter, Calendar } from "lucide-react";
+import { format } from "date-fns";
 import type { Attendance, User, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -23,6 +26,7 @@ export default function AttendanceTable() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false);
   const [pendingTermination, setPendingTermination] = useState<{
     attendanceId: string;
@@ -189,9 +193,15 @@ export default function AttendanceTable() {
         (statusFilter === "at work" && (record.status === "at work" || record.status === "present")) ||
         record.status === statusFilter;
       
-      return matchesSearch && matchesStatus;
+      // Date filtering - compare only the date part (YYYY-MM-DD)
+      const matchesDate = !selectedDate || (
+        record.date && 
+        format(new Date(record.date), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
+      );
+      
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [allDisplayRecords, searchTerm, statusFilter]);
+  }, [allDisplayRecords, searchTerm, statusFilter, selectedDate]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading attendance data...</div>;
@@ -251,6 +261,40 @@ export default function AttendanceTable() {
                   data-testid="input-search-attendance"
                 />
               </div>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-[180px] justify-start text-left font-normal"
+                    data-testid="button-date-filter"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => setSelectedDate(date)}
+                    initialFocus
+                  />
+                  {selectedDate && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setSelectedDate(undefined)}
+                        data-testid="button-clear-date"
+                      >
+                        Clear Filter
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
               
               <div className="flex items-center space-x-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
