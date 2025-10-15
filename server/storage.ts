@@ -636,6 +636,16 @@ export class DatabaseStorage implements IStorage {
     return termination;
   }
 
+  async deleteTerminationForUserOnDate(userId: string, date: Date): Promise<void> {
+    // Delete termination records for a specific user on a specific date
+    await db.delete(terminations).where(
+      and(
+        eq(terminations.userId, userId),
+        sql`DATE(${terminations.effectiveDate}) = DATE(${date})`
+      )
+    );
+  }
+
   // Asset loss record management
   async getAllAssetLossRecords(): Promise<AssetLossRecord[]> {
     return await db.select().from(assetLossRecords).orderBy(desc(assetLossRecords.createdAt));

@@ -1188,6 +1188,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Check if this is a change FROM a termination status TO a non-termination status
+      const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+      const wasTerminationStatus = terminationStatuses.includes(attendanceRecord.status);
+      const isNowTerminationStatus = terminationStatuses.includes(status);
+      
+      // If changing from termination status to non-termination status, delete the termination record
+      if (wasTerminationStatus && !isNowTerminationStatus) {
+        try {
+          await storage.deleteTerminationForUserOnDate(attendanceRecord.userId, attendanceRecord.date);
+          console.log(`Deleted termination record for user ${attendanceRecord.userId} on ${attendanceRecord.date}`);
+        } catch (error) {
+          console.error("Error deleting termination record:", error);
+          // Continue with the status update even if deletion fails
+        }
+      }
+
       // Update the attendance status
       const updatedRecord = await db
         .update(attendance)

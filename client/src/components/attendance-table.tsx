@@ -582,6 +582,11 @@ export default function AttendanceTable() {
               <br />
               <br />
               Are you sure <strong>{pendingBackToWork?.userName}</strong> is back to work?
+              <br />
+              <br />
+              <span className="text-amber-600 dark:text-amber-400">
+                Note: This will clear the termination record from the Employee Terminations table.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
