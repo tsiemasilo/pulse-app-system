@@ -129,11 +129,9 @@ export const transfers = pgTable("transfers", {
 export const terminations = pgTable("terminations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  statusType: varchar("status_type").notNull(), // voluntary, involuntary, layoff, retirement
-  terminationDate: timestamp("termination_date").notNull(),
-  lastWorkingDay: timestamp("last_working_day").notNull(),
+  statusType: varchar("status_type").notNull(), // AWOL, suspended, resignation
+  effectiveDate: timestamp("effective_date").notNull(),
   comment: text("comment"),
-  assetReturnStatus: varchar("asset_return_status").default('pending'), // pending, partial, completed
   processedBy: varchar("processed_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
