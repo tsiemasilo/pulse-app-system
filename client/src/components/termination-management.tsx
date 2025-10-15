@@ -1,131 +1,35 @@
 import { useState, useMemo, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { apiRequest } from "@/lib/queryClient";
-import { insertTerminationSchema } from "@shared/schema";
+import { Button } from "@/components/ui/button";
 import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { z } from "zod";
-import type { Termination, User as UserType, Team } from "@shared/schema";
-
-const terminationFormSchema = insertTerminationSchema.extend({
-  terminationDate: z.string().min(1, "Termination date is required"),
-  lastWorkingDay: z.string().min(1, "Last working day is required"),
-});
+import type { Termination, User as UserType } from "@shared/schema";
 
 export default function TerminationManagement() {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
-  });
-
-  // Fetch team leader's teams if current user is a team leader
-  const { data: leaderTeams = [] } = useQuery<Team[]>({
-    queryKey: ["/api/teams/leader", user?.id],
-    enabled: user?.role === 'team_leader',
-  });
-
-  // Fetch team members for team leaders
-  const { data: teamMembers = [] } = useQuery<UserType[]>({
-    queryKey: ["/api/teams", leaderTeams[0]?.id, "members"],
-    enabled: user?.role === 'team_leader' && leaderTeams.length > 0,
   });
 
   const { data: terminations = [] } = useQuery<Termination[]>({
     queryKey: ["/api/terminations"],
   });
 
-  const form = useForm({
-    resolver: zodResolver(terminationFormSchema),
-    defaultValues: {
-      userId: "",
-      statusType: "",
-      terminationDate: "",
-      lastWorkingDay: "",
-      comment: "",
-      assetReturnStatus: "pending",
-      processedBy: user?.id || "",
-    },
-  });
-
-  const terminationMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof terminationFormSchema>) => {
-      const terminationData = {
-        ...data,
-        terminationDate: new Date(data.terminationDate).toISOString(),
-        lastWorkingDay: new Date(data.lastWorkingDay).toISOString(),
-        processedBy: user?.id || "",
-      };
-      const res = await apiRequest("POST", "/api/terminations", terminationData);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/terminations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setIsOpen(false);
-      form.reset();
-      toast({
-        title: "Termination Processed",
-        description: "Employee termination has been recorded successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Termination Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: z.infer<typeof terminationFormSchema>) => {
-    terminationMutation.mutate(data);
-  };
-
   const getStatusTypeColor = (type: string) => {
-    switch (type) {
-      case 'voluntary':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'involuntary':
+    switch (type.toLowerCase()) {
+      case 'awol':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'layoff':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'absent':
-      case 'sick':
-      case 'leave':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'AWOL':
       case 'suspended':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
-  };
-
-  const getAssetReturnColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'partial':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      case 'resignation':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
@@ -136,19 +40,6 @@ export default function TerminationManagement() {
     return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
   };
 
-  // Get available employees based on user role
-  const getAvailableEmployees = () => {
-    const activeUsers = users.filter(u => u.isActive);
-    
-    // If user is team leader, only show their team members (agents)
-    if (user?.role === 'team_leader') {
-      return teamMembers.filter(member => member.role === 'agent');
-    }
-    
-    // If user is admin or HR, show all active users
-    return activeUsers;
-  };
-
   // Filter and paginate terminations
   const filteredTerminations = useMemo(() => {
     return terminations.filter((termination) => {
@@ -157,7 +48,7 @@ export default function TerminationManagement() {
         userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         termination.comment?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesType = typeFilter === "all" || termination.statusType === typeFilter;
+      const matchesType = typeFilter === "all" || termination.statusType.toLowerCase() === typeFilter.toLowerCase();
 
       return matchesSearch && matchesType;
     });
@@ -187,175 +78,14 @@ export default function TerminationManagement() {
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader>
         <CardTitle className="flex items-center">
           <UserX className="h-5 w-5 mr-2" />
           Employee Terminations
         </CardTitle>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="destructive" data-testid="button-create-termination">
-              <UserX className="h-4 w-4 mr-2" />
-              Process Termination
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Process Employee Termination</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="userId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Employee</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-employee">
-                              <SelectValue placeholder="Select employee" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {getAvailableEmployees().map((employee) => (
-                              <SelectItem key={employee.id} value={employee.id}>
-                                {employee.firstName} {employee.lastName} ({employee.username})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="statusType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-status-type">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="absent">Absent</SelectItem>
-                            <SelectItem value="AWOL">AWOL</SelectItem>
-                            <SelectItem value="involuntary">Involuntary (Termination)</SelectItem>
-                            <SelectItem value="layoff">Layoff</SelectItem>
-                            <SelectItem value="leave">Leave</SelectItem>
-                            <SelectItem value="sick">Sick</SelectItem>
-                            <SelectItem value="suspended">Suspended</SelectItem>
-                            <SelectItem value="voluntary">Voluntary (Resignation)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="terminationDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Termination Date</FormLabel>
-                        <FormControl>
-                          <input 
-                            type="date" 
-                            {...field} 
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            data-testid="input-termination-date"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="lastWorkingDay"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>&nbsp;</FormLabel>
-                        <FormControl>
-                          <input 
-                            type="date" 
-                            {...field} 
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            data-testid="input-last-working-day"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="comment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Comment</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Provide comment" data-testid="textarea-comment" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="assetReturnStatus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Asset Return Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-asset-return">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="partial">Partial</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {user && (
-                  <div className="bg-muted/50 p-3 rounded-md">
-                    <div className="text-sm font-medium text-muted-foreground">Processed by:</div>
-                    <div className="text-sm">{user.firstName} {user.lastName} ({user.role})</div>
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="destructive" disabled={terminationMutation.isPending} data-testid="button-submit-termination">
-                    {terminationMutation.isPending ? "Processing..." : "Process Termination"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <p className="text-sm text-muted-foreground mt-2">
+          Termination records are automatically created when team leaders mark employees as AWOL, Suspended, or Resignation in the attendance tab.
+        </p>
       </CardHeader>
       <CardContent>
         {/* Search and Filter Section */}
@@ -377,14 +107,9 @@ export default function TerminationManagement() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="absent">Absent</SelectItem>
               <SelectItem value="AWOL">AWOL</SelectItem>
-              <SelectItem value="involuntary">Involuntary</SelectItem>
-              <SelectItem value="layoff">Layoff</SelectItem>
-              <SelectItem value="leave">Leave</SelectItem>
-              <SelectItem value="sick">Sick</SelectItem>
               <SelectItem value="suspended">Suspended</SelectItem>
-              <SelectItem value="voluntary">Voluntary</SelectItem>
+              <SelectItem value="resignation">Resignation</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -393,7 +118,7 @@ export default function TerminationManagement() {
         <div className="bg-card rounded-lg border border-border shadow-sm">
           <div className="p-4 border-b border-border">
             <p className="text-sm text-muted-foreground">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredTerminations.length)} of {filteredTerminations.length} records
+              Showing {filteredTerminations.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredTerminations.length)} of {filteredTerminations.length} records
             </p>
           </div>
 
@@ -403,17 +128,15 @@ export default function TerminationManagement() {
                 <tr>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status Type</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From Date</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">To Date</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Asset Return</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Effective Date</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {paginatedTerminations.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                       No terminations found matching your search criteria.
                     </td>
                   </tr>
@@ -433,20 +156,6 @@ export default function TerminationManagement() {
                           {termination.statusType}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-termination-date-${termination.id}`}>
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(termination.terminationDate).toLocaleDateString()}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-last-working-day-${termination.id}`}>
-                        {new Date(termination.lastWorkingDay).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="outline" className={getAssetReturnColor(termination.assetReturnStatus || 'pending')} data-testid={`badge-asset-status-${termination.id}`}>
-                          {termination.assetReturnStatus || 'pending'}
-                        </Badge>
-                      </td>
                       <td className="px-6 py-4 max-w-xs" data-testid={`text-comment-${termination.id}`}>
                         {termination.comment ? (
                           <span className="truncate block" title={termination.comment}>
@@ -458,6 +167,12 @@ export default function TerminationManagement() {
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
                         {getUserName(termination.processedBy)}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-effective-date-${termination.id}`}>
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{new Date(termination.effectiveDate).toLocaleDateString()}</span>
+                        </div>
                       </td>
                     </tr>
                   ))

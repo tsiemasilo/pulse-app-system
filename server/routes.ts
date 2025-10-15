@@ -1239,10 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const attendanceId = req.params.attendanceId;
       if (attendanceId.startsWith('placeholder-')) {
         // Create attendance record first
-        await apiRequest("POST", `/api/attendance/clock-in-for-user`, { 
-          userId,
-          status 
-        });
+        await storage.clockInWithStatus(userId, status);
       } else {
         // Update existing attendance
         await db
