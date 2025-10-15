@@ -1060,6 +1060,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = new Date(start as string);
       const endDate = new Date(end as string);
       
+      // Set end date to end of day (23:59:59.999) to include all records from that day
+      endDate.setHours(23, 59, 59, 999);
+      
       const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
       res.json(attendanceRecords);
     } catch (error) {

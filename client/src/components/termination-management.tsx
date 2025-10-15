@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,8 @@ import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight, ClipboardList
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import type { Termination, User as UserType, Attendance } from "@shared/schema";
+import type { Termination, User as UserType, Attendance, Team } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function TerminationManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,20 +20,72 @@ export default function TerminationManagement() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const recordsPerPage = 10;
 
+  const { user } = useAuth();
+
+  // Fetch team leader's teams
+  const { data: leaderTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/leader", user?.id],
+    enabled: user?.role === 'team_leader' && !!user?.id,
+  });
+
+  // Fetch team members for ALL teams the leader manages using useQueries
+  const teamMembersQueries = useQueries({
+    queries: leaderTeams.map(team => ({
+      queryKey: ["/api/teams", team.id, "members"],
+      enabled: user?.role === 'team_leader',
+    })),
+  });
+
+  // Aggregate all team members from all teams
+  const teamMembers = useMemo(() => {
+    const allMembers: UserType[] = [];
+    const seenIds = new Set<string>();
+    
+    teamMembersQueries.forEach(query => {
+      if (query.data) {
+        const members = query.data as UserType[];
+        members.forEach(member => {
+          if (!seenIds.has(member.id)) {
+            seenIds.add(member.id);
+            allMembers.push(member);
+          }
+        });
+      }
+    });
+    
+    return allMembers;
+  }, [teamMembersQueries]);
+
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
   });
 
-  const { data: terminations = [] } = useQuery<Termination[]>({
+  const { data: allTerminations = [] } = useQuery<Termination[]>({
     queryKey: ["/api/terminations"],
   });
 
+  // Filter terminations by team leader's team members
+  const terminations = useMemo(() => {
+    if (user?.role === 'team_leader') {
+      // Always filter for team leaders, even if array is empty (shows no records during loading)
+      const teamMemberIds = teamMembers.map(m => m.id);
+      return allTerminations.filter(t => teamMemberIds.includes(t.userId));
+    }
+    // Non-team-leaders (admin, etc.) see all records
+    return allTerminations;
+  }, [allTerminations, teamMembers, user?.role]);
+
   // Fetch all attendance records or by date
-  const { data: allAttendance = [] } = useQuery<Attendance[]>({
+  const { data: fetchedAttendance = [] } = useQuery<Attendance[]>({
     queryKey: ["/api/attendance/range", selectedDate ? format(selectedDate, "yyyy-MM-dd") : "all"],
     queryFn: async () => {
       if (selectedDate) {
-        const dateStr = format(selectedDate, "yyyy-MM-dd");
+        // Format date to YYYY-MM-DD for the start of the day
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
         const response = await fetch(`/api/attendance/range?start=${dateStr}&end=${dateStr}`);
         if (!response.ok) throw new Error("Failed to fetch attendance");
         return response.json();
@@ -41,13 +94,35 @@ export default function TerminationManagement() {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setFullYear(startDate.getFullYear() - 1); // Last year
-        const response = await fetch(`/api/attendance/range?start=${format(startDate, "yyyy-MM-dd")}&end=${format(endDate, "yyyy-MM-dd")}`);
+        
+        const endYear = endDate.getFullYear();
+        const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+        const endDay = String(endDate.getDate()).padStart(2, '0');
+        const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+        
+        const startYear = startDate.getFullYear();
+        const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+        const startDay = String(startDate.getDate()).padStart(2, '0');
+        const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+        
+        const response = await fetch(`/api/attendance/range?start=${startDateStr}&end=${endDateStr}`);
         if (!response.ok) throw new Error("Failed to fetch attendance");
         return response.json();
       }
     },
     enabled: managementType === "attendance",
   });
+
+  // Filter attendance by team leader's team members
+  const allAttendance = useMemo(() => {
+    if (user?.role === 'team_leader') {
+      // Always filter for team leaders, even if array is empty (shows no records during loading)
+      const teamMemberIds = teamMembers.map(m => m.id);
+      return fetchedAttendance.filter(a => teamMemberIds.includes(a.userId));
+    }
+    // Non-team-leaders (admin, etc.) see all records
+    return fetchedAttendance;
+  }, [fetchedAttendance, teamMembers, user?.role]);
 
   const getStatusTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
