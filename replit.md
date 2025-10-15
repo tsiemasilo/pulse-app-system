@@ -10,6 +10,22 @@ Preferred communication style: Simple, everyday language.
 
 ### October 15, 2025
 
+#### Attendance Management Audit Feature
+- **Terminations Tab Enhancement**: Added dual-purpose management interface to the terminations tab:
+  - **Management Type Dropdown**: New dropdown allows switching between "Terminations Management" and "Attendance Management" views
+  - **Attendance Audit Table**: When "Attendance Management" is selected, displays comprehensive attendance audit log:
+    - Table columns: Employee, Date, Status, Clock In, Clock Out, Hours Worked
+    - Color-coded status badges matching attendance tab design (green for present/at work, red for absent/AWOL, yellow for late, blue for sick/leave, orange for suspended, purple for resignation)
+    - Search functionality to filter by employee name or status
+    - Pagination for managing large datasets (10 records per page)
+  - **Calendar Date Filter**: Interactive date picker button that allows filtering attendance records by specific date:
+    - Button shows "All Records" when no date is selected (default state)
+    - Displays selected date in readable format (e.g., "January 15, 2025")
+    - "Clear Filter" button appears when date is selected to reset back to all records
+    - Default behavior fetches last year of attendance data
+  - **Data Fetching**: Custom query logic handles date-based filtering with proper API integration
+  - **User Experience**: Seamless switching between terminations and attendance views with consistent UI/UX
+
 #### Mobile-Responsive Design Implementation
 - **Global Responsive Updates**: Implemented comprehensive mobile-first responsive design across the entire application:
   - **Viewport Configuration**: Updated body zoom to only apply on desktop (1024px+) to prevent mobile zoom issues
