@@ -50,14 +50,14 @@ export default function AdminDashboard() {
   return (
     <>
       <Navigation user={user} />
-      <div className="fade-in max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">System Administration</h1>
-          <p className="text-muted-foreground">Manage users, departments, and system settings</p>
+      <div className="fade-in max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">System Administration</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage users, departments, and system settings</p>
         </div>
 
         {/* Admin Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
           <StatCard
             title="Total Users"
             value={allUsers.length}

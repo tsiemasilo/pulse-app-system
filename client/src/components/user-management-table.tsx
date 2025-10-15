@@ -170,26 +170,26 @@ export default function UserManagementTable() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-muted/30 rounded-lg p-6 border border-border">
-        <h2 className="text-lg font-semibold text-foreground mb-1">Search & Filter Records</h2>
-        <p className="text-sm text-muted-foreground mb-6">Find and manage user accounts using the filters below</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="bg-muted/30 rounded-lg p-4 sm:p-6 border border-border">
+        <h2 className="text-base sm:text-lg font-semibold text-foreground mb-1">Search & Filter Records</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">Find and manage user accounts using the filters below</p>
         
-        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, email, username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 text-sm"
               data-testid="input-search"
             />
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4">
             <Select value={roleTypeFilter} onValueChange={setRoleTypeFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="select-role-type-filter">
+              <SelectTrigger className="w-full sm:w-[180px] text-sm" data-testid="select-role-type-filter">
                 <SelectValue placeholder="All Positions" />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +201,7 @@ export default function UserManagementTable() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+              <SelectTrigger className="w-full sm:w-[180px] text-sm" data-testid="select-status-filter">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +212,7 @@ export default function UserManagementTable() {
             </Select>
 
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="select-role-filter">
+              <SelectTrigger className="w-full sm:w-[200px] text-sm" data-testid="select-role-filter">
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
@@ -230,18 +230,18 @@ export default function UserManagementTable() {
       </div>
 
       <div className="bg-card rounded-lg border border-border shadow-sm">
-        <div className="p-6 border-b border-border">
-          <div className="flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b border-border">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h3 className="text-xl font-semibold text-foreground">User Access Management</h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground">User Access Management</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} records
               </p>
             </div>
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
               data-testid="button-create-user"
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto text-sm"
             >
               <Plus className="h-4 w-4 mr-2" />
               Create User
@@ -249,7 +249,7 @@ export default function UserManagementTable() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="mobile-table-container">
           <table className="w-full">
             <thead style={{ backgroundColor: '#1a1f5c' }}>
               <tr>
@@ -350,19 +350,20 @@ export default function UserManagementTable() {
           </table>
         </div>
 
-        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs sm:text-sm text-muted-foreground">
             Page {currentPage} of {totalPages || 1}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={handlePreviousPage}
               disabled={currentPage === 1}
               data-testid="button-previous-page"
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
+              <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               Previous
             </Button>
             <Button
@@ -371,9 +372,10 @@ export default function UserManagementTable() {
               onClick={handleNextPage}
               disabled={currentPage >= totalPages}
               data-testid="button-next-page"
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
             >
               Next
-              <ChevronRight className="h-4 w-4 ml-1" />
+              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
             </Button>
           </div>
         </div>

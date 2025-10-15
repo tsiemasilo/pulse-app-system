@@ -243,10 +243,6 @@
   }
   
   @media (max-width: 640px) {
-    .mobile-table-container {
-      @apply scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100;
-    }
-    
     .mobile-table-container table {
       @apply text-sm;
     }

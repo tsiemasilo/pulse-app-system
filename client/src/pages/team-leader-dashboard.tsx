@@ -34,7 +34,9 @@ import {
   ChevronRight,
   BarChart3,
   User as UserIcon,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from "lucide-react";
 import type { User, Attendance, Asset, Team } from "@shared/schema";
 
@@ -43,6 +45,7 @@ export default function TeamLeaderDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('attendance');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -184,15 +187,15 @@ export default function TeamLeaderDashboard() {
         return (
           <div className="space-y-6 animate-in fade-in-50 duration-500">
             {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-6 border border-blue-100 dark:border-blue-800/30">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user?.firstName || 'Team Leader'}</h2>
-                  <p className="text-blue-600 dark:text-blue-400">Here's your workforce overview for today</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user?.firstName || 'Team Leader'}</h2>
+                  <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">Here's your workforce overview for today</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Today</p>
-                  <p className="text-xl font-semibold text-gray-900 dark:text-white">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                <div className="text-left sm:text-right">
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Today</p>
+                  <p className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                 </div>
               </div>
               
@@ -218,7 +221,7 @@ export default function TeamLeaderDashboard() {
             </div>
 
             {/* TL Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
               <StatCard
                 title="Team Size"
                 value={teamSize}
@@ -401,8 +404,8 @@ export default function TeamLeaderDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0">
+      {/* Sidebar - Desktop */}
+      <div className="hidden lg:flex w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex-col h-screen sticky top-0">
         <div className="h-[88px] px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
           <img 
             src={alteramLogo} 
@@ -458,13 +461,72 @@ export default function TeamLeaderDashboard() {
         
       </div>
 
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="h-[60px] px-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <img src={alteramLogo} alt="Alteram Solutions" className="h-8 w-auto" />
+              <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-4 overflow-y-auto h-[calc(100vh-60px)]">
+              <nav className="space-y-6">
+                {sidebarItems.map((section) => (
+                  <div key={section.title}>
+                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                      {section.title}
+                    </h3>
+                    <ul className="space-y-1">
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeTab === item.key;
+                        return (
+                          <li key={item.key}>
+                            <button
+                              onClick={() => {
+                                setActiveTab(item.key);
+                                setMobileMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                                isActive 
+                                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
+                              {item.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lg:hidden"
+                onClick={() => setMobileMenuOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {activeTab === 'attendance' ? 'Attendance Management' :
                  activeTab === 'transfers' ? 'Employee Transfers' :
                  activeTab === 'terminations' ? 'Termination Management' :
@@ -474,7 +536,7 @@ export default function TeamLeaderDashboard() {
                  activeTab === 'onboarding' ? 'Employee Onboarding' :
                  'Team Dashboard'}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-xs sm:text-base text-gray-600 dark:text-gray-400 hidden sm:block">
                 {activeTab === 'attendance' ? 'Track and manage team member attendance' :
                  activeTab === 'transfers' ? 'Handle team member transfers' :
                  activeTab === 'terminations' ? 'Process team member terminations' :
@@ -484,15 +546,16 @@ export default function TeamLeaderDashboard() {
                  activeTab === 'onboarding' ? 'Onboard new team members' :
                  'Team management tools'}
               </p>
+              </div>
             </div>
             
             {/* Notifications, Profile and Logout */}
-            <div className="flex items-center gap-4">
-              {/* Notifications */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Notifications - Hidden on mobile */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative"
+                className="relative hidden sm:flex"
                 data-testid="button-notifications"
               >
                 <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
@@ -501,8 +564,8 @@ export default function TeamLeaderDashboard() {
                 </span>
               </Button>
 
-              {/* Profile */}
-              <div className="flex items-center gap-3">
+              {/* Profile - Hidden on mobile */}
+              <div className="hidden sm:flex items-center gap-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     <UserIcon className="h-4 w-4" />
@@ -527,14 +590,14 @@ export default function TeamLeaderDashboard() {
                 data-testid="button-logout"
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
           <div className="fade-in">
             {renderMainContent()}
           </div>
