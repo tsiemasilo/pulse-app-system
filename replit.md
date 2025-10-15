@@ -8,6 +8,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 15, 2025
+- **Terminations Schema Update**: Renamed terminations table columns for better clarity:
+  - Column "termination_type" renamed to "status_type" - reflects the various status types (absent, AWOL, involuntary, layoff, leave, sick, suspended, voluntary)
+  - Column "reason" renamed to "comment" - better describes the purpose of the field
+  - Updated across entire stack: database schema, backend routes, and frontend components
+  - Function `getTerminationTypeColor` renamed to `getStatusTypeColor` for consistency
+  - Database migration completed via ALTER TABLE commands
+  - All changes verified with no runtime errors or type issues
+
 ### October 14, 2025
 - **Access Control System Overhaul**: Implemented new role-based access control system where only specific management roles have login/dashboard access:
   - **Login Users (Dashboard Access)**: Admin, Team Leader, and Contact Center Manager - these roles require passwords and can sign into the system
