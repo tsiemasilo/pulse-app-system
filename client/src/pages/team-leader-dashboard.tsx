@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { StatCard } from "@/components/dashboard-stats";
-import AttendanceTable from "@/components/attendance-table";
+import HRAttendanceView from "@/components/hr-attendance-view";
 import AssetManagement from "@/components/asset-management";
 import TransferManagement from "@/components/transfer-management";
 import TerminationManagement from "@/components/termination-management";
@@ -265,18 +265,8 @@ export default function TeamLeaderDashboard() {
             </div>
 
             
-            {/* Attendance Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Detailed Attendance Records
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AttendanceTable />
-              </CardContent>
-            </Card>
+            {/* Attendance Table with Search & Filters */}
+            <HRAttendanceView />
           </div>
         );
       case 'transfers':
