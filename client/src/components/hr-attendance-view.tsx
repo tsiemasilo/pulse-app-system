@@ -1,24 +1,108 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Clock, Calendar, Search, Filter, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import type { Attendance, User } from "@shared/schema";
+import type { Attendance, User, Team } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function HRAttendanceView() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
-  const { data: attendanceRecords = [] } = useQuery<Attendance[]>({
-    queryKey: ["/api/attendance/today"],
+  const { user } = useAuth();
+
+  // Fetch team leader's teams
+  const { data: leaderTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/leader", user?.id],
+    enabled: user?.role === 'team_leader' && !!user?.id,
   });
+
+  // Fetch team members for ALL teams the leader manages
+  const teamMembersQueries = useQueries({
+    queries: leaderTeams.map(team => ({
+      queryKey: ["/api/teams", team.id, "members"],
+      enabled: user?.role === 'team_leader',
+    })),
+  });
+
+  // Aggregate all team members from all teams
+  const teamMembers = useMemo(() => {
+    const allMembers: User[] = [];
+    const seenIds = new Set<string>();
+    
+    teamMembersQueries.forEach(query => {
+      if (query.data) {
+        const members = query.data as User[];
+        members.forEach(member => {
+          if (!seenIds.has(member.id)) {
+            seenIds.add(member.id);
+            allMembers.push(member);
+          }
+        });
+      }
+    });
+    
+    return allMembers;
+  }, [teamMembersQueries]);
+
+  // Fetch attendance records with date range support
+  const { data: fetchedAttendance = [] } = useQuery<Attendance[]>({
+    queryKey: ["/api/attendance/range", selectedDate ? format(selectedDate, "yyyy-MM-dd") : "all"],
+    queryFn: async () => {
+      if (selectedDate) {
+        // Format date to YYYY-MM-DD for the specific day
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        const response = await fetch(`/api/attendance/range?start=${dateStr}&end=${dateStr}`);
+        if (!response.ok) throw new Error("Failed to fetch attendance");
+        return response.json();
+      } else {
+        // Fetch all attendance records - use a wide date range
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setFullYear(startDate.getFullYear() - 1); // Last year
+        
+        const endYear = endDate.getFullYear();
+        const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+        const endDay = String(endDate.getDate()).padStart(2, '0');
+        const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+        
+        const startYear = startDate.getFullYear();
+        const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+        const startDay = String(startDate.getDate()).padStart(2, '0');
+        const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+        
+        const response = await fetch(`/api/attendance/range?start=${startDateStr}&end=${endDateStr}`);
+        if (!response.ok) throw new Error("Failed to fetch attendance");
+        return response.json();
+      }
+    },
+  });
+
+  // Filter attendance by team leader's team members
+  const attendanceRecords = useMemo(() => {
+    if (user?.role === 'team_leader') {
+      // Filter for team leaders to show only their team members
+      const teamMemberIds = teamMembers.map(m => m.id);
+      return fetchedAttendance.filter(a => teamMemberIds.includes(a.userId));
+    }
+    // Non-team-leaders (admin, HR, etc.) see all records
+    return fetchedAttendance;
+  }, [fetchedAttendance, teamMembers, user?.role]);
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -64,11 +148,14 @@ export default function HRAttendanceView() {
 
   const filteredRecords = attendanceRecords.filter(record => {
     const userInfo = getUserInfo(record.userId);
-    const matchesSearch = userInfo.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm === "" || 
+      userInfo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.status?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "present" && (record.status === "present" || record.status === "at work")) ||
       record.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesRole = roleFilter === "all" || userInfo.role === roleFilter;
+    return matchesSearch && matchesStatus && matchesRole;
   });
 
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
@@ -91,7 +178,7 @@ export default function HRAttendanceView() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, roleFilter, selectedDate]);
 
   const summary = {
     total: filteredRecords.length,
@@ -106,8 +193,11 @@ export default function HRAttendanceView() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Clock className="h-5 w-5 mr-2" />
-          Employee Attendance Tracking
+          Employee Attendance Management
         </CardTitle>
+        <p className="text-sm text-muted-foreground mt-2">
+          View and search attendance records. Filter by date, status, or role to find specific records.
+        </p>
         
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
@@ -140,7 +230,7 @@ export default function HRAttendanceView() {
           <div className="flex items-center space-x-2 flex-1">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search employees..."
+              placeholder="Search by employee name or status..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1"
@@ -148,16 +238,39 @@ export default function HRAttendanceView() {
             />
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-auto"
-              data-testid="input-attendance-date"
-            />
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-[200px] justify-start text-left font-normal"
+                data-testid="button-calendar-filter"
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>All Records</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date)}
+                initialFocus
+              />
+              {selectedDate && (
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setSelectedDate(undefined)}
+                    data-testid="button-clear-date"
+                  >
+                    Clear Filter
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           
           <div className="flex items-center space-x-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
@@ -171,6 +284,22 @@ export default function HRAttendanceView() {
                 <SelectItem value="absent">Absent</SelectItem>
                 <SelectItem value="late">Late</SelectItem>
                 <SelectItem value="leave">On Leave</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-40" data-testid="select-role-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="agent">Agent</SelectItem>
+                <SelectItem value="team_leader">Team Leader</SelectItem>
+                <SelectItem value="hr">HR</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -189,6 +318,7 @@ export default function HRAttendanceView() {
               <thead style={{ backgroundColor: '#1a1f5c' }}>
                 <tr>
                   <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
+                  <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Date</th>
                   <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Role</th>
                   <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Status</th>
                   <th className="text-left py-5 px-6 text-sm font-semibold text-white uppercase tracking-wide">Clock In</th>
@@ -199,7 +329,7 @@ export default function HRAttendanceView() {
               <tbody className="bg-card divide-y divide-border">
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
                       No attendance records found for the selected filters.
                     </td>
                   </tr>
@@ -214,6 +344,12 @@ export default function HRAttendanceView() {
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">{userInfo.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-sm" data-testid={`text-date-${record.id}`}>
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span>{new Date(record.date).toLocaleDateString()}</span>
                           </div>
                         </td>
                         <td className="py-4 px-6 text-sm text-muted-foreground capitalize">
