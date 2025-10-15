@@ -1371,7 +1371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Set attendance status to the termination type
         await db
           .update(attendance)
-          .set({ status: terminationData.terminationType })
+          .set({ status: terminationData.statusType })
           .where(eq(attendance.id, todayAttendance[0].id));
       }
       
