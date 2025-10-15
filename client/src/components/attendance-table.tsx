@@ -282,6 +282,16 @@ export default function AttendanceTable() {
     return <div className="text-center py-8">Loading attendance data...</div>;
   }
 
+  // Check if the selected date is today
+  const isViewingToday = () => {
+    if (!selectedDate) return true; // No date selected means viewing today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    return selected.getTime() === today.getTime();
+  };
+
   const handleStatusChange = (attendanceId: string, newStatus: string, userId?: string, userName?: string) => {
     // Find the current status of this record
     const currentRecord = allDisplayRecords.find(r => r.id === attendanceId);
@@ -470,29 +480,35 @@ export default function AttendanceTable() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Select
-                          value={record.status}
-                          onValueChange={(value) => handleStatusChange(record.id, value, record.userId, userName)}
-                          disabled={user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr'}
-                        >
-                          <SelectTrigger 
-                            className="w-[130px]" 
-                            data-testid={`select-status-${record.id}`}
+                        {!isViewingToday() ? (
+                          <span className="text-sm font-medium text-foreground" data-testid={`text-status-readonly-${record.id}`}>
+                            {record.status || '-'}
+                          </span>
+                        ) : (
+                          <Select
+                            value={record.status}
+                            onValueChange={(value) => handleStatusChange(record.id, value, record.userId, userName)}
+                            disabled={user?.role !== 'team_leader' && user?.role !== 'admin' && user?.role !== 'hr'}
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="item-aligned">
-                            <SelectItem value="-">-</SelectItem>
-                            <SelectItem value="at work">At Work</SelectItem>
-                            <SelectItem value="late">Late</SelectItem>
-                            <SelectItem value="absent">Absent</SelectItem>
-                            <SelectItem value="sick">Sick</SelectItem>
-                            <SelectItem value="on leave">On Leave</SelectItem>
-                            <SelectItem value="AWOL">AWOL</SelectItem>
-                            <SelectItem value="suspended">Suspended</SelectItem>
-                            <SelectItem value="resignation">Resignation</SelectItem>
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger 
+                              className="w-[130px]" 
+                              data-testid={`select-status-${record.id}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="item-aligned">
+                              <SelectItem value="-">-</SelectItem>
+                              <SelectItem value="at work">At Work</SelectItem>
+                              <SelectItem value="late">Late</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
+                              <SelectItem value="sick">Sick</SelectItem>
+                              <SelectItem value="on leave">On Leave</SelectItem>
+                              <SelectItem value="AWOL">AWOL</SelectItem>
+                              <SelectItem value="suspended">Suspended</SelectItem>
+                              <SelectItem value="resignation">Resignation</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-clock-in-${record.id}`}>
                         {formatTime(record.clockIn)}
