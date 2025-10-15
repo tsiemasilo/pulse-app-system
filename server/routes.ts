@@ -1193,11 +1193,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const wasTerminationStatus = terminationStatuses.includes(attendanceRecord.status);
       const isNowTerminationStatus = terminationStatuses.includes(status);
       
-      // If changing from termination status to non-termination status, delete the termination record
+      // If changing from termination status to non-termination status, delete the most recent termination record
       if (wasTerminationStatus && !isNowTerminationStatus) {
         try {
-          await storage.deleteTerminationForUserOnDate(attendanceRecord.userId, attendanceRecord.date);
-          console.log(`Deleted termination record for user ${attendanceRecord.userId} on ${attendanceRecord.date}`);
+          // Get all terminations for this user and find the most recent one
+          const allTerminations = await storage.getAllTerminations();
+          const userTerminations = allTerminations
+            .filter(t => t.userId === attendanceRecord.userId && terminationStatuses.includes(t.statusType))
+            .sort((a, b) => new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime());
+          
+          if (userTerminations.length > 0) {
+            const mostRecentTermination = userTerminations[0];
+            // Delete the most recent termination record
+            await storage.deleteTerminationById(mostRecentTermination.id);
+            console.log(`Deleted termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (effective date: ${mostRecentTermination.effectiveDate})`);
+          }
         } catch (error) {
           console.error("Error deleting termination record:", error);
           // Continue with the status update even if deletion fails

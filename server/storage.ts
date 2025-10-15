@@ -647,6 +647,11 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
+  async deleteTerminationById(terminationId: string): Promise<void> {
+    // Delete a specific termination record by ID
+    await db.delete(terminations).where(eq(terminations.id, terminationId));
+  }
+
   // Asset loss record management
   async getAllAssetLossRecords(): Promise<AssetLossRecord[]> {
     return await db.select().from(assetLossRecords).orderBy(desc(assetLossRecords.createdAt));
