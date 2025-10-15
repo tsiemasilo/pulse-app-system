@@ -1200,13 +1200,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allTerminations = await storage.getAllTerminations();
           const userTerminations = allTerminations
             .filter(t => t.userId === attendanceRecord.userId && terminationStatuses.includes(t.statusType))
-            .sort((a, b) => new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime());
+            .sort((a, b) => {
+              // Sort by effectiveDate DESC, then by id DESC for deterministic ordering
+              const dateCompare = new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime();
+              if (dateCompare !== 0) return dateCompare;
+              return b.id.localeCompare(a.id);
+            });
           
           if (userTerminations.length > 0) {
             const mostRecentTermination = userTerminations[0];
             // Delete the most recent termination record
             await storage.deleteTerminationById(mostRecentTermination.id);
-            console.log(`Deleted termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (effective date: ${mostRecentTermination.effectiveDate})`);
+            console.log(`Deleted termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (effective date: ${mostRecentTermination.effectiveDate}, status: ${mostRecentTermination.statusType})`);
+          } else {
+            console.log(`No termination record found for user ${attendanceRecord.userId} to delete`);
           }
         } catch (error) {
           console.error("Error deleting termination record:", error);
