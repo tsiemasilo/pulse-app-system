@@ -95,7 +95,12 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    zoom: 0.8;
+  }
+  
+  @media (min-width: 1024px) {
+    body {
+      zoom: 0.8;
+    }
   }
 }
 
@@ -226,3 +231,68 @@
 }
 
 /* Simplified transitions - no global animations */
+
+/* Mobile-Friendly Table Styles */
+@layer components {
+  .mobile-table-container {
+    @apply w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+  
+  .mobile-table-container table {
+    @apply min-w-full;
+  }
+  
+  @media (max-width: 640px) {
+    .mobile-table-container {
+      @apply scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100;
+    }
+    
+    .mobile-table-container table {
+      @apply text-sm;
+    }
+    
+    .mobile-table-container th,
+    .mobile-table-container td {
+      @apply px-3 py-2;
+    }
+  }
+}
+
+/* Mobile Navigation */
+@layer components {
+  .mobile-nav-open {
+    @apply overflow-hidden;
+  }
+}
+
+/* Responsive Container */
+@layer utilities {
+  .container-responsive {
+    @apply w-full mx-auto px-4 sm:px-6 lg:px-8;
+    max-width: 100%;
+  }
+  
+  @media (min-width: 640px) {
+    .container-responsive {
+      max-width: 640px;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .container-responsive {
+      max-width: 768px;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .container-responsive {
+      max-width: 1024px;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .container-responsive {
+      max-width: 1280px;
+    }
+  }
+}
