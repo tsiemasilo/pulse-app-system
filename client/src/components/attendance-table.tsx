@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Search, Filter } from "lucide-react";
 import type { Attendance, User, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -19,6 +21,8 @@ export default function AttendanceTable() {
   const { toast } = useToast();
   const processedUsersRef = useRef<Set<string>>(new Set());
   
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false);
   const [pendingTermination, setPendingTermination] = useState<{
     attendanceId: string;
@@ -146,7 +150,7 @@ export default function AttendanceTable() {
   }, [user?.role, teamMembers, attendanceRecords]);
 
   // For team leaders: show all team members with their attendance (or create placeholder if no attendance)
-  const displayRecords = user?.role === 'team_leader' 
+  const allDisplayRecords = user?.role === 'team_leader' 
     ? teamMembers
         .filter(member => member.role === 'agent')
         .map(member => {
@@ -169,6 +173,25 @@ export default function AttendanceTable() {
           }
         })
     : attendanceRecords;
+
+  // Apply search and filter
+  const displayRecords = useMemo(() => {
+    return allDisplayRecords.filter(record => {
+      const userName = record.user?.firstName && record.user?.lastName 
+        ? `${record.user.firstName} ${record.user.lastName}`
+        : record.user?.username || '';
+      
+      const matchesSearch = searchTerm === "" || 
+        userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.status?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "at work" && (record.status === "at work" || record.status === "present")) ||
+        record.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [allDisplayRecords, searchTerm, statusFilter]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading attendance data...</div>;
@@ -213,7 +236,43 @@ export default function AttendanceTable() {
     <>
       <div className="bg-card rounded-lg border border-border shadow-sm">
         <div className="p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">Today's Attendance</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold text-foreground">Today's Attendance</h2>
+            
+            {/* Search and Filter Controls */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or status..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-[200px]"
+                  data-testid="input-search-attendance"
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="at work">At Work</SelectItem>
+                    <SelectItem value="late">Late</SelectItem>
+                    <SelectItem value="absent">Absent</SelectItem>
+                    <SelectItem value="sick">Sick</SelectItem>
+                    <SelectItem value="on leave">On Leave</SelectItem>
+                    <SelectItem value="AWOL">AWOL</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="resignation">Resignation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full">
