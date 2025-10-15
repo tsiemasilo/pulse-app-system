@@ -5,13 +5,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { format } from "date-fns";
 import type { Termination, User as UserType, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function TerminationManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewCommentDialog, setViewCommentDialog] = useState(false);
   const [selectedComment, setSelectedComment] = useState("");
@@ -87,9 +91,12 @@ export default function TerminationManagement() {
 
       const matchesType = typeFilter === "all" || termination.statusType.toLowerCase() === typeFilter.toLowerCase();
 
-      return matchesSearch && matchesType;
+      const matchesDate = !selectedDate || (termination.effectiveDate && 
+        format(new Date(termination.effectiveDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [terminations, searchQuery, typeFilter]);
+  }, [terminations, searchQuery, typeFilter, selectedDate]);
 
   const totalPages = Math.ceil(filteredTerminations.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
@@ -111,7 +118,7 @@ export default function TerminationManagement() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, typeFilter]);
+  }, [searchQuery, typeFilter, selectedDate]);
 
   return (
     <Card className="shadow-sm">
@@ -149,6 +156,36 @@ export default function TerminationManagement() {
               <SelectItem value="resignation">Resignation</SelectItem>
             </SelectContent>
           </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+                <Calendar className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date)}
+                initialFocus
+              />
+              {selectedDate && (
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setSelectedDate(undefined)}
+                    data-testid="button-clear-date"
+                  >
+                    Clear Date Filter
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Table */}
