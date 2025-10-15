@@ -1,4 +1,5 @@
-import { LogOut, Shield, Users, Headphones, UserCheck, Clock } from "lucide-react";
+import { LogOut, Shield, Users, Headphones, UserCheck, Clock, Menu, X } from "lucide-react";
+import { useState } from "react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
@@ -11,6 +12,7 @@ interface NavigationProps {
 
 export default function Navigation({ user }: NavigationProps) {
   const [location, navigate] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const roleDisplayMap = {
     admin: "System Admin",
@@ -43,16 +45,16 @@ export default function Navigation({ user }: NavigationProps) {
     <nav className="bg-card border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4 sm:space-x-6">
             <div className="flex-shrink-0 flex items-center">
               <img 
                 src={alteramLogo} 
                 alt="Alteram Solutions" 
-                className="h-8 w-auto"
+                className="h-6 sm:h-8 w-auto"
               />
             </div>
             
-            {/* Admin Role Navigation Buttons */}
+            {/* Admin Role Navigation Buttons - Desktop */}
             {user?.role === 'admin' && (
               <div className="hidden md:flex items-center space-x-2">
                 {adminRoleButtons.map((button) => {
@@ -75,9 +77,24 @@ export default function Navigation({ user }: NavigationProps) {
               </div>
             )}
 
+            {/* Mobile menu button */}
+            {user?.role === 'admin' && (
+              <div className="md:hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2"
+                  aria-label="Toggle menu"
+                >
+                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </Button>
+              </div>
+            )}
           </div>
+          
           <div className="flex items-center">
-            <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+            <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
               <div className="flex flex-col items-end justify-center">
                 <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
                   {user?.firstName || user?.email || 'User'}
@@ -98,9 +115,58 @@ export default function Navigation({ user }: NavigationProps) {
                 <span className="text-sm">Logout</span>
               </Button>
             </div>
+            
+            {/* Mobile logout button */}
+            <div className="sm:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="p-2"
+                data-testid="button-logout-mobile"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Mobile menu */}
+      {user?.role === 'admin' && mobileMenuOpen && (
+        <div className="md:hidden border-t border-border bg-card">
+          <div className="px-4 py-3 space-y-1">
+            {adminRoleButtons.map((button) => {
+              const Icon = button.icon;
+              const isActive = location === button.path;
+              return (
+                <Button
+                  key={button.path}
+                  variant={isActive ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    navigate(button.path);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full justify-start space-x-2"
+                  data-testid={`${button.testId}-mobile`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{button.label}</span>
+                </Button>
+              );
+            })}
+            <div className="pt-2 border-t border-border mt-2">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium">{user?.firstName || user?.email || 'User'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
