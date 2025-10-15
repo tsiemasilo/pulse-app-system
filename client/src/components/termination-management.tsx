@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -72,19 +71,6 @@ export default function TerminationManagement() {
     // Non-team-leaders (admin, etc.) see all records
     return allTerminations;
   }, [allTerminations, teamMembers, user?.role]);
-
-  const getStatusTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'awol':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'suspended':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'resignation':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
-  };
 
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
@@ -203,9 +189,9 @@ export default function TerminationManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge className={getStatusTypeColor(termination.statusType)} data-testid={`badge-type-${termination.id}`}>
+                        <span className="text-sm font-medium" data-testid={`text-type-${termination.id}`}>
                           {termination.statusType}
-                        </Badge>
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-effective-date-${termination.id}`}>
                         <div className="flex items-center space-x-2">
@@ -223,16 +209,16 @@ export default function TerminationManagement() {
                               {termination.comment}
                             </span>
                             <Button
-                              variant="outline"
-                              size="sm"
+                              variant="ghost"
+                              size="icon"
                               onClick={() => {
                                 setSelectedComment(termination.comment || "");
                                 setViewCommentDialog(true);
                               }}
+                              className="h-8 w-8"
                               data-testid={`button-view-comment-${termination.id}`}
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         ) : (
