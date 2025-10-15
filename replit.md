@@ -38,14 +38,31 @@ Preferred communication style: Simple, everyday language.
   - Buttons and interactive elements sized for mobile interaction
   - Hidden non-essential elements on mobile (notifications, profile details) for cleaner UI
 
-#### Terminations Schema Update
-- **Terminations Schema Update**: Renamed terminations table columns for better clarity:
-  - Column "termination_type" renamed to "status_type" - reflects the various status types (absent, AWOL, involuntary, layoff, leave, sick, suspended, voluntary)
-  - Column "reason" renamed to "comment" - better describes the purpose of the field
-  - Updated across entire stack: database schema, backend routes, and frontend components
-  - Function `getTerminationTypeColor` renamed to `getStatusTypeColor` for consistency
-  - Database migration completed via ALTER TABLE commands
-  - All changes verified with no runtime errors or type issues
+#### Terminations System Redesign
+- **Complete Terminations Workflow Overhaul**: Redesigned the terminations system to integrate with attendance tracking:
+  - **Schema Updates**: 
+    - Changed `statusType` to accept only AWOL, suspended, and resignation statuses
+    - Replaced `terminationDate` and `lastWorkingDay` with single `effectiveDate` field
+    - Removed `assetReturnStatus` field (no longer needed)
+    - Database migration completed via ALTER TABLE commands
+  
+  - **Attendance Integration**:
+    - Added "Resignation" to attendance status dropdown
+    - When team leaders mark employees as AWOL, Suspended, or Resignation, a comment dialog appears
+    - Team leaders must provide a reason/comment for the termination action
+    - System automatically creates termination records with effective date set to current date
+  
+  - **Terminations Table Redesign**:
+    - Removed "Process Termination" button (terminations now created from attendance)
+    - Updated table columns to: Employee, Status Type, Comment, Processed By, Effective Date
+    - Simplified filters to show only AWOL, Suspended, and Resignation types
+    - Added descriptive text explaining that terminations are created from attendance tab
+  
+  - **API Changes**:
+    - New endpoint: POST /api/attendance/:attendanceId/terminate
+    - Validates team leader permissions before allowing termination
+    - Updates attendance status and creates termination record atomically
+    - Maintains data integrity with proper error handling
 
 ### October 14, 2025
 - **Access Control System Overhaul**: Implemented new role-based access control system where only specific management roles have login/dashboard access:
