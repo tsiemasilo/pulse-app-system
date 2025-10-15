@@ -195,6 +195,7 @@ export default function AttendanceTable() {
                         <SelectItem value="on leave">On Leave</SelectItem>
                         <SelectItem value="AWOL">AWOL</SelectItem>
                         <SelectItem value="suspended">Suspended</SelectItem>
+                        <SelectItem value="resignation">Resignation</SelectItem>
                       </SelectContent>
                     </Select>
                   </td>
