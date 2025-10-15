@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import type { Termination, User as UserType, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -13,6 +14,8 @@ export default function TerminationManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewCommentDialog, setViewCommentDialog] = useState(false);
+  const [selectedComment, setSelectedComment] = useState("");
   const recordsPerPage = 10;
 
   const { user } = useAuth();
@@ -176,9 +179,9 @@ export default function TerminationManagement() {
                 <tr>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status Type</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Effective Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
@@ -204,23 +207,37 @@ export default function TerminationManagement() {
                           {termination.statusType}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 max-w-xs" data-testid={`text-comment-${termination.id}`}>
-                        {termination.comment ? (
-                          <span className="truncate block" title={termination.comment}>
-                            {termination.comment}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">No comment provided</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
-                        {getUserName(termination.processedBy)}
-                      </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-effective-date-${termination.id}`}>
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span>{new Date(termination.effectiveDate).toLocaleDateString()}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
+                        {getUserName(termination.processedBy)}
+                      </td>
+                      <td className="px-6 py-4" data-testid={`text-comment-${termination.id}`}>
+                        {termination.comment ? (
+                          <div className="flex items-center gap-2">
+                            <span className="truncate max-w-xs block" title={termination.comment}>
+                              {termination.comment}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedComment(termination.comment || "");
+                                setViewCommentDialog(true);
+                              }}
+                              data-testid={`button-view-comment-${termination.id}`}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">No comment provided</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -258,6 +275,23 @@ export default function TerminationManagement() {
           </div>
         </div>
       </CardContent>
+
+      {/* View Comment Dialog */}
+      <Dialog open={viewCommentDialog} onOpenChange={setViewCommentDialog}>
+        <DialogContent data-testid="dialog-view-comment">
+          <DialogHeader>
+            <DialogTitle>Termination Comment</DialogTitle>
+            <DialogDescription>
+              Full comment details for this termination record.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-muted p-4 rounded-md">
+              <p className="text-sm whitespace-pre-wrap">{selectedComment}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
