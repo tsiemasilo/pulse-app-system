@@ -96,6 +96,7 @@ export interface IStorage {
   // Termination management
   getAllTerminations(): Promise<Termination[]>;
   createTermination(termination: InsertTermination): Promise<Termination>;
+  deleteTerminationForUserOnDate(userId: string, date: Date): Promise<void>;
   
   // Asset loss record management
   getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
