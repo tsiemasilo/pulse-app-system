@@ -10,6 +10,16 @@ Preferred communication style: Simple, everyday language.
 
 ### October 15, 2025
 
+#### Team Leader Filtering and Multi-Team Support
+- **Security and Multi-Team Bug Fixes**: Fixed critical team leader filtering issues in attendance management audit:
+  - **Multi-Team Support**: Implemented `useQueries` pattern to fetch team members from ALL teams a leader manages (not just first team)
+  - **Team Member Aggregation**: Added deduplication logic to aggregate members across multiple teams using Set-based approach
+  - **Security Fix**: Removed conditional filtering that caused data leaks during loading states
+  - **Always-On Filtering**: Team leaders now always have filtering applied, even when member array is empty (preventing unauthorized data exposure)
+  - **Backend Date Fix**: Implemented end-of-day normalization (23:59:59.999) in /api/attendance/range endpoint for accurate same-day date filtering
+  - **Applies to Both Views**: Filtering properly restricts data in both Terminations Management and Attendance Management views
+  - **Performance**: useQueries scales efficiently for moderate team counts while maintaining type safety
+
 #### Attendance Management Audit Feature
 - **Terminations Tab Enhancement**: Added dual-purpose management interface to the terminations tab:
   - **Management Type Dropdown**: New dropdown allows switching between "Terminations Management" and "Attendance Management" views
