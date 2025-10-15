@@ -54,6 +54,13 @@ export class DailyResetScheduler {
 
       console.log(`Checking if daily reset needed for ${today}`);
 
+      // Check if there are any users in the system
+      const allUsers = await storage.getAllUsers();
+      if (allUsers.length === 0) {
+        // No users yet, skip automated reset
+        return;
+      }
+
       // Check if reset has already been performed today
       const existingStates = await storage.getAllAssetDailyStatesByDate(today);
       
