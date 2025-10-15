@@ -1057,8 +1057,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Start and end dates are required" });
       }
       
+      // Parse dates and ensure they're set to start/end of day
       const startDate = new Date(start as string);
       const endDate = new Date(end as string);
+      
+      // Set start date to beginning of day (00:00:00.000)
+      startDate.setHours(0, 0, 0, 0);
       
       // Set end date to end of day (23:59:59.999) to include all records from that day
       endDate.setHours(23, 59, 59, 999);

@@ -37,7 +37,25 @@ export default function AttendanceTable() {
   const [terminationComment, setTerminationComment] = useState("");
 
   const { data: attendanceRecords = [], isLoading } = useQuery<AttendanceRecord[]>({
-    queryKey: ["/api/attendance/today"],
+    queryKey: ["/api/attendance/range", selectedDate ? format(selectedDate, "yyyy-MM-dd") : "today"],
+    queryFn: async () => {
+      if (selectedDate) {
+        // Format date to YYYY-MM-DD for the specific day
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        const response = await fetch(`/api/attendance/range?start=${dateStr}&end=${dateStr}`);
+        if (!response.ok) throw new Error("Failed to fetch attendance");
+        return response.json();
+      } else {
+        // Fetch today's attendance
+        const response = await fetch(`/api/attendance/today`);
+        if (!response.ok) throw new Error("Failed to fetch attendance");
+        return response.json();
+      }
+    },
   });
 
   // Fetch team leader's teams
@@ -70,6 +88,7 @@ export default function AttendanceTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/range"] });
       toast({
         title: "Status Updated",
         description: "Attendance status has been updated successfully.",
@@ -100,6 +119,7 @@ export default function AttendanceTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/range"] });
       queryClient.invalidateQueries({ queryKey: ["/api/terminations"] });
       setTerminationDialogOpen(false);
       setPendingTermination(null);
@@ -149,6 +169,7 @@ export default function AttendanceTable() {
         }
         // Refresh attendance records after creating all
         queryClient.invalidateQueries({ queryKey: ["/api/attendance/today"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/attendance/range"] });
       })();
     }
   }, [user?.role, teamMembers, attendanceRecords]);
