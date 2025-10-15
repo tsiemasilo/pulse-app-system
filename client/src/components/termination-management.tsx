@@ -168,12 +168,13 @@ export default function TerminationManagement() {
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Effective Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
+                  <th className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide"></th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {paginatedTerminations.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                       No terminations found matching your search criteria.
                     </td>
                   </tr>
@@ -204,25 +205,27 @@ export default function TerminationManagement() {
                       </td>
                       <td className="px-6 py-4" data-testid={`text-comment-${termination.id}`}>
                         {termination.comment ? (
-                          <div className="flex items-center gap-2">
-                            <span className="truncate max-w-xs block" title={termination.comment}>
-                              {termination.comment}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedComment(termination.comment || "");
-                                setViewCommentDialog(true);
-                              }}
-                              className="h-8 w-8"
-                              data-testid={`button-view-comment-${termination.id}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <span className="truncate max-w-xs block" title={termination.comment}>
+                            {termination.comment}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">No comment provided</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {termination.comment && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedComment(termination.comment || "");
+                              setViewCommentDialog(true);
+                            }}
+                            className="h-8 w-8"
+                            data-testid={`button-view-comment-${termination.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         )}
                       </td>
                     </tr>
