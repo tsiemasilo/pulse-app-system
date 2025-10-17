@@ -53,6 +53,9 @@ Preferred communication style: Simple, everyday language.
         - **Context menu**: Right-click menu for viewing details, adding employees, removing from chart
         - **Zoom and pan controls**: Full navigation support for large organizational structures
         - **Real-time sync**: Live data synchronization with user database
+        - **Admin filtering**: Admin users are excluded from organogram display, showing only agent reporting hierarchy
+        - **Watermark handling**: GoJS evaluation watermark concealed with CSS overlay for clean visual presentation
+        - **Cache invalidation**: Enhanced cache invalidation strategy ensures organogram refreshes after user assignment changes
 
 ## External Dependencies
 
