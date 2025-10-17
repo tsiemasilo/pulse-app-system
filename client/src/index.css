@@ -295,7 +295,7 @@
 
 /* Hide GoJS evaluation watermark by covering it with background color */
 @layer utilities {
-  /* Create an overlay to cover the watermark area */
+  /* Create an overlay to cover the watermark area at top left */
   [data-testid="gojs-organogram"] {
     position: relative;
   }
@@ -303,10 +303,10 @@
   [data-testid="gojs-organogram"]::after {
     content: '';
     position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 400px;
-    height: 30px;
+    top: 0;
+    left: 0;
+    width: 650px;
+    height: 80px;
     background: white;
     pointer-events: none;
     z-index: 1000;
