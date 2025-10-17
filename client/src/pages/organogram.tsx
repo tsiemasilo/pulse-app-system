@@ -5,45 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { useMemo } from "react";
-
-interface UserWithChildren extends User {
-  children?: UserWithChildren[];
-}
+import GoJSOrganogram from "@/components/organogram/gojs-organogram";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Organogram() {
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const { data: allUsers = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
   });
-
-  // Build hierarchy tree based on reportsTo
-  const hierarchy = useMemo(() => {
-    if (!allUsers.length) return [];
-
-    const buildTree = (managerId: string | null = null): UserWithChildren[] => {
-      return allUsers
-        .filter(u => u.reportsTo === managerId && u.isActive)
-        .map(user => ({
-          ...user,
-          children: buildTree(user.id)
-        }))
-        .sort((a, b) => {
-          // Sort by role hierarchy
-          const roleOrder: Record<string, number> = {
-            admin: 0,
-            hr: 1,
-            contact_center_ops_manager: 2,
-            contact_center_manager: 3,
-            team_leader: 4,
-            agent: 5
-          };
-          return (roleOrder[a.role] || 999) - (roleOrder[b.role] || 999);
-        });
-    };
-
-    return buildTree(null);
-  }, [allUsers]);
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
@@ -69,54 +40,39 @@ export default function Organogram() {
     return colors[role] || colors.agent;
   };
 
-  const OrgNode = ({ 
-    userData
-  }: { 
-    userData: UserWithChildren;
-  }) => {
-    const hasChildren = userData.children && userData.children.length > 0;
-    const directReports = userData.children?.length || 0;
+  // Context menu handlers
+  const handleViewDetails = (userId: string) => {
+    const userData = allUsers.find(u => u.id === userId);
+    if (userData) {
+      toast({
+        title: "View Details",
+        description: `Viewing details for ${userData.firstName} ${userData.lastName}`,
+      });
+      // TODO: Navigate to user details or open details dialog
+    }
+  };
 
-    return (
-      <div className="flex flex-col items-center">
-        <Card className={`${getRoleColor(userData.role)} shadow-md hover:shadow-lg transition-shadow duration-200 min-w-[200px]`}>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center text-foreground font-semibold">
-                  {userData.firstName?.[0]}{userData.lastName?.[0]}
-                </div>
-              </div>
-              <h3 className="font-semibold text-sm md:text-base text-foreground" data-testid={`org-node-${userData.id}`}>
-                {userData.firstName} {userData.lastName}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">{getRoleLabel(userData.role)}</p>
-              {userData.email && (
-                <p className="text-xs text-muted-foreground mt-1">{userData.email}</p>
-              )}
-              {directReports > 0 && (
-                <div className="mt-2 pt-2 border-t border-border/50">
-                  <p className="text-xs font-medium text-foreground">
-                    {directReports} Direct Report{directReports > 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        
-        {hasChildren && (
-          <>
-            <div className="h-8 w-0.5 bg-border my-2"></div>
-            <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start md:items-stretch justify-center">
-              {userData.children!.map((child) => (
-                <OrgNode key={child.id} userData={child} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    );
+  const handleAddEmployee = (parentUserId: string) => {
+    const parentUser = allUsers.find(u => u.id === parentUserId);
+    if (parentUser) {
+      toast({
+        title: "Add Employee",
+        description: `Adding employee under ${parentUser.firstName} ${parentUser.lastName}`,
+      });
+      // TODO: Open add employee dialog with parentUserId pre-filled
+    }
+  };
+
+  const handleRemoveFromChart = (userId: string) => {
+    const userData = allUsers.find(u => u.id === userId);
+    if (userData) {
+      toast({
+        title: "Remove from Chart",
+        description: `Removing ${userData.firstName} ${userData.lastName} from chart`,
+        variant: "destructive",
+      });
+      // TODO: Handle removal logic (update reportsTo relationships)
+    }
   };
 
   // Calculate total employees in hierarchy
@@ -169,11 +125,11 @@ export default function Organogram() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-12">
+          <div className="flex justify-center py-12" data-testid="loading-organogram">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
-        ) : hierarchy.length === 0 ? (
-          <Card>
+        ) : allUsers.filter(u => u.isActive).length === 0 ? (
+          <Card data-testid="empty-organogram">
             <CardContent className="p-12 text-center">
               <Network className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No organizational structure defined yet.</p>
@@ -183,13 +139,12 @@ export default function Organogram() {
             </CardContent>
           </Card>
         ) : (
-          <div className="overflow-x-auto pb-8">
-            <div className="min-w-max px-4">
-              {hierarchy.map((rootUser) => (
-                <OrgNode key={rootUser.id} userData={rootUser} />
-              ))}
-            </div>
-          </div>
+          <GoJSOrganogram 
+            users={allUsers}
+            onViewDetails={handleViewDetails}
+            onAddEmployee={handleAddEmployee}
+            onRemoveFromChart={handleRemoveFromChart}
+          />
         )}
 
         {/* Legend */}
