@@ -217,6 +217,29 @@ export const assetDetails = pgTable("asset_details", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Organizational positions (for dynamic organogram)
+export const organizationalPositions = pgTable("organizational_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(), // e.g., "Head of Operations", "Contact Center Manager"
+  subtitle: text("subtitle"), // e.g., "Chief Operations Officer", "RAF Division"
+  parentId: varchar("parent_id").references((): any => organizationalPositions.id), // Parent position for hierarchy
+  division: varchar("division"), // e.g., "RAF", "UIF", null for top-level
+  level: integer("level").notNull().default(0), // 0=executive, 1=dept head, 2=manager, 3=team leader, 4=agents
+  displayOrder: integer("display_order").notNull().default(0), // Order for siblings at same level
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User to position assignments (many users can have same position)
+export const userPositions = pgTable("user_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  positionId: varchar("position_id").notNull().references(() => organizationalPositions.id),
+  isPrimary: boolean("is_primary").notNull().default(true), // Primary position for user
+  assignedAt: timestamp("assigned_at").defaultNow(),
+});
+
 // Insert schemas
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -308,6 +331,17 @@ export const insertAssetDetailsSchema = createInsertSchema(assetDetails).omit({
   updatedAt: true,
 });
 
+export const insertOrganizationalPositionSchema = createInsertSchema(organizationalPositions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserPositionSchema = createInsertSchema(userPositions).omit({
+  id: true,
+  assignedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -337,3 +371,7 @@ export type AssetIncident = typeof assetIncidents.$inferSelect;
 export type InsertAssetIncident = z.infer<typeof insertAssetIncidentSchema>;
 export type AssetDetails = typeof assetDetails.$inferSelect;
 export type InsertAssetDetails = z.infer<typeof insertAssetDetailsSchema>;
+export type OrganizationalPosition = typeof organizationalPositions.$inferSelect;
+export type InsertOrganizationalPosition = z.infer<typeof insertOrganizationalPositionSchema>;
+export type UserPosition = typeof userPositions.$inferSelect;
+export type InsertUserPosition = z.infer<typeof insertUserPositionSchema>;
