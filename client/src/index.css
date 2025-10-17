@@ -293,24 +293,27 @@
   }
 }
 
-/* Hide GoJS evaluation watermark */
+/* Hide GoJS evaluation watermark by covering it with background color */
 @layer utilities {
-  /* Target GoJS watermark specifically */
-  canvas + div[style*="position: absolute"][style*="bottom"],
-  canvas + div[style*="position: absolute"][style*="right"] {
-    display: none !important;
-    visibility: hidden !important;
+  /* Create an overlay to cover the watermark area */
+  [data-testid="gojs-organogram"] {
+    position: relative;
   }
   
-  /* Hide any links to gojs.net */
-  a[href*="gojs.net"],
-  a[href*="nwoods.com"] {
-    display: none !important;
-    visibility: hidden !important;
+  [data-testid="gojs-organogram"]::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 400px;
+    height: 30px;
+    background: white;
+    pointer-events: none;
+    z-index: 1000;
   }
   
-  /* Additional targeting for the watermark container */
-  div[style*="user-select: none"][style*="position: absolute"] {
-    display: none !important;
+  /* Dark mode overlay */
+  .dark [data-testid="gojs-organogram"]::after {
+    background: #111827;
   }
 }
