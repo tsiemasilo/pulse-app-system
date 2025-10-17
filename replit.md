@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Design
 - **Primary Database**: PostgreSQL with Neon Database serverless driver
-- **Schema Structure**: Includes tables for Users (with role-based access), Departments, Assets, Attendance, Teams, Team Members, and Sessions.
+- **Schema Structure**: Includes tables for Users (with role-based access), Departments, Assets, Attendance, Teams, Team Members, Sessions, Organizational Positions, and User Positions.
 
 ### System Design Choices
 - **Role-Based Access Control**:
@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
     - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Daily scheduler ensures asset state updates.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
-    - **User Access Management**: Admin dashboard displays an organogram with "Access Type" and "Reports To" columns.
+    - **Organogram Management**: Dynamic, database-driven organizational structure with full CRUD capabilities. Admin-only access to create, edit, and delete positions with hierarchical parent-child relationships. Supports user assignment to positions with visual hierarchy tree display. Features include division/department grouping, multi-level organizational depth, and real-time cache invalidation for data consistency.
 
 ## External Dependencies
 
