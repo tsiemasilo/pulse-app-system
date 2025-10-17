@@ -144,13 +144,20 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
       return updatedUser;
     },
-    onSuccess: (updatedUser) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "teams"] });
+    onSuccess: async (updatedUser) => {
+      // Invalidate all user-related queries to ensure UI updates everywhere
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "teams"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      
       // If role changed to/from team_leader, invalidate team leaders cache
       if (updatedUser.role === 'team_leader' || user?.role === 'team_leader') {
-        queryClient.invalidateQueries({ queryKey: ["/api/team-leaders"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/team-leaders"] });
       }
+      
+      // Force refetch to ensure fresh data
+      await queryClient.refetchQueries({ queryKey: ["/api/users"] });
+      
       toast({
         title: "Success",
         description: "User updated successfully",

@@ -44,7 +44,7 @@ export default function GoJSOrganogram({ users, onViewDetails, onAddEmployee, on
   // Transform users to GoJS node data
   const nodeDataArray = useMemo(() => {
     const nodes: GoJSOrgNodeData[] = users
-      .filter(u => u.isActive)
+      .filter(u => u.isActive && u.role !== 'admin')
       .map(user => {
         return {
           key: user.id,
