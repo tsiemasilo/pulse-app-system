@@ -292,3 +292,25 @@
     }
   }
 }
+
+/* Hide GoJS evaluation watermark */
+@layer utilities {
+  /* Target GoJS watermark specifically */
+  canvas + div[style*="position: absolute"][style*="bottom"],
+  canvas + div[style*="position: absolute"][style*="right"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Hide any links to gojs.net */
+  a[href*="gojs.net"],
+  a[href*="nwoods.com"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Additional targeting for the watermark container */
+  div[style*="user-select: none"][style*="position: absolute"] {
+    display: none !important;
+  }
+}
