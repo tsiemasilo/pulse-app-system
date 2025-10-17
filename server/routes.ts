@@ -1097,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { userId, status } = z.object({ 
         userId: z.string(),
-        status: z.enum(['at work', 'at work (remote)', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'terminated'])
+        status: z.enum(['at work', 'at work (remote)', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'resignation', 'terminated'])
       }).parse(req.body);
 
       // If the user is a team leader, verify the userId belongs to their team
