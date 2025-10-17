@@ -295,25 +295,25 @@
 
 /* Hide GoJS evaluation watermark by covering it with background color */
 @layer utilities {
-  /* Create a smaller, precise overlay to cover only the watermark text */
+  /* Create a minimal overlay to cover only the watermark text */
   [data-testid="gojs-organogram"] {
     position: relative;
   }
   
-  [data-testid="gojs-organogram"]::after {
+  [data-testid="gojs-organogram"]::before {
     content: '';
     position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 280px;
-    height: 65px;
+    top: 2px;
+    left: 2px;
+    width: 220px;
+    height: 55px;
     background: white;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 9999;
   }
   
   /* Dark mode overlay */
-  .dark [data-testid="gojs-organogram"]::after {
+  .dark [data-testid="gojs-organogram"]::before {
     background: #111827;
   }
 }
