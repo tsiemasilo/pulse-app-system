@@ -40,7 +40,14 @@ Preferred communication style: Simple, everyday language.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
     - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Daily scheduler ensures asset state updates.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
-    - **Organogram Management**: Dynamic, database-driven organizational structure with full CRUD capabilities. Admin-only access to create, edit, and delete positions with hierarchical parent-child relationships. Supports user assignment to positions with visual hierarchy tree display. Features include division/department grouping, multi-level organizational depth, and real-time cache invalidation for data consistency.
+    - **Organogram Management**: Interactive organizational chart powered by GoJS library. Features include:
+        - Interactive drag-to-reorganize functionality to update reporting relationships
+        - Zoom and pan controls for large org charts
+        - Role-based node coloring (purple=admin, blue=HR, green=CC ops manager, orange=CC manager, yellow=team leader, pink=agent)
+        - Context menu for viewing details, adding employees, and removing from chart
+        - Real-time data synchronization with user database
+        - Professional tree layout with visual connectors
+        - Display of employee details: name, role, email, and direct report count
 
 ## External Dependencies
 
@@ -66,3 +73,5 @@ Preferred communication style: Simple, everyday language.
 - **date-fns**: Date manipulation.
 - **clsx**: Conditional className utility.
 - **nanoid**: Unique ID generation.
+- **GoJS**: Professional diagramming library for interactive organizational charts.
+- **gojs-react**: React wrapper for GoJS integration.
