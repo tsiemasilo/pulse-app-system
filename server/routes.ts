@@ -1575,6 +1575,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const positionData = insertOrganizationalPositionSchema.parse(req.body);
+      // Convert "none" to null for parentId
+      if (positionData.parentId === 'none') {
+        positionData.parentId = null;
+      }
       const [position] = await db.insert(organizationalPositions).values(positionData).returning();
       res.json(position);
     } catch (error) {
@@ -1591,6 +1595,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updateData = insertOrganizationalPositionSchema.partial().parse(req.body);
+      // Convert "none" to null for parentId
+      if (updateData.parentId === 'none') {
+        updateData.parentId = null;
+      }
       const [position] = await db.update(organizationalPositions)
         .set(updateData)
         .where(eq(organizationalPositions.id, req.params.id))

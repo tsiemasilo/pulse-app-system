@@ -25,7 +25,7 @@ export default function Organogram() {
   const [formData, setFormData] = useState({
     title: "",
     subtitle: "",
-    parentId: "",
+    parentId: "none",
     division: "",
     level: "0",
     displayOrder: "0"
@@ -103,7 +103,7 @@ export default function Organogram() {
     setFormData({
       title: "",
       subtitle: "",
-      parentId: "",
+      parentId: "none",
       division: "",
       level: "0",
       displayOrder: "0"
@@ -116,7 +116,7 @@ export default function Organogram() {
     setFormData({
       title: position.title,
       subtitle: position.subtitle || "",
-      parentId: position.parentId || "",
+      parentId: position.parentId || "none",
       division: position.division || "",
       level: position.level.toString(),
       displayOrder: position.displayOrder.toString()
@@ -377,7 +377,7 @@ export default function Organogram() {
                   <SelectValue placeholder="None (Top Level)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None (Top Level)</SelectItem>
+                  <SelectItem value="none">None (Top Level)</SelectItem>
                   {allPositions
                     .filter(p => p.id !== editingPosition?.id)
                     .map(p => (
