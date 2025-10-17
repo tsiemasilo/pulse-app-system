@@ -10,6 +10,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
+import Organogram from "@/pages/organogram";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -60,6 +61,7 @@ function Router() {
           <Route path="/admin/hr" component={() => user?.role === 'admin' ? <HRDashboard /> : <NotFound />} />
           <Route path="/admin/contact-center" component={() => user?.role === 'admin' ? <ContactCenterDashboard /> : <NotFound />} />
           <Route path="/admin/team-leader" component={() => user?.role === 'admin' ? <TeamLeaderDashboard /> : <NotFound />} />
+          <Route path="/admin/organogram" component={() => user?.role === 'admin' ? <Organogram /> : <NotFound />} />
           
           {/* Role-specific Routes */}
           <Route path="/hr" component={() => user?.role === 'hr' ? <HRDashboard /> : <NotFound />} />

@@ -1,4 +1,4 @@
-import { LogOut, Shield, Users, Headphones, UserCheck, Clock, Menu, X } from "lucide-react";
+import { LogOut, Shield, Users, Headphones, UserCheck, Clock, Menu, X, Network } from "lucide-react";
 import { useState } from "react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ export default function Navigation({ user }: NavigationProps) {
     { path: "/admin/hr", label: "HR", icon: Users, testId: "nav-hr" },
     { path: "/admin/contact-center", label: "Contact Center", icon: Headphones, testId: "nav-contact-center" },
     { path: "/admin/team-leader", label: "Team Leader", icon: UserCheck, testId: "nav-team-leader" },
+    { path: "/admin/organogram", label: "Organogram", icon: Network, testId: "nav-organogram" },
   ];
 
   return (
