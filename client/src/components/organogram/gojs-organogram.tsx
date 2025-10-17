@@ -188,58 +188,6 @@ export default function GoJSOrganogram({ users, onViewDetails, onAddEmployee, on
       return node.findTreeLevel();
     }
 
-    // Node events
-    function nodeEvents(node: go.Node) {
-      node.mouseEnter = (e: go.InputEvent, n: go.GraphObject) => {
-        if (!(n instanceof go.Node)) return;
-        const button = n.findObject('BUTTON');
-        const buttonx = n.findObject('BUTTONX');
-        if (button) button.opacity = 1;
-        if (buttonx) buttonx.opacity = 1;
-      };
-      node.mouseLeave = (e: go.InputEvent, n: go.GraphObject) => {
-        if (!(n instanceof go.Node)) return;
-        if (n.isSelected) return;
-        const button = n.findObject('BUTTON');
-        const buttonx = n.findObject('BUTTONX');
-        if (button) button.opacity = 0;
-        if (buttonx) buttonx.opacity = 0;
-      };
-      node.mouseDragEnter = (e: go.InputEvent, n: go.GraphObject, prev: go.GraphObject | null) => {
-        if (!(n instanceof go.Node)) return;
-        const diagram = n.diagram;
-        if (!diagram) return;
-        const selnode = diagram.selection.first() as go.Node | null;
-        if (!mayWorkFor(selnode, n)) return;
-        const shape = n.findObject('SHAPE');
-        if (shape && shape instanceof go.Shape) {
-          (shape as any)._prevFill = shape.fill;
-          shape.fill = diagram.themeManager.findValue('dragOver', 'colors');
-        }
-      };
-      node.mouseDragLeave = (e: go.InputEvent, n: go.GraphObject, next: go.GraphObject | null) => {
-        if (!(n instanceof go.Node)) return;
-        const shape = n.findObject('SHAPE');
-        if (shape && shape instanceof go.Shape && (shape as any)._prevFill) {
-          shape.fill = (shape as any)._prevFill;
-        }
-      };
-      node.mouseDrop = (e: go.InputEvent, n: go.GraphObject) => {
-        if (!(n instanceof go.Node)) return;
-        const diagram = n.diagram;
-        if (!diagram) return;
-        const selnode = diagram.selection.first() as go.Node | null;
-        if (mayWorkFor(selnode, n)) {
-          const link = selnode?.findTreeParentLink();
-          if (link !== null && link) {
-            link.fromNode = n;
-          } else if (selnode) {
-            diagram.toolManager.linkingTool.insertLink(n, n.port, selnode, selnode.port);
-          }
-        }
-      };
-    }
-
     // Bottom button maker
     function makeBottomButton(name: string) {
       const phonePath = 'F M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 012.43 8.326 13.019 13.019 0 012 5V3.5z';
@@ -327,9 +275,56 @@ export default function GoJSOrganogram({ users, onViewDetails, onAddEmployee, on
       $(go.Node, go.Panel.Spot, {
           isShadowed: true,
           shadowOffset: new go.Point(0, 2),
-          selectionObjectName: 'BODY'
+          selectionObjectName: 'BODY',
+          mouseEnter: (e: go.InputEvent, n: go.GraphObject) => {
+            if (!(n instanceof go.Node)) return;
+            const button = n.findObject('BUTTON');
+            const buttonx = n.findObject('BUTTONX');
+            if (button) button.opacity = 1;
+            if (buttonx) buttonx.opacity = 1;
+          },
+          mouseLeave: (e: go.InputEvent, n: go.GraphObject) => {
+            if (!(n instanceof go.Node)) return;
+            if (n.isSelected) return;
+            const button = n.findObject('BUTTON');
+            const buttonx = n.findObject('BUTTONX');
+            if (button) button.opacity = 0;
+            if (buttonx) buttonx.opacity = 0;
+          },
+          mouseDragEnter: (e: go.InputEvent, n: go.GraphObject, prev: go.GraphObject | null) => {
+            if (!(n instanceof go.Node)) return;
+            const diagram = n.diagram;
+            if (!diagram) return;
+            const selnode = diagram.selection.first() as go.Node | null;
+            if (!mayWorkFor(selnode, n)) return;
+            const shape = n.findObject('SHAPE');
+            if (shape && shape instanceof go.Shape) {
+              (shape as any)._prevFill = shape.fill;
+              shape.fill = diagram.themeManager.findValue('dragOver', 'colors');
+            }
+          },
+          mouseDragLeave: (e: go.InputEvent, n: go.GraphObject, next: go.GraphObject | null) => {
+            if (!(n instanceof go.Node)) return;
+            const shape = n.findObject('SHAPE');
+            if (shape && shape instanceof go.Shape && (shape as any)._prevFill) {
+              shape.fill = (shape as any)._prevFill;
+            }
+          },
+          mouseDrop: (e: go.InputEvent, n: go.GraphObject) => {
+            if (!(n instanceof go.Node)) return;
+            const diagram = n.diagram;
+            if (!diagram) return;
+            const selnode = diagram.selection.first() as go.Node | null;
+            if (mayWorkFor(selnode, n)) {
+              const link = selnode?.findTreeParentLink();
+              if (link !== null && link) {
+                link.fromNode = n;
+              } else if (selnode) {
+                diagram.toolManager.linkingTool.insertLink(n, n.port, selnode, selnode.port);
+              }
+            }
+          }
         },
-        nodeEvents,
         $(go.Panel, go.Panel.Auto, { name: 'BODY' },
           $(go.Shape, 'RoundedRectangle', {
               name: 'SHAPE',

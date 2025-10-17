@@ -1,0 +1,63 @@
+[plugin:runtime-error-plugin] Unknown initializer "function nodeEvents(node) {
+      node.mouseEnter = (e, n) => {
+        if (!(n instanceof go.Node)) return;
+        const button = n.findObject("BUTTON");
+        const buttonx = n.findObject("BUTTONX");
+        if (button) button.opacity = 1;
+        if (buttonx) buttonx.opacity = 1;
+      };
+      node.mouseLeave = (e, n) => {
+        if (!(n instanceof go.Node)) return;
+        if (n.isSelected) return;
+        const button = n.findObject("BUTTON");
+        const buttonx = n.findObject("BUTTONX");
+        if (button) button.opacity = 0;
+        if (buttonx) buttonx.opacity = 0;
+      };
+      node.mouseDragEnter = (e, n, prev) => {
+        if (!(n instanceof go.Node)) return;
+        const diagram2 = n.diagram;
+        if (!diagram2) return;
+        const selnode = diagram2.selection.first();
+        if (!mayWorkFor(selnode, n)) return;
+        const shape = n.findObject("SHAPE");
+        if (shape && shape instanceof go.Shape) {
+          shape._prevFill = shape.fill;
+          shape.fill = diagram2.themeManager.findValue("dragOver", "colors");
+        }
+      };
+      node.mouseDragLeave = (e, n, next) => {
+        if (!(n instanceof go.Node)) return;
+        const shape = n.findObject("SHAPE");
+        if (shape && shape instanceof go.Shape && shape._prevFill) {
+          shape.fill = shape._prevFill;
+        }
+      };
+      node.mouseDrop = (e, n) => {
+        if (!(n instanceof go.Node)) return;
+        const diagram2 = n.diagram;
+        if (!diagram2) return;
+        const selnode = diagram2.selection.first();
+        if (mayWorkFor(selnode, n)) {
+          const link = selnode?.findTreeParentLink();
+          if (link !== null && link) {
+            link.fromNode = n;
+          } else if (selnode) {
+            diagram2.toolManager.linkingTool.insertLink(n, n.port, selnode, selnode.port);
+          }
+        }
+      };
+    }" for object being constructed by GraphObject.make: Node#550
+/home/runner/workspace/client/src/components/organogram/gojs-organogram.tsx:327:7
+325|      // Node template
+326|      diagram.nodeTemplate = 
+327|        $(go.Node, go.Panel.Spot, {
+   |        ^
+328|            isShadowed: true,
+329|            shadowOffset: new go.Point(0, 2),
+
+
+
+    at Object.initDiagram /home/runner/workspace/client/src/components/organogram/gojs-organogram.tsx:327:7
+Click outside, press Esc key, or fix the code to dismiss.
+You can also disable this overlay by setting server.hmr.overlay to false in vite.config.js.

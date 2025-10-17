@@ -40,14 +40,19 @@ Preferred communication style: Simple, everyday language.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
     - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Daily scheduler ensures asset state updates.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
-    - **Organogram Management**: Interactive organizational chart powered by GoJS library. Features include:
-        - Interactive drag-to-reorganize functionality to update reporting relationships
-        - Zoom and pan controls for large org charts
-        - Role-based node coloring (purple=admin, blue=HR, green=CC ops manager, orange=CC manager, yellow=team leader, pink=agent)
-        - Context menu for viewing details, adding employees, and removing from chart
-        - Real-time data synchronization with user database
-        - Professional tree layout with visual connectors
-        - Display of employee details: name, role, email, and direct report count
+    - **Organogram Management**: Full-screen interactive organizational chart powered by GoJS library with professional styling. Features include:
+        - **Full-screen layout**: Maximized diagram space without cards or legends
+        - **GoJS Theme Manager**: Light/dark theme support with custom color schemes
+        - **Professional node design**: Table-based layout with name+department badge on same row, title below, avatar/initials on right
+        - **Interactive bottom buttons**: Email and Phone buttons with hover effects
+        - **Smart button visibility**: Add Employee and Expand/Collapse buttons appear on hover/selection
+        - **Enhanced tooltips**: Contextual tooltips for all interactive elements
+        - **Drag-to-reorganize**: Interactive drag and drop to update reporting relationships
+        - **Tree-level coloring**: Left bar colored dynamically based on organizational depth
+        - **Mouse interactions**: Hover highlights, drag-over feedback, drop validation
+        - **Context menu**: Right-click menu for viewing details, adding employees, removing from chart
+        - **Zoom and pan controls**: Full navigation support for large organizational structures
+        - **Real-time sync**: Live data synchronization with user database
 
 ## External Dependencies
 
