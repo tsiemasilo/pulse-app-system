@@ -159,12 +159,10 @@ export default function TeamLeaderDashboard() {
   );
   const lateArrivals = lateUserIds.size;
   
-  const absentUserIds = new Set(
-    attendanceRecords
-      .filter(record => teamMemberIds.includes(record.userId) && record.status !== 'at work' && record.status !== 'present' && record.status !== 'late')
-      .map(record => record.userId)
-  );
-  const absentToday = absentUserIds.size;
+  // Calculate absent as total team members minus those who are present or late
+  // This ensures team members without attendance records are counted as absent
+  // Add defensive guard to prevent negative counts in case of data anomalies
+  const absentToday = Math.max(0, teamSize - presentToday - lateArrivals);
 
   const sidebarItems = [
     {
