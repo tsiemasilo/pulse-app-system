@@ -23,6 +23,12 @@ interface GoJSOrgProps {
 
 export default function GoJSOrganogram({ users, onViewDetails, onAddEmployee, onRemoveFromChart }: GoJSOrgProps) {
   
+  // Set GoJS license key if available (removes evaluation watermark)
+  // Add your license key as VITE_GOJS_LICENSE_KEY environment variable
+  if (import.meta.env.VITE_GOJS_LICENSE_KEY) {
+    (go.Diagram as any).licenseKey = import.meta.env.VITE_GOJS_LICENSE_KEY;
+  }
+  
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
       admin: 'Admin',
