@@ -488,13 +488,35 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Otherwise create a new record
+    // Remote work persistence: if status is "at work", check most recent WORKING day's status
+    // If most recent working status was "at work (remote)", maintain remote status
+    let finalStatus = status;
+    if (status === 'at work') {
+      // Find the most recent working day (skip sick, absent, on leave, etc.)
+      const recentWorkingDay = await db
+        .select()
+        .from(attendance)
+        .where(and(
+          eq(attendance.userId, userId),
+          sql`(${attendance.status} = 'at work' OR ${attendance.status} = 'at work (remote)')`
+        ))
+        .orderBy(desc(attendance.date))
+        .limit(1);
+      
+      // If most recent working status was remote, maintain it
+      if (recentWorkingDay.length > 0 && recentWorkingDay[0].status === 'at work (remote)') {
+        finalStatus = 'at work (remote)';
+        console.log(`Persisting remote work status for user ${userId} from most recent working day`);
+      }
+    }
+    
     const result = await db
       .insert(attendance)
       .values({
         userId,
         date: now,
         clockIn: now,
-        status,
+        status: finalStatus,
       })
       .returning();
     

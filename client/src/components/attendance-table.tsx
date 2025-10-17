@@ -96,7 +96,7 @@ export default function AttendanceTable() {
     if (userTerminations.length === 0) return null;
     
     const lastTermination = userTerminations[0];
-    const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+    const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
     
     if (terminationStatuses.includes(lastTermination.statusType)) {
       return lastTermination.statusType;
@@ -298,7 +298,7 @@ export default function AttendanceTable() {
     const currentRecord = allDisplayRecords.find(r => r.id === attendanceId);
     const currentStatus = currentRecord?.status;
     
-    const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+    const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
     
     // Check if changing FROM a termination status TO another status
     if (currentStatus && terminationStatuses.includes(currentStatus) && !terminationStatuses.includes(newStatus)) {
@@ -426,6 +426,7 @@ export default function AttendanceTable() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="at work">At Work</SelectItem>
+                    <SelectItem value="at work (remote)">At Work (Remote)</SelectItem>
                     <SelectItem value="late">Late</SelectItem>
                     <SelectItem value="absent">Absent</SelectItem>
                     <SelectItem value="sick">Sick</SelectItem>
@@ -433,6 +434,7 @@ export default function AttendanceTable() {
                     <SelectItem value="AWOL">AWOL</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                     <SelectItem value="resignation">Resignation</SelectItem>
+                    <SelectItem value="terminated">Terminated</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -500,6 +502,7 @@ export default function AttendanceTable() {
                             <SelectContent position="item-aligned">
                               <SelectItem value="-">-</SelectItem>
                               <SelectItem value="at work">At Work</SelectItem>
+                              <SelectItem value="at work (remote)">At Work (Remote)</SelectItem>
                               <SelectItem value="late">Late</SelectItem>
                               <SelectItem value="absent">Absent</SelectItem>
                               <SelectItem value="sick">Sick</SelectItem>
@@ -507,6 +510,7 @@ export default function AttendanceTable() {
                               <SelectItem value="AWOL">AWOL</SelectItem>
                               <SelectItem value="suspended">Suspended</SelectItem>
                               <SelectItem value="resignation">Resignation</SelectItem>
+                              <SelectItem value="terminated">Terminated</SelectItem>
                             </SelectContent>
                           </Select>
                         )}

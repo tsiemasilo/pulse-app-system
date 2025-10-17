@@ -152,7 +152,7 @@ export default function HRAttendanceView() {
       userInfo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.status?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "present" && (record.status === "present" || record.status === "at work")) ||
+      (statusFilter === "present" && (record.status === "present" || record.status === "at work" || record.status === "at work (remote)")) ||
       record.status === statusFilter;
     const matchesRole = roleFilter === "all" || userInfo.role === roleFilter;
     return matchesSearch && matchesStatus && matchesRole;
@@ -182,8 +182,8 @@ export default function HRAttendanceView() {
 
   const summary = {
     total: filteredRecords.length,
-    present: filteredRecords.filter(r => r.status === 'at work' || r.status === 'present').length,
-    absent: filteredRecords.filter(r => r.status !== 'at work' && r.status !== 'present' && r.status !== 'late').length,
+    present: filteredRecords.filter(r => r.status === 'at work' || r.status === 'at work (remote)' || r.status === 'present').length,
+    absent: filteredRecords.filter(r => r.status !== 'at work' && r.status !== 'at work (remote)' && r.status !== 'present' && r.status !== 'late').length,
     late: filteredRecords.filter(r => r.status === 'late').length,
     onLeave: filteredRecords.filter(r => r.status === 'leave').length,
   };

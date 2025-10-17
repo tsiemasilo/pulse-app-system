@@ -1097,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { userId, status } = z.object({ 
         userId: z.string(),
-        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended'])
+        status: z.enum(['at work', 'at work (remote)', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'terminated'])
       }).parse(req.body);
 
       // If the user is a team leader, verify the userId belongs to their team
@@ -1152,7 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status } = z.object({ 
-        status: z.enum(['at work', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'resignation'])
+        status: z.enum(['at work', 'at work (remote)', 'present', 'absent', 'late', 'sick', 'on leave', 'AWOL', 'suspended', 'resignation', 'terminated'])
       }).parse(req.body);
 
       // First, fetch the attendance record to get the userId
@@ -1189,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if this is a change FROM a termination status TO a non-termination status
-      const terminationStatuses = ['AWOL', 'suspended', 'resignation'];
+      const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
       const wasTerminationStatus = terminationStatuses.includes(attendanceRecord.status);
       const isNowTerminationStatus = terminationStatuses.includes(status);
       
@@ -1248,7 +1248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status, userId, comment } = z.object({
-        status: z.enum(['AWOL', 'suspended', 'resignation']),
+        status: z.enum(['AWOL', 'suspended', 'resignation', 'terminated']),
         userId: z.string(),
         comment: z.string().min(1, "Comment is required"),
       }).parse(req.body);

@@ -147,7 +147,7 @@ export default function TeamLeaderDashboard() {
   // Count unique users for each status to avoid duplicate records
   const presentUserIds = new Set(
     attendanceRecords
-      .filter(record => teamMemberIds.includes(record.userId) && (record.status === 'at work' || record.status === 'present'))
+      .filter(record => teamMemberIds.includes(record.userId) && (record.status === 'at work' || record.status === 'at work (remote)' || record.status === 'present'))
       .map(record => record.userId)
   );
   const presentToday = presentUserIds.size;
