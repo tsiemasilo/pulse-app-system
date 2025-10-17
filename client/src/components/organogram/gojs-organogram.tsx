@@ -68,10 +68,10 @@ export default function GoJSOrganogram({ users, onViewDetails, onAddEmployee, on
       allowDelete: false,
       initialAutoScale: go.AutoScale.Uniform,
       initialContentAlignment: go.Spot.TopLeft,
-      initialPosition: new go.Point(230, 70),
+      initialPosition: new go.Point(280, 90),
       maxSelectionCount: 1,
       validCycle: go.CycleMode.DestinationTree,
-      padding: new go.Margin(80, 20, 20, 240),
+      padding: new go.Margin(100, 20, 20, 290),
       layout: $(go.TreeLayout, {
         treeStyle: go.TreeStyle.LastParents,
         arrangement: go.TreeArrangement.Horizontal,
