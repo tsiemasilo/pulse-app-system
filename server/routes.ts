@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, users, attendance } from "@shared/schema";
+import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
 import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
@@ -1525,6 +1525,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating historical asset record:", error);
       res.status(500).json({ message: "Failed to save historical asset record" });
+    }
+  });
+
+  // Organizational Positions routes (for dynamic organogram)
+  app.get('/api/organizational-positions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.role || user.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const positions = await db.select().from(organizationalPositions).where(eq(organizationalPositions.isActive, true));
+      res.json(positions);
+    } catch (error) {
+      console.error("Error fetching organizational positions:", error);
+      res.status(500).json({ message: "Failed to fetch organizational positions" });
+    }
+  });
+
+  app.get('/api/organizational-positions/hierarchy', isAuthenticated, async (req: any, res) => {
+    try {
+      const positions = await db.select().from(organizationalPositions).where(eq(organizationalPositions.isActive, true));
+      
+      // Build hierarchy tree
+      const buildTree = (parentId: string | null = null): any[] => {
+        return positions
+          .filter(p => p.parentId === parentId)
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map(position => ({
+            ...position,
+            children: buildTree(position.id)
+          }));
+      };
+      
+      const hierarchy = buildTree(null);
+      res.json(hierarchy);
+    } catch (error) {
+      console.error("Error fetching organizational hierarchy:", error);
+      res.status(500).json({ message: "Failed to fetch organizational hierarchy" });
+    }
+  });
+
+  app.post('/api/organizational-positions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const positionData = insertOrganizationalPositionSchema.parse(req.body);
+      const [position] = await db.insert(organizationalPositions).values(positionData).returning();
+      res.json(position);
+    } catch (error) {
+      console.error("Error creating organizational position:", error);
+      res.status(500).json({ message: "Failed to create organizational position" });
+    }
+  });
+
+  app.patch('/api/organizational-positions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const updateData = insertOrganizationalPositionSchema.partial().parse(req.body);
+      const [position] = await db.update(organizationalPositions)
+        .set(updateData)
+        .where(eq(organizationalPositions.id, req.params.id))
+        .returning();
+      res.json(position);
+    } catch (error) {
+      console.error("Error updating organizational position:", error);
+      res.status(500).json({ message: "Failed to update organizational position" });
+    }
+  });
+
+  app.delete('/api/organizational-positions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Soft delete by setting isActive to false
+      await db.update(organizationalPositions)
+        .set({ isActive: false })
+        .where(eq(organizationalPositions.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting organizational position:", error);
+      res.status(500).json({ message: "Failed to delete organizational position" });
+    }
+  });
+
+  // User Position assignments
+  app.get('/api/user-positions', isAuthenticated, async (req: any, res) => {
+    try {
+      const assignments = await db.select().from(userPositions);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching user positions:", error);
+      res.status(500).json({ message: "Failed to fetch user positions" });
+    }
+  });
+
+  app.post('/api/user-positions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const assignmentData = insertUserPositionSchema.parse(req.body);
+      const [assignment] = await db.insert(userPositions).values(assignmentData).returning();
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error creating user position assignment:", error);
+      res.status(500).json({ message: "Failed to assign user to position" });
+    }
+  });
+
+  app.delete('/api/user-positions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await db.delete(userPositions).where(eq(userPositions.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user position assignment:", error);
+      res.status(500).json({ message: "Failed to remove user position assignment" });
     }
   });
 
