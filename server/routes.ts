@@ -1305,11 +1305,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(attendance.id, attendanceId));
       }
 
-      // Create termination record
+      // Create termination record with recordDate and entryType
+      const today = new Date();
+      const recordDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
       const termination = await storage.createTermination({
         userId,
         statusType: status,
         effectiveDate: new Date(),
+        recordDate,
+        entryType: 'initial',
         comment,
         processedBy: user.id,
       });
@@ -1450,6 +1455,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const terminationData = terminationApiSchema.parse(req.body);
       
+      // Set recordDate and entryType for initial termination
+      const today = new Date();
+      const recordDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      const terminationWithTracking = {
+        ...terminationData,
+        recordDate,
+        entryType: 'initial' as const,
+      };
+      
       // Check for duplicate termination (same user, same effective date)
       const allTerminations = await storage.getAllTerminations();
       
@@ -1471,7 +1486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create the termination
-      const termination = await storage.createTermination(terminationData);
+      const termination = await storage.createTermination(terminationWithTracking);
       
       // Deactivate the user when termination is processed
       await storage.updateUserStatus(terminationData.userId, false);

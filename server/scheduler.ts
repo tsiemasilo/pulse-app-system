@@ -89,8 +89,65 @@ export class DailyResetScheduler {
         timestamp: new Date().toISOString()
       });
 
+      // After daily reset, create daily termination tracking records
+      await this.checkAndCreateDailyTerminationRecords(today, systemUserId);
+
     } catch (error) {
       console.error("Error in automated daily reset:", error);
+    }
+  }
+
+  private async checkAndCreateDailyTerminationRecords(today: string, systemUserId: string) {
+    try {
+      console.log(`Checking for daily termination tracking records for ${today}`);
+      
+      // Get all attendance records for today with terminated statuses
+      const todayDate = new Date(today);
+      todayDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+      
+      const attendanceRecords = await storage.getAttendanceByDateRange(todayDate, endDate);
+      const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
+      
+      const terminatedUsers = attendanceRecords.filter(record => 
+        terminationStatuses.includes(record.status)
+      );
+      
+      let trackingRecordsCreated = 0;
+      
+      for (const attendance of terminatedUsers) {
+        // Check if a termination record already exists for this user and today
+        const exists = await storage.checkTerminationExistsForUserAndDate(attendance.userId, today);
+        
+        if (!exists) {
+          // Get the original termination record for this user
+          const originalTermination = await storage.getOriginalTerminationForUser(attendance.userId);
+          
+          if (originalTermination) {
+            // Create a daily tracking record
+            await storage.createTermination({
+              userId: attendance.userId,
+              statusType: attendance.status,
+              effectiveDate: originalTermination.effectiveDate,
+              recordDate: today,
+              entryType: 'daily_tracking',
+              comment: null,
+              processedBy: originalTermination.processedBy,
+            });
+            
+            trackingRecordsCreated++;
+            console.log(`Created daily tracking termination record for user ${attendance.userId} on ${today}`);
+          } else {
+            console.log(`No original termination found for user ${attendance.userId}, skipping daily tracking`);
+          }
+        }
+      }
+      
+      console.log(`Daily termination tracking completed for ${today}: ${trackingRecordsCreated} records created`);
+      
+    } catch (error) {
+      console.error("Error in daily termination tracking:", error);
     }
   }
 

@@ -95,11 +95,12 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-size: 15px;
   }
   
   @media (min-width: 1024px) {
     body {
-      zoom: 0.8;
+      font-size: 16px;
     }
   }
 }

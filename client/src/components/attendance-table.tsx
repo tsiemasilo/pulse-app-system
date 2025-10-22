@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Search, Filter, Calendar } from "lucide-react";
+import { Search, Filter, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import type { Attendance, User, Team, Termination } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +27,8 @@ export default function AttendanceTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false);
   const [pendingTermination, setPendingTermination] = useState<{
     attendanceId: string;
@@ -256,7 +258,7 @@ export default function AttendanceTable() {
     : attendanceRecords;
 
   // Apply search and filter
-  const displayRecords = useMemo(() => {
+  const filteredRecords = useMemo(() => {
     return allDisplayRecords.filter(record => {
       const userName = record.user?.firstName && record.user?.lastName 
         ? `${record.user.firstName} ${record.user.lastName}`
@@ -279,6 +281,30 @@ export default function AttendanceTable() {
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [allDisplayRecords, searchTerm, statusFilter, selectedDate]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const displayRecords = filteredRecords.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, selectedDate]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading attendance data...</div>;
@@ -405,12 +431,12 @@ export default function AttendanceTable() {
 
   return (
     <>
-      <div className="bg-card rounded-lg border border-border shadow-sm">
+      {/* Search and Filter Controls */}
+      <div className="bg-card rounded-lg border border-border shadow-sm mb-6">
         <div className="p-6 border-b border-border">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h2 className="text-xl font-semibold text-foreground">Today's Attendance</h2>
             
-            {/* Search and Filter Controls */}
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <div className="flex items-center space-x-2 flex-1 sm:flex-initial">
                 <Search className="h-4 w-4 text-muted-foreground" />
@@ -481,7 +507,17 @@ export default function AttendanceTable() {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto overflow-y-visible">
+      </div>
+
+      {/* Table */}
+      <div className="bg-card rounded-lg border border-border shadow-sm">
+        <div className="p-4 border-b border-border">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredRecords.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredRecords.length)} of {filteredRecords.length} records
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead style={{ backgroundColor: '#1a1f5c' }}>
               <tr>
@@ -570,6 +606,34 @@ export default function AttendanceTable() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages || 1}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              data-testid="button-previous-page"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={currentPage >= totalPages}
+              data-testid="button-next-page"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
 

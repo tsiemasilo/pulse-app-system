@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { UserX, Calendar, User, Search, ChevronLeft, ChevronRight, Eye, FileText, Clock } from "lucide-react";
 import { format } from "date-fns";
 import type { Termination, User as UserType, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
@@ -91,8 +91,9 @@ export default function TerminationManagement() {
 
       const matchesType = typeFilter === "all" || termination.statusType.toLowerCase() === typeFilter.toLowerCase();
 
-      const matchesDate = !selectedDate || (termination.effectiveDate && 
-        format(new Date(termination.effectiveDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+      // Filter by recordDate when date filter is used
+      const matchesDate = !selectedDate || (termination.recordDate && 
+        termination.recordDate === format(selectedDate, 'yyyy-MM-dd'));
 
       return matchesSearch && matchesType && matchesDate;
     });
@@ -202,7 +203,9 @@ export default function TerminationManagement() {
                 <tr>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status Type</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Record Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Effective Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Type</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Processed By</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Comment</th>
                   <th className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide"></th>
@@ -211,7 +214,7 @@ export default function TerminationManagement() {
               <tbody className="bg-card divide-y divide-border">
                 {paginatedTerminations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
                       No terminations found matching your search criteria.
                     </td>
                   </tr>
@@ -231,10 +234,31 @@ export default function TerminationManagement() {
                           {termination.statusType}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-record-date-${termination.id}`}>
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{termination.recordDate ? new Date(termination.recordDate).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-effective-date-${termination.id}`}>
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span>{new Date(termination.effectiveDate).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4" data-testid={`text-entry-type-${termination.id}`}>
+                        <div className="flex items-center space-x-2">
+                          {termination.entryType === 'initial' ? (
+                            <>
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm font-medium text-blue-600">Initial</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm text-gray-600">Daily</span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-processed-by-${termination.id}`}>
@@ -246,7 +270,7 @@ export default function TerminationManagement() {
                             {termination.comment}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">No comment provided</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">

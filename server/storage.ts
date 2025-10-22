@@ -97,6 +97,9 @@ export interface IStorage {
   getAllTerminations(): Promise<Termination[]>;
   createTermination(termination: InsertTermination): Promise<Termination>;
   deleteTerminationForUserOnDate(userId: string, date: Date): Promise<void>;
+  getTerminationsByRecordDate(recordDate: string): Promise<Termination[]>;
+  checkTerminationExistsForUserAndDate(userId: string, recordDate: string): Promise<boolean>;
+  getOriginalTerminationForUser(userId: string): Promise<Termination | undefined>;
   
   // Asset loss record management
   getAllAssetLossRecords(): Promise<AssetLossRecord[]>;
@@ -672,6 +675,34 @@ export class DatabaseStorage implements IStorage {
   async deleteTerminationById(terminationId: string): Promise<void> {
     // Delete a specific termination record by ID
     await db.delete(terminations).where(eq(terminations.id, terminationId));
+  }
+
+  async getTerminationsByRecordDate(recordDate: string): Promise<Termination[]> {
+    return await db.select().from(terminations)
+      .where(eq(terminations.recordDate, recordDate))
+      .orderBy(desc(terminations.createdAt));
+  }
+
+  async checkTerminationExistsForUserAndDate(userId: string, recordDate: string): Promise<boolean> {
+    const [record] = await db.select().from(terminations)
+      .where(and(
+        eq(terminations.userId, userId),
+        eq(terminations.recordDate, recordDate)
+      ))
+      .limit(1);
+    return !!record;
+  }
+
+  async getOriginalTerminationForUser(userId: string): Promise<Termination | undefined> {
+    // Get the initial termination record for a user (entryType = 'initial')
+    const [termination] = await db.select().from(terminations)
+      .where(and(
+        eq(terminations.userId, userId),
+        eq(terminations.entryType, 'initial')
+      ))
+      .orderBy(terminations.effectiveDate)
+      .limit(1);
+    return termination;
   }
 
   // Asset loss record management

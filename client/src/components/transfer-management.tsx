@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,19 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, Building2 } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import { z } from "zod";
 import type { Transfer, User as UserType, Department, Team } from "@shared/schema";
 
@@ -51,6 +43,8 @@ const AVAILABLE_LOCATIONS = [
 
 export default function TransferManagement() {
   const [isOpen, setIsOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -100,6 +94,25 @@ export default function TransferManagement() {
   const { data: transfers = [] } = useQuery<Transfer[]>({
     queryKey: ["/api/transfers"],
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(transfers.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedTransfers = transfers.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
@@ -397,76 +410,112 @@ export default function TransferManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Employee</TableHead>
-                <TableHead>Transfer Type</TableHead>
-                <TableHead>From → To Roles</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Requested By</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transfers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    No agent transfers found. Create a new transfer to get started.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                transfers.map((transfer) => (
-                  <TableRow key={transfer.id} data-testid={`row-transfer-${transfer.id}`}>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium" data-testid={`text-user-${transfer.id}`}>
-                          {getUserName(transfer.userId)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" data-testid={`badge-type-${transfer.id}`}>
-                        {transfer.transferType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span>{getRoleName(transfer.fromDepartmentId || '')}</span>
-                        <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                        <span>{getRoleName(transfer.toDepartmentId)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {transfer.fromRole ? (
-                        <span>{getLocationName(transfer.fromRole)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">No location</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-start-date-${transfer.id}`}>
-                      {new Date(transfer.startDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-end-date-${transfer.id}`}>
-                      {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getStatusColor(transfer.status)} data-testid={`badge-status-${transfer.id}`}>
-                        {transfer.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-requested-by-${transfer.id}`}>
-                      {getUserName(transfer.requestedBy)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="bg-card rounded-lg border border-border shadow-sm">
+          <div className="p-4 border-b border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {transfers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, transfers.length)} of {transfers.length} records
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead style={{ backgroundColor: '#1a1f5c' }}>
+                <tr>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Transfer Type</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From → To Roles</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Location</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Start Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">End Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Requested By</th>
+                </tr>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {paginatedTransfers.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
+                      No agent transfers found. Create a new transfer to get started.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTransfers.map((transfer) => (
+                    <tr key={transfer.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-transfer-${transfer.id}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium" data-testid={`text-user-${transfer.id}`}>
+                            {getUserName(transfer.userId)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="secondary" data-testid={`badge-type-${transfer.id}`}>
+                          {transfer.transferType}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <span>{getRoleName(transfer.fromDepartmentId || '')}</span>
+                          <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                          <span>{getRoleName(transfer.toDepartmentId)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {transfer.fromRole ? (
+                          <span>{getLocationName(transfer.fromRole)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">No location</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-start-date-${transfer.id}`}>
+                        {new Date(transfer.startDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-end-date-${transfer.id}`}>
+                        {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline" className={getStatusColor(transfer.status)} data-testid={`badge-status-${transfer.id}`}>
+                          {transfer.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-requested-by-${transfer.id}`}>
+                        {getUserName(transfer.requestedBy)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages || 1}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                data-testid="button-previous-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage >= totalPages}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

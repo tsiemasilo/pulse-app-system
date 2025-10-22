@@ -230,14 +230,9 @@ export default function UserManagementTable() {
       </div>
 
       <div className="bg-card rounded-lg border border-border shadow-sm">
-        <div className="p-4 sm:p-6 border-b border-border">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold text-foreground">User Access Management</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} records
-              </p>
-            </div>
+        <div className="p-4 border-b border-border">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground">User Access Management</h3>
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
               data-testid="button-create-user"
@@ -247,9 +242,12 @@ export default function UserManagementTable() {
               Create User
             </Button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredUsers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} records
+          </p>
         </div>
 
-        <div className="mobile-table-container">
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead style={{ backgroundColor: '#1a1f5c' }}>
               <tr>
@@ -350,20 +348,19 @@ export default function UserManagementTable() {
           </table>
         </div>
 
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs sm:text-sm text-muted-foreground">
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages || 1}
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handlePreviousPage}
               disabled={currentPage === 1}
               data-testid="button-previous-page"
-              className="flex-1 sm:flex-none text-xs sm:text-sm"
             >
-              <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <ChevronLeft className="h-4 w-4 mr-1" />
               Previous
             </Button>
             <Button
@@ -372,10 +369,9 @@ export default function UserManagementTable() {
               onClick={handleNextPage}
               disabled={currentPage >= totalPages}
               data-testid="button-next-page"
-              className="flex-1 sm:flex-none text-xs sm:text-sm"
             >
               Next
-              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
+              <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         </div>

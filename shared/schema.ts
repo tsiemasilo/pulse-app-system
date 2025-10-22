@@ -131,6 +131,8 @@ export const terminations = pgTable("terminations", {
   userId: varchar("user_id").notNull().references(() => users.id),
   statusType: varchar("status_type").notNull(), // AWOL, suspended, resignation
   effectiveDate: timestamp("effective_date").notNull(),
+  recordDate: text("record_date").notNull(), // YYYY-MM-DD format - the specific date this record represents
+  entryType: varchar("entry_type").notNull(), // 'initial' or 'daily_tracking'
   comment: text("comment"),
   processedBy: varchar("processed_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

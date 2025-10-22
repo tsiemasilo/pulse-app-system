@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw, Mouse, Cable } from "lucide-react";
+import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw, Mouse, Cable, ChevronLeft, ChevronRight } from "lucide-react";
 import type { User, AssetDailyState } from "@shared/schema";
 
 interface AssetManagementProps {
@@ -68,6 +67,10 @@ const STATE_CONFIG = {
 
 export default function AssetManagement({ userId, showActions = false }: AssetManagementProps) {
   const [activeTab, setActiveTab] = useState('book_in');
+  const [bookInPage, setBookInPage] = useState(1);
+  const [bookOutPage, setBookOutPage] = useState(1);
+  const [lostAssetsPage, setLostAssetsPage] = useState(1);
+  const recordsPerPage = 10;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -239,6 +242,18 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Use appropriate team members based on role
   const agentsToShow = currentUser?.role === 'team_leader' ? teamMembersList : allAgents;
 
+  // Book In pagination
+  const bookInTotalPages = Math.ceil(agentsToShow.length / recordsPerPage);
+  const bookInStartIndex = (bookInPage - 1) * recordsPerPage;
+  const bookInEndIndex = bookInStartIndex + recordsPerPage;
+  const paginatedBookInAgents = agentsToShow.slice(bookInStartIndex, bookInEndIndex);
+
+  // Book Out pagination  
+  const bookOutTotalPages = Math.ceil(agentsToShow.length / recordsPerPage);
+  const bookOutStartIndex = (bookOutPage - 1) * recordsPerPage;
+  const bookOutEndIndex = bookOutStartIndex + recordsPerPage;
+  const paginatedBookOutAgents = agentsToShow.slice(bookOutStartIndex, bookOutEndIndex);
+
   // Fetch daily states for all team members
   const { data: allDailyStates = [], isLoading: dailyStatesLoading } = useQuery<AssetDailyState[]>({
     queryKey: [`/api/assets/daily-states/${getCurrentDate()}`],
@@ -255,6 +270,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const unreturnedAssets = currentUser?.role === 'team_leader' 
     ? unreturnedAssetsRaw.filter(asset => teamMemberIds.includes(asset.userId))
     : unreturnedAssetsRaw;
+
+  // Unreturned Assets pagination
+  const lostAssetsTotalPages = Math.ceil(unreturnedAssets.length / recordsPerPage);
+  const lostAssetsStartIndex = (lostAssetsPage - 1) * recordsPerPage;
+  const lostAssetsEndIndex = lostAssetsStartIndex + recordsPerPage;
+  const paginatedLostAssets = unreturnedAssets.slice(lostAssetsStartIndex, lostAssetsEndIndex);
 
   // Transform daily states by user and asset type for easier lookup
   const statesByUserAndAsset = allDailyStates.reduce((acc, state) => {
@@ -566,72 +587,109 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 Confirm whether agents have collected their assets. Select ✓ for collected or ✗ for not collected.
               </div>
               
-              <Table>
-                <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
-                  <TableRow>
-                    <TableHead className="text-white font-semibold">Agent</TableHead>
-                    {ASSET_TYPES.map(asset => (
-                      <TableHead key={asset.id} className="text-center text-white font-semibold">
-                        <div className="flex items-center justify-center space-x-2">
-                          <asset.icon className="w-4 h-4" />
-                          <span>{asset.name}</span>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agentsToShow.map(agent => (
-                    <TableRow key={agent.id}>
-                      <TableCell className="font-medium">
-                        {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
-                      </TableCell>
-                      {ASSET_TYPES.map(asset => {
-                        const state = getAssetState(agent.id, asset.id);
-                        const isDisabled = isAssetDisabled(agent.id, asset.id);
-                        // Show status badge for any existing state, including unreturned/lost assets
-                        const hasState = state && ['collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
-                        
-                        return (
-                          <TableCell key={asset.id} className="text-center">
-                            {hasState ? (
-                              <Badge 
-                                className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
-                                data-testid={`badge-${agent.id}-${asset.id}`}
-                              >
-                                {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
-                              </Badge>
-                            ) : (
-                              <div className="flex justify-center space-x-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isDisabled}
-                                  onClick={() => handleBookInClick(agent.id, asset.id, 'collected')}
-                                  data-testid={`button-book-in-collected-${agent.id}-${asset.id}`}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Check className="w-4 h-4 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isDisabled}
-                                  onClick={() => handleBookInClick(agent.id, asset.id, 'not_collected')}
-                                  data-testid={`button-book-in-not-collected-${agent.id}-${asset.id}`}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <X className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="bg-card rounded-lg border border-border shadow-sm">
+                <div className="p-4 border-b border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {agentsToShow.length > 0 ? bookInStartIndex + 1 : 0} to {Math.min(bookInEndIndex, agentsToShow.length)} of {agentsToShow.length} records
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead style={{ backgroundColor: '#1a1f5c' }}>
+                      <tr>
+                        <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
+                        {ASSET_TYPES.map(asset => (
+                          <th key={asset.id} className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide">
+                            <div className="flex items-center justify-center space-x-2">
+                              <asset.icon className="w-4 h-4" />
+                              <span>{asset.name}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-card divide-y divide-border">
+                      {paginatedBookInAgents.map(agent => (
+                        <tr key={agent.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-6 py-4 font-medium">
+                            {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
+                          </td>
+                          {ASSET_TYPES.map(asset => {
+                            const state = getAssetState(agent.id, asset.id);
+                            const isDisabled = isAssetDisabled(agent.id, asset.id);
+                            const hasState = state && ['collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
+                            
+                            return (
+                              <td key={asset.id} className="px-6 py-4 text-center">
+                                {hasState ? (
+                                  <Badge 
+                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    data-testid={`badge-${agent.id}-${asset.id}`}
+                                  >
+                                    {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
+                                  </Badge>
+                                ) : (
+                                  <div className="flex justify-center space-x-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={isDisabled}
+                                      onClick={() => handleBookInClick(agent.id, asset.id, 'collected')}
+                                      data-testid={`button-book-in-collected-${agent.id}-${asset.id}`}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Check className="w-4 h-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={isDisabled}
+                                      onClick={() => handleBookInClick(agent.id, asset.id, 'not_collected')}
+                                      data-testid={`button-book-in-not-collected-${agent.id}-${asset.id}`}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <X className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Page {bookInPage} of {bookInTotalPages || 1}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBookInPage(Math.max(1, bookInPage - 1))}
+                      disabled={bookInPage === 1}
+                      data-testid="button-book-in-previous"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBookInPage(Math.min(bookInTotalPages, bookInPage + 1))}
+                      disabled={bookInPage >= bookInTotalPages}
+                      data-testid="button-book-in-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Book Out Tab */}
@@ -640,62 +698,100 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 Confirm whether agents have returned their assets. Only assets that were collected can be booked out.
               </div>
               
-              <Table>
-                <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
-                  <TableRow>
-                    <TableHead className="text-white font-semibold">Agent</TableHead>
-                    {ASSET_TYPES.map(asset => (
-                      <TableHead key={asset.id} className="text-center text-white font-semibold">
-                        <div className="flex items-center justify-center space-x-2">
-                          <asset.icon className="w-4 h-4" />
-                          <span>{asset.name}</span>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agentsToShow.map(agent => (
-                    <TableRow key={agent.id}>
-                      <TableCell className="font-medium">
-                        {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
-                      </TableCell>
-                      {ASSET_TYPES.map(asset => {
-                        const state = getAssetState(agent.id, asset.id);
-                        const canBook = canBookOut(agent.id, asset.id);
-                        const isDisabled = isAssetDisabled(agent.id, asset.id);
-                        const hasBookOutState = state && ['returned', 'not_returned', 'lost'].includes(state.currentState);
-                        
-                        return (
-                          <TableCell key={asset.id} className="text-center">
-                            {hasBookOutState ? (
-                              <Badge 
-                                className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
-                                data-testid={`badge-book-out-${agent.id}-${asset.id}`}
-                              >
-                                {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
-                              </Badge>
-                            ) : canBook ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleBookOutClick(agent.id, asset.id)}
-                                data-testid={`button-book-out-${agent.id}-${asset.id}`}
-                              >
-                                Book Out
-                              </Button>
-                            ) : (
-                              <div className="text-xs text-muted-foreground">
-                                {state?.currentState === 'not_collected' ? 'Not Collected' : 'Not Available'}
-                              </div>
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="bg-card rounded-lg border border-border shadow-sm">
+                <div className="p-4 border-b border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {agentsToShow.length > 0 ? bookOutStartIndex + 1 : 0} to {Math.min(bookOutEndIndex, agentsToShow.length)} of {agentsToShow.length} records
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead style={{ backgroundColor: '#1a1f5c' }}>
+                      <tr>
+                        <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
+                        {ASSET_TYPES.map(asset => (
+                          <th key={asset.id} className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide">
+                            <div className="flex items-center justify-center space-x-2">
+                              <asset.icon className="w-4 h-4" />
+                              <span>{asset.name}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-card divide-y divide-border">
+                      {paginatedBookOutAgents.map(agent => (
+                        <tr key={agent.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-6 py-4 font-medium">
+                            {`${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.username}
+                          </td>
+                          {ASSET_TYPES.map(asset => {
+                            const state = getAssetState(agent.id, asset.id);
+                            const canBook = canBookOut(agent.id, asset.id);
+                            const isDisabled = isAssetDisabled(agent.id, asset.id);
+                            const hasBookOutState = state && ['returned', 'not_returned', 'lost'].includes(state.currentState);
+                            
+                            return (
+                              <td key={asset.id} className="px-6 py-4 text-center">
+                                {hasBookOutState ? (
+                                  <Badge 
+                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    data-testid={`badge-book-out-${agent.id}-${asset.id}`}
+                                  >
+                                    {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
+                                  </Badge>
+                                ) : canBook ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleBookOutClick(agent.id, asset.id)}
+                                    data-testid={`button-book-out-${agent.id}-${asset.id}`}
+                                  >
+                                    Book Out
+                                  </Button>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    {state?.currentState === 'not_collected' ? 'Not Collected' : 'Not Available'}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Page {bookOutPage} of {bookOutTotalPages || 1}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBookOutPage(Math.max(1, bookOutPage - 1))}
+                      disabled={bookOutPage === 1}
+                      data-testid="button-book-out-previous"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBookOutPage(Math.min(bookOutTotalPages, bookOutPage + 1))}
+                      disabled={bookOutPage >= bookOutTotalPages}
+                      data-testid="button-book-out-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Unreturned Assets Tab */}
@@ -711,68 +807,106 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                   No unreturned assets found.
                 </div>
               ) : (
-                <Table>
-                  <TableHeader style={{ backgroundColor: '#1a1f5c' }}>
-                    <TableRow>
-                      <TableHead className="text-white font-semibold">Agent</TableHead>
-                      <TableHead className="text-white font-semibold">Asset Type</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Date Lost</TableHead>
-                      <TableHead className="text-white font-semibold">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unreturnedAssets.map((asset, index) => (
-                      <TableRow key={`${asset.userId}-${asset.assetType}-${index}`}>
-                        <TableCell className="font-medium">
-                          {asset.agentName || getAgentName(asset.userId)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {(() => {
-                              const assetType = ASSET_TYPES.find(t => t.id === asset.assetType);
-                              const IconComponent = assetType?.icon;
-                              return IconComponent ? <IconComponent className="w-4 h-4" /> : null;
-                            })()}
-                            <span className="capitalize">{asset.assetType}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={asset.statusColor || 'bg-red-100 text-red-800'}>
-                            {asset.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(asset.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkAsFound(asset.userId, asset.assetType, asset.date)}
-                              data-testid={`button-mark-found-${asset.userId}-${asset.assetType}`}
-                            >
-                              <RotateCcw className="w-4 h-4 mr-1" />
-                              Mark as Found
-                            </Button>
-                            {asset.reason && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewReason(asset.reason)}
-                                data-testid={`button-view-reason-${asset.userId}-${asset.assetType}`}
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View Reason
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="bg-card rounded-lg border border-border shadow-sm">
+                  <div className="p-4 border-b border-border">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {unreturnedAssets.length > 0 ? lostAssetsStartIndex + 1 : 0} to {Math.min(lostAssetsEndIndex, unreturnedAssets.length)} of {unreturnedAssets.length} records
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead style={{ backgroundColor: '#1a1f5c' }}>
+                        <tr>
+                          <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
+                          <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Asset Type</th>
+                          <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
+                          <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Date Lost</th>
+                          <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-card divide-y divide-border">
+                        {paginatedLostAssets.map((asset, index) => (
+                          <tr key={`${asset.userId}-${asset.assetType}-${index}`} className="hover:bg-muted/20 transition-colors">
+                            <td className="px-6 py-4 font-medium">
+                              {asset.agentName || getAgentName(asset.userId)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center space-x-2">
+                                {(() => {
+                                  const assetType = ASSET_TYPES.find(t => t.id === asset.assetType);
+                                  const IconComponent = assetType?.icon;
+                                  return IconComponent ? <IconComponent className="w-4 h-4" /> : null;
+                                })()}
+                                <span className="capitalize">{asset.assetType}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge className={asset.statusColor || 'bg-red-100 text-red-800'}>
+                                {asset.status}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4">
+                              {new Date(asset.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleMarkAsFound(asset.userId, asset.assetType, asset.date)}
+                                  data-testid={`button-mark-found-${asset.userId}-${asset.assetType}`}
+                                >
+                                  <RotateCcw className="w-4 h-4 mr-1" />
+                                  Mark as Found
+                                </Button>
+                                {asset.reason && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleViewReason(asset.reason)}
+                                    data-testid={`button-view-reason-${asset.userId}-${asset.assetType}`}
+                                  >
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    View Reason
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Page {lostAssetsPage} of {lostAssetsTotalPages || 1}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLostAssetsPage(Math.max(1, lostAssetsPage - 1))}
+                        disabled={lostAssetsPage === 1}
+                        data-testid="button-lost-previous"
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLostAssetsPage(Math.min(lostAssetsTotalPages, lostAssetsPage + 1))}
+                        disabled={lostAssetsPage >= lostAssetsTotalPages}
+                        data-testid="button-lost-next"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
             </TabsContent>
           </Tabs>
