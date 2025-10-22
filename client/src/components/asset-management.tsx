@@ -418,8 +418,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleBookOutClick = (userId: string, assetType: AssetType) => {
     if (!canBookOut(userId, assetType)) {
       toast({
-        title: "Cannot Book Out Asset",
-        description: "Asset must be collected before it can be booked out.",
+        title: "Cannot Book In Asset",
+        description: "Asset must be collected before it can be booked in.",
         variant: "destructive",
       });
       return;
@@ -576,12 +576,12 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="book_in" data-testid="tab-book-in">Book In</TabsTrigger>
-              <TabsTrigger value="book_out" data-testid="tab-book-out">Book Out</TabsTrigger>
+              <TabsTrigger value="book_in" data-testid="tab-book-in">Book Out</TabsTrigger>
+              <TabsTrigger value="book_out" data-testid="tab-book-out">Book In</TabsTrigger>
               <TabsTrigger value="unreturned" data-testid="tab-unreturned">Unreturned Assets</TabsTrigger>
             </TabsList>
 
-            {/* Book In Tab */}
+            {/* Book Out Tab (Issuing/Handing Out Assets) */}
             <TabsContent value="book_in" className="space-y-4">
               <div className="text-sm text-muted-foreground mb-4">
                 Confirm whether agents have collected their assets. Select ✓ for collected or ✗ for not collected.
@@ -692,10 +692,10 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               </div>
             </TabsContent>
 
-            {/* Book Out Tab */}
+            {/* Book In Tab (Returning Assets) */}
             <TabsContent value="book_out" className="space-y-4">
               <div className="text-sm text-muted-foreground mb-4">
-                Confirm whether agents have returned their assets. Only assets that were collected can be booked out.
+                Confirm whether agents have returned their assets. Only assets that were collected can be booked in.
               </div>
               
               <div className="bg-card rounded-lg border border-border shadow-sm">
@@ -748,7 +748,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                     onClick={() => handleBookOutClick(agent.id, asset.id)}
                                     data-testid={`button-book-out-${agent.id}-${asset.id}`}
                                   >
-                                    Book Out
+                                    Book In
                                   </Button>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">
@@ -913,7 +913,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </CardContent>
       </Card>
 
-      {/* Book In Confirmation Dialog */}
+      {/* Book Out Confirmation Dialog (Issuing Assets) */}
       <AlertDialog open={showBookInConfirm} onOpenChange={setShowBookInConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -950,7 +950,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Book Out Status Selection Dialog */}
+      {/* Book In Status Selection Dialog (Returning Assets) */}
       <Dialog open={showBookOutStatusDialog} onOpenChange={setShowBookOutStatusDialog}>
         <DialogContent>
           <DialogHeader>
@@ -993,7 +993,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         </DialogContent>
       </Dialog>
 
-      {/* Book Out Confirmation Dialog */}
+      {/* Book In Confirmation Dialog (Returning Assets) */}
       <AlertDialog open={showBookOutConfirm} onOpenChange={setShowBookOutConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>

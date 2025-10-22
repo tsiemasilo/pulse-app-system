@@ -84,8 +84,8 @@ export const attendance = pgTable("attendance", {
 export const historicalAssetRecords = pgTable("historical_asset_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   date: text("date").notNull(), // YYYY-MM-DD format
-  bookInRecords: jsonb("book_in_records").notNull(), // JSON of agent booking data
-  bookOutRecords: jsonb("book_out_records").notNull(), // JSON of agent booking data  
+  bookInRecords: jsonb("book_in_records").notNull(), // JSON of "Book Out" data (assets issued/handed out to agents)
+  bookOutRecords: jsonb("book_out_records").notNull(), // JSON of "Book In" data (assets returned by agents)
   lostAssets: jsonb("lost_assets").notNull(), // JSON array of lost asset records
   createdAt: timestamp("created_at").defaultNow(),
 });

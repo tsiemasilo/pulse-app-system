@@ -507,7 +507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // New Asset Booking API Routes
   
-  // Book In Route - Confirm asset collection status
+  // Book Out Route - Confirm asset collection status (issuing/handing out assets to agents)
   app.post('/api/assets/book-in', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
@@ -523,13 +523,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason: z.string().optional(),
       }).parse(req.body);
 
-      // Validate that the asset is in a state that allows book-in
+      // Validate that the asset is in a state that allows book-out (issuing)
       const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
       const existingState = currentStates.find(s => s.assetType === assetType);
       
       if (existingState && !['ready_for_collection', 'collected', 'not_collected'].includes(existingState.currentState)) {
         return res.status(400).json({ 
-          message: `Cannot book in asset in current state: ${existingState.currentState}` 
+          message: `Cannot book out asset in current state: ${existingState.currentState}` 
         });
       }
 
@@ -553,19 +553,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assetType,
         previousState: existingState?.currentState || 'ready_for_collection',
         newState: status,
-        reason: reason || `Book in: ${status}`,
+        reason: reason || `Book out: ${status}`,
         changedBy: user.id,
         changedAt: new Date()
       });
 
       res.json(dailyState);
     } catch (error) {
-      console.error("Error processing book-in:", error);
-      res.status(500).json({ message: "Failed to process book-in" });
+      console.error("Error processing book-out:", error);
+      res.status(500).json({ message: "Failed to process book-out" });
     }
   });
 
-  // Book Out Route - Confirm asset return status  
+  // Book In Route - Confirm asset return status (agents returning assets)
   app.post('/api/assets/book-out', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
@@ -581,13 +581,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason: z.string().optional(),
       }).parse(req.body);
 
-      // Validate that the asset was booked in (collected) before allowing book out
+      // Validate that the asset was booked out (collected) before allowing book in (return)
       const currentStates = await storage.getAssetDailyStatesByUserAndDate(userId, date);
       const existingState = currentStates.find(s => s.assetType === assetType);
       
       if (!existingState || existingState.currentState !== 'collected') {
         return res.status(400).json({ 
-          message: "Asset must be collected before it can be booked out" 
+          message: "Asset must be collected before it can be booked in" 
         });
       }
 
@@ -636,15 +636,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assetType,
         previousState: existingState.currentState,
         newState: status,
-        reason: reason || `Book out: ${status}`,
+        reason: reason || `Book in: ${status}`,
         changedBy: user.id,
         changedAt: new Date()
       });
 
       res.json(dailyState);
     } catch (error) {
-      console.error("Error processing book-out:", error);
-      res.status(500).json({ message: "Failed to process book-out" });
+      console.error("Error processing book-in:", error);
+      res.status(500).json({ message: "Failed to process book-in" });
     }
   });
 

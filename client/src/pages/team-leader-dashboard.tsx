@@ -538,7 +538,7 @@ export default function TeamLeaderDashboard() {
                 {activeTab === 'attendance' ? 'Track and manage team member attendance' :
                  activeTab === 'transfers' ? 'Handle team member transfers' :
                  activeTab === 'terminations' ? 'Process team member terminations' :
-                 activeTab === 'assets' ? 'Track asset booking in and out for team members' :
+                 activeTab === 'assets' ? 'Track asset booking out and in for team members' :
                  activeTab === 'reports' ? 'View historical data and analytics for asset management and operational changes' :
                  activeTab === 'employees' ? 'View and manage team members' :
                  activeTab === 'onboarding' ? 'Onboard new team members' :

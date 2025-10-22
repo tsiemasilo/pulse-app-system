@@ -249,8 +249,8 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
 
   // Asset status data
   const assetChartData = [
-    { name: 'Booked In', value: assets.totalBookedIn, color: COLORS.primary },
-    { name: 'Booked Out', value: assets.totalBookedOut, color: COLORS.success },
+    { name: 'Booked Out', value: assets.totalBookedIn, color: COLORS.primary },
+    { name: 'Booked In', value: assets.totalBookedOut, color: COLORS.success },
     { name: 'Lost', value: assets.totalLost, color: COLORS.danger },
   ];
 
@@ -671,8 +671,8 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Area type="monotone" dataKey="bookedIn" stackId="1" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.6} name="Booked In" />
-                      <Area type="monotone" dataKey="bookedOut" stackId="2" stroke={COLORS.success} fill={COLORS.success} fillOpacity={0.6} name="Booked Out" />
+                      <Area type="monotone" dataKey="bookedIn" stackId="1" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.6} name="Booked Out" />
+                      <Area type="monotone" dataKey="bookedOut" stackId="2" stroke={COLORS.success} fill={COLORS.success} fillOpacity={0.6} name="Booked In" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -782,14 +782,14 @@ export default function Reports({ user, teamMembers = [] }: ReportsProps) {
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg" data-testid="history-booked-in">
                         <div className="flex items-center gap-2 mb-2">
                           <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Assets Booked In</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Assets Booked Out</p>
                         </div>
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{assets.totalBookedIn}</p>
                       </div>
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg" data-testid="history-booked-out">
                         <div className="flex items-center gap-2 mb-2">
                           <Package className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Assets Returned</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Assets Booked In</p>
                         </div>
                         <p className="text-2xl font-bold text-green-600 dark:text-green-400">{assets.totalBookedOut}</p>
                       </div>
