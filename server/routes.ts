@@ -1193,7 +1193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const wasTerminationStatus = terminationStatuses.includes(attendanceRecord.status);
       const isNowTerminationStatus = terminationStatuses.includes(status);
       
-      // If changing from termination status to non-termination status, delete the most recent termination record
+      // If changing from termination status to non-termination status, check if we should delete the termination record
       if (wasTerminationStatus && !isNowTerminationStatus) {
         try {
           // Get all terminations for this user and find the most recent one
@@ -1209,14 +1209,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (userTerminations.length > 0) {
             const mostRecentTermination = userTerminations[0];
-            // Delete the most recent termination record
-            await storage.deleteTerminationById(mostRecentTermination.id);
-            console.log(`Deleted termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (effective date: ${mostRecentTermination.effectiveDate}, status: ${mostRecentTermination.statusType})`);
+            
+            // Check if the termination's effectiveDate is today
+            const terminationDate = new Date(mostRecentTermination.effectiveDate);
+            const today = new Date();
+            terminationDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+            const isSameDay = terminationDate.getTime() === today.getTime();
+            
+            // Also check if the attendance record date is today
+            const attendanceDate = new Date(attendanceRecord.date);
+            attendanceDate.setHours(0, 0, 0, 0);
+            const isAttendanceToday = attendanceDate.getTime() === today.getTime();
+            
+            // Only delete if BOTH the termination and attendance change are happening on the same day
+            if (isSameDay && isAttendanceToday) {
+              await storage.deleteTerminationById(mostRecentTermination.id);
+              console.log(`Deleted termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (marked and changed on same day: ${mostRecentTermination.effectiveDate})`);
+            } else {
+              console.log(`Keeping termination record ${mostRecentTermination.id} for user ${attendanceRecord.userId} (termination date: ${mostRecentTermination.effectiveDate}, attendance date: ${attendanceRecord.date})`);
+            }
           } else {
             console.log(`No termination record found for user ${attendanceRecord.userId} to delete`);
           }
         } catch (error) {
-          console.error("Error deleting termination record:", error);
+          console.error("Error handling termination record:", error);
           // Continue with the status update even if deletion fails
         }
       }

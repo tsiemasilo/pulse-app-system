@@ -42,6 +42,7 @@ export default function AttendanceTable() {
     userId?: string;
     userName: string;
     currentStatus: string;
+    willClearRecord?: boolean;
   } | null>(null);
 
   const { data: attendanceRecords = [], isLoading } = useQuery<AttendanceRecord[]>({
@@ -293,22 +294,61 @@ export default function AttendanceTable() {
     return selected.getTime() === today.getTime();
   };
 
-  const handleStatusChange = (attendanceId: string, newStatus: string, userId?: string, userName?: string) => {
+  const handleStatusChange = async (attendanceId: string, newStatus: string, userId?: string, userName?: string) => {
     // Find the current status of this record
     const currentRecord = allDisplayRecords.find(r => r.id === attendanceId);
     const currentStatus = currentRecord?.status;
+    const currentDate = currentRecord?.date;
     
     const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
     
     // Check if changing FROM a termination status TO another status
-    if (currentStatus && terminationStatuses.includes(currentStatus) && !terminationStatuses.includes(newStatus)) {
-      // Show back-to-work confirmation dialog
+    if (currentStatus && terminationStatuses.includes(currentStatus) && !terminationStatuses.includes(newStatus) && userId) {
+      // Get the user's most recent termination to check the date
+      const lastTermination = getLastTerminationStatus(userId);
+      
+      if (lastTermination && terminations.length > 0) {
+        // Find the actual termination record with the date
+        const userTerminations = terminations
+          .filter(t => t.userId === userId && terminationStatuses.includes(t.statusType))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        
+        if (userTerminations.length > 0) {
+          const mostRecentTermination = userTerminations[0];
+          const terminationDate = new Date(mostRecentTermination.effectiveDate);
+          const today = new Date();
+          const attendanceDate = currentDate ? new Date(currentDate) : today;
+          
+          // Set to start of day for comparison
+          terminationDate.setHours(0, 0, 0, 0);
+          today.setHours(0, 0, 0, 0);
+          attendanceDate.setHours(0, 0, 0, 0);
+          
+          const isTerminationToday = terminationDate.getTime() === today.getTime();
+          const isAttendanceToday = attendanceDate.getTime() === today.getTime();
+          
+          // Show back-to-work confirmation dialog with appropriate message
+          setPendingBackToWork({
+            attendanceId,
+            newStatus,
+            userId,
+            userName: userName || 'Unknown User',
+            currentStatus,
+            willClearRecord: isTerminationToday && isAttendanceToday
+          });
+          setBackToWorkDialogOpen(true);
+          return;
+        }
+      }
+      
+      // If no termination found, just show the regular dialog
       setPendingBackToWork({
         attendanceId,
         newStatus,
         userId,
         userName: userName || 'Unknown User',
-        currentStatus
+        currentStatus,
+        willClearRecord: false
       });
       setBackToWorkDialogOpen(true);
       return;
@@ -589,9 +629,15 @@ export default function AttendanceTable() {
               Are you sure <strong>{pendingBackToWork?.userName}</strong> is back to work?
               <br />
               <br />
-              <span className="text-amber-600 dark:text-amber-400">
-                Note: This will clear the termination record from the Employee Terminations table.
-              </span>
+              {pendingBackToWork?.willClearRecord ? (
+                <span className="text-amber-600 dark:text-amber-400">
+                  Note: This will clear the termination record from the Employee Terminations table because the status was changed on the same day it was marked.
+                </span>
+              ) : (
+                <span className="text-blue-600 dark:text-blue-400">
+                  Note: The termination record will be kept in the Employee Terminations table for historical tracking.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
