@@ -67,13 +67,16 @@ export default function TerminationManagement() {
 
   // Filter terminations by team leader's team members
   const terminations = useMemo(() => {
+    // First filter: only show initial termination records (not daily_tracking duplicates)
+    const initialTerminations = allTerminations.filter(t => t.entryType === 'initial');
+    
     if (user?.role === 'team_leader') {
       // Always filter for team leaders, even if array is empty (shows no records during loading)
       const teamMemberIds = teamMembers.map(m => m.id);
-      return allTerminations.filter(t => teamMemberIds.includes(t.userId));
+      return initialTerminations.filter(t => teamMemberIds.includes(t.userId));
     }
     // Non-team-leaders (admin, etc.) see all records
-    return allTerminations;
+    return initialTerminations;
   }, [allTerminations, teamMembers, user?.role]);
 
   const getUserName = (userId: string) => {

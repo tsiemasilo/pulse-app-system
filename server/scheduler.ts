@@ -89,8 +89,7 @@ export class DailyResetScheduler {
         timestamp: new Date().toISOString()
       });
 
-      // After daily reset, create daily termination tracking records
-      await this.checkAndCreateDailyTerminationRecords(today, systemUserId);
+      // Daily termination tracking disabled - termination records persist without duplication
 
     } catch (error) {
       console.error("Error in automated daily reset:", error);
