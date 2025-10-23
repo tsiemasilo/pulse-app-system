@@ -468,29 +468,6 @@ export class DatabaseStorage implements IStorage {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
     
-    // Check if attendance record already exists for this user today
-    const existingRecords = await db
-      .select()
-      .from(attendance)
-      .where(and(
-        eq(attendance.userId, userId),
-        gte(attendance.date, startOfDay),
-        lte(attendance.date, endOfDay)
-      ));
-    
-    // If record exists, update it instead of creating a new one
-    if (existingRecords.length > 0) {
-      const [updated] = await db
-        .update(attendance)
-        .set({ status })
-        .where(eq(attendance.id, existingRecords[0].id))
-        .returning();
-      
-      console.log("Updated existing attendance record:", updated);
-      return updated;
-    }
-    
-    // Otherwise create a new record
     // Remote work persistence: if status is "at work", check most recent WORKING day's status
     // If most recent working status was "at work (remote)", maintain remote status
     let finalStatus = status;
@@ -513,6 +490,29 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    // Check if attendance record already exists for this user today
+    const existingRecords = await db
+      .select()
+      .from(attendance)
+      .where(and(
+        eq(attendance.userId, userId),
+        gte(attendance.date, startOfDay),
+        lte(attendance.date, endOfDay)
+      ));
+    
+    // If record exists, update it instead of creating a new one
+    if (existingRecords.length > 0) {
+      const [updated] = await db
+        .update(attendance)
+        .set({ status: finalStatus })
+        .where(eq(attendance.id, existingRecords[0].id))
+        .returning();
+      
+      console.log("Updated existing attendance record:", updated);
+      return updated;
+    }
+    
+    // Otherwise create a new record
     const result = await db
       .insert(attendance)
       .values({
