@@ -38,7 +38,13 @@ Preferred communication style: Simple, everyday language.
 - **Feature Specifications**:
     - **Attendance System**: Enhanced tracking with interactive status dropdowns for team leaders, restricted to their team members. Integrates with termination processes. Automatic attendance record creation for team members without records.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
-    - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Daily scheduler ensures asset state updates.
+    - **Asset Management**: Centralized filter controls in header for consistent user experience. Features include:
+        - **Global Search Filter**: Search by agent name applies across all tabs (Book Out, Book In, Unreturned Assets)
+        - **Status Filter**: Filters unreturned assets by status (Lost, Not Returned)
+        - **Date Filter**: Filters unreturned assets by date lost
+        - **Unified Header Layout**: All filters positioned in header alongside Reset Agent button for easy access
+        - **Tab-Specific Filtering**: Status and date filters scope to Unreturned Assets tab; search applies globally
+        - **Robust Asset Handling**: Unreturned and lost assets persist across days with daily scheduler for state updates
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
     - **Transfer Management**: Team-based agent transfer system enabling movement of agents between team leaders. Features include:
         - **Team Leader Selection**: Transfer agents from one team leader to another, with automatic team reassignment
