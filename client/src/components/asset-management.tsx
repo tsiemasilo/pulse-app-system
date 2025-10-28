@@ -15,7 +15,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw, Mouse, Cable, ChevronLeft, ChevronRight, Search, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO, isSameDay } from "date-fns";
 import type { User, AssetDailyState } from "@shared/schema";
 import AssetAuditLog from "./asset-audit-log";
 
@@ -120,10 +120,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [selectedResetAgent, setSelectedResetAgent] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState('');
 
-  // Helper function to get current date
+  // Helper function to get current date (timezone-safe)
   const getCurrentDate = () => {
-    const now = new Date();
-    return now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    return format(new Date(), 'yyyy-MM-dd'); // YYYY-MM-DD format
   };
 
   // Fetch current user for role checking
@@ -251,35 +250,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Use appropriate team members based on role
   const agentsToShow = currentUser?.role === 'team_leader' ? teamMembersList : allAgents;
 
-  // Filter agents by search term for Book Out and Book In tabs
-  const filteredAgents = useMemo(() => {
-    return agentsToShow.filter(agent => {
-      if (searchTerm === "") return true;
-      
-      const fullName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim();
-      const username = agent.username || '';
-      const searchLower = searchTerm.toLowerCase();
-      
-      return fullName.toLowerCase().includes(searchLower) || 
-             username.toLowerCase().includes(searchLower);
-    });
-  }, [agentsToShow, searchTerm]);
-
-  // Book In pagination
-  const bookInTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
-  const bookInStartIndex = (bookInPage - 1) * recordsPerPage;
-  const bookInEndIndex = bookInStartIndex + recordsPerPage;
-  const paginatedBookInAgents = filteredAgents.slice(bookInStartIndex, bookInEndIndex);
-
-  // Book Out pagination  
-  const bookOutTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
-  const bookOutStartIndex = (bookOutPage - 1) * recordsPerPage;
-  const bookOutEndIndex = bookOutStartIndex + recordsPerPage;
-  const paginatedBookOutAgents = filteredAgents.slice(bookOutStartIndex, bookOutEndIndex);
+  // Determine which date to fetch daily states for (timezone-safe)
+  const queryDate = selectedDate 
+    ? format(selectedDate, 'yyyy-MM-dd')
+    : getCurrentDate();
 
   // Fetch daily states for all team members
   const { data: allDailyStates = [], isLoading: dailyStatesLoading } = useQuery<AssetDailyState[]>({
-    queryKey: [`/api/assets/daily-states/${getCurrentDate()}`],
+    queryKey: [`/api/assets/daily-states/${queryDate}`],
   });
 
   // Fetch unreturned assets
@@ -306,18 +284,19 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
         (statusFilter === "lost" && asset.status?.toLowerCase() === "lost") ||
         (statusFilter === "not_returned" && asset.status?.toLowerCase() === "not_returned");
       
+      // Timezone-safe date comparison using parseISO and isSameDay
       const matchesDate = !selectedDate || 
-        new Date(asset.date).toDateString() === selectedDate.toDateString();
+        isSameDay(parseISO(asset.date), selectedDate);
       
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [unreturnedAssets, searchTerm, statusFilter, selectedDate]);
 
-  // Reset page to 1 when search term changes (for Book In and Book Out tabs)
+  // Reset page to 1 when filters change (for Book In and Book Out tabs)
   useEffect(() => {
     setBookInPage(1);
     setBookOutPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter, selectedDate]);
 
   // Reset page to 1 when filters change (for Unreturned Assets tab)
   useEffect(() => {
@@ -337,13 +316,54 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return acc;
   }, {} as Record<string, Record<string, AssetDailyState>>);
 
+  // Filter agents by search term, status, and date for Book Out and Book In tabs
+  const filteredAgents = useMemo(() => {
+    return agentsToShow.filter(agent => {
+      // Search filter
+      const fullName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim();
+      const username = agent.username || '';
+      const searchLower = searchTerm.toLowerCase();
+      
+      const matchesSearch = searchTerm === "" || 
+        fullName.toLowerCase().includes(searchLower) || 
+        username.toLowerCase().includes(searchLower);
+      
+      // Status filter - check if agent has any assets matching the selected status
+      const agentStates = statesByUserAndAsset[agent.id] || {};
+      const matchesStatus = statusFilter === "all" || 
+        Object.values(agentStates).some(state => 
+          state.currentState === statusFilter || 
+          (statusFilter === "not_returned" && state.currentState === "not_returned") ||
+          (statusFilter === "lost" && state.currentState === "lost")
+        );
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [agentsToShow, searchTerm, statusFilter, statesByUserAndAsset]);
+
+  // Book In pagination
+  const bookInTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
+  const bookInStartIndex = (bookInPage - 1) * recordsPerPage;
+  const bookInEndIndex = bookInStartIndex + recordsPerPage;
+  const paginatedBookInAgents = filteredAgents.slice(bookInStartIndex, bookInEndIndex);
+
+  // Book Out pagination  
+  const bookOutTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
+  const bookOutStartIndex = (bookOutPage - 1) * recordsPerPage;
+  const bookOutEndIndex = bookOutStartIndex + recordsPerPage;
+  const paginatedBookOutAgents = filteredAgents.slice(bookOutStartIndex, bookOutEndIndex);
+
   // Book in mutation
   const bookInMutation = useMutation({
     mutationFn: async (data: { userId: string; assetType: string; date: string; status: string; reason?: string }) => {
       return await apiRequest('POST', '/api/assets/book-in', data);
     },
     onSuccess: () => {
+      // Invalidate both current date and selected date (if different)
       queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      if (queryDate !== getCurrentDate()) {
+        queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${queryDate}`] });
+      }
       setShowBookInConfirm(false);
       setPendingBookIn(null);
       toast({
@@ -366,7 +386,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/assets/book-out', data);
     },
     onSuccess: () => {
+      // Invalidate both current date and selected date (if different)
       queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      if (queryDate !== getCurrentDate()) {
+        queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${queryDate}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
       setShowBookOutConfirm(false);
       setShowBookOutStatusDialog(false);
@@ -393,7 +417,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
       return await apiRequest('POST', '/api/assets/mark-found', data);
     },
     onSuccess: () => {
+      // Invalidate both current date and selected date (if different)
       queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      if (queryDate !== getCurrentDate()) {
+        queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${queryDate}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
       setShowMarkFoundDialog(false);
       setPendingMarkFound(null);
