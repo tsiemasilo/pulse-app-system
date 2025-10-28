@@ -40,6 +40,15 @@ Preferred communication style: Simple, everyday language.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
     - **Asset Control Logic**: Robust handling of unreturned and lost assets, persisting status across days. Daily scheduler ensures asset state updates.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
+    - **Transfer Management**: Team-based agent transfer system enabling movement of agents between team leaders. Features include:
+        - **Team Leader Selection**: Transfer agents from one team leader to another, with automatic team reassignment
+        - **Transfer Types**: Support for both temporary and permanent transfers with configurable start and end dates
+        - **Location Tracking**: Captures location information (Thandanani, 16th) for transfer records
+        - **Approval Workflow**: Multi-stage approval process (pending → approved → completed) with role-based authorization
+        - **Automatic Reassignment**: When transfers are completed, agents are automatically reassigned to the new team leader's team
+        - **Organogram Sync**: Organogram automatically updates to reflect new reporting relationships when transfers complete
+        - **Role-Based Access**: Team leaders can initiate transfers; managers/admins can approve; admins can complete
+        - **Simplified Status Display**: Status badges shown without color coding for clean UI presentation
     - **Organogram Management**: Full-screen interactive organizational chart powered by GoJS library with professional styling. Features include:
         - **Full-screen layout**: Maximized diagram space without cards or legends
         - **GoJS Theme Manager**: Light/dark theme support with custom color schemes
