@@ -28,8 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      // Allow admins and team leaders to access user data for asset management
-      if (!user?.role || !['admin', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+      // Allow admins, team leaders, managers, and HR to access user data
+      if (!user?.role || !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
       
