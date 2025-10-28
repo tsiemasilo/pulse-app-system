@@ -437,7 +437,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const dailyStates = await storage.getAllAssetDailyStatesByDate(req.params.date);
+      // First try to get exact date matches
+      let dailyStates = await storage.getAllAssetDailyStatesByDate(req.params.date);
+      
+      // If no exact matches found, get the most recent states up to this date
+      if (dailyStates.length === 0) {
+        dailyStates = await storage.getAllMostRecentAssetStatesByDate(req.params.date);
+      }
+      
       res.json(dailyStates);
     } catch (error) {
       console.error("Error fetching daily states:", error);

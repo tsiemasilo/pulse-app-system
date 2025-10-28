@@ -1027,6 +1027,32 @@ export class DatabaseStorage implements IStorage {
       .orderBy(assetDailyStates.userId, assetDailyStates.assetType);
   }
 
+  async getAllMostRecentAssetStatesByDate(date: string): Promise<AssetDailyState[]> {
+    // Get all states on or before the target date, ordered by date descending
+    const states = await db
+      .select()
+      .from(assetDailyStates)
+      .where(sql`${assetDailyStates.date} <= ${date}`)
+      .orderBy(desc(assetDailyStates.date));
+    
+    // Filter to only keep the most recent state for each user/asset combination
+    // Only include states that are on or before the target date
+    const uniqueStates = new Map<string, AssetDailyState>();
+    for (const state of states) {
+      // Double-check date constraint in JavaScript to ensure no future states leak through
+      if (state.date > date) {
+        continue;
+      }
+      
+      const key = `${state.userId}-${state.assetType}`;
+      if (!uniqueStates.has(key)) {
+        uniqueStates.set(key, state);
+      }
+    }
+    
+    return Array.from(uniqueStates.values());
+  }
+
   async deleteAssetDailyStatesByUserAndDate(userId: string, date: string): Promise<void> {
     await db
       .delete(assetDailyStates)
