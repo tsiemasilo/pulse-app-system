@@ -251,17 +251,31 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   // Use appropriate team members based on role
   const agentsToShow = currentUser?.role === 'team_leader' ? teamMembersList : allAgents;
 
+  // Filter agents by search term for Book Out and Book In tabs
+  const filteredAgents = useMemo(() => {
+    return agentsToShow.filter(agent => {
+      if (searchTerm === "") return true;
+      
+      const fullName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim();
+      const username = agent.username || '';
+      const searchLower = searchTerm.toLowerCase();
+      
+      return fullName.toLowerCase().includes(searchLower) || 
+             username.toLowerCase().includes(searchLower);
+    });
+  }, [agentsToShow, searchTerm]);
+
   // Book In pagination
-  const bookInTotalPages = Math.ceil(agentsToShow.length / recordsPerPage);
+  const bookInTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
   const bookInStartIndex = (bookInPage - 1) * recordsPerPage;
   const bookInEndIndex = bookInStartIndex + recordsPerPage;
-  const paginatedBookInAgents = agentsToShow.slice(bookInStartIndex, bookInEndIndex);
+  const paginatedBookInAgents = filteredAgents.slice(bookInStartIndex, bookInEndIndex);
 
   // Book Out pagination  
-  const bookOutTotalPages = Math.ceil(agentsToShow.length / recordsPerPage);
+  const bookOutTotalPages = Math.ceil(filteredAgents.length / recordsPerPage);
   const bookOutStartIndex = (bookOutPage - 1) * recordsPerPage;
   const bookOutEndIndex = bookOutStartIndex + recordsPerPage;
-  const paginatedBookOutAgents = agentsToShow.slice(bookOutStartIndex, bookOutEndIndex);
+  const paginatedBookOutAgents = filteredAgents.slice(bookOutStartIndex, bookOutEndIndex);
 
   // Fetch daily states for all team members
   const { data: allDailyStates = [], isLoading: dailyStatesLoading } = useQuery<AssetDailyState[]>({
@@ -299,7 +313,13 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   }, [unreturnedAssets, searchTerm, statusFilter, selectedDate]);
 
-  // Reset page to 1 when filters change
+  // Reset page to 1 when search term changes (for Book In and Book Out tabs)
+  useEffect(() => {
+    setBookInPage(1);
+    setBookOutPage(1);
+  }, [searchTerm]);
+
+  // Reset page to 1 when filters change (for Unreturned Assets tab)
   useEffect(() => {
     setLostAssetsPage(1);
   }, [searchTerm, statusFilter, selectedDate]);
@@ -673,7 +693,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               <div className="bg-card rounded-lg border border-border shadow-sm">
                 <div className="p-4 border-b border-border">
                   <p className="text-sm text-muted-foreground">
-                    Showing {agentsToShow.length > 0 ? bookInStartIndex + 1 : 0} to {Math.min(bookInEndIndex, agentsToShow.length)} of {agentsToShow.length} records
+                    Showing {filteredAgents.length > 0 ? bookInStartIndex + 1 : 0} to {Math.min(bookInEndIndex, filteredAgents.length)} of {filteredAgents.length} records
                   </p>
                 </div>
 
@@ -799,7 +819,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               <div className="bg-card rounded-lg border border-border shadow-sm">
                 <div className="p-4 border-b border-border">
                   <p className="text-sm text-muted-foreground">
-                    Showing {agentsToShow.length > 0 ? bookOutStartIndex + 1 : 0} to {Math.min(bookOutEndIndex, agentsToShow.length)} of {agentsToShow.length} records
+                    Showing {filteredAgents.length > 0 ? bookOutStartIndex + 1 : 0} to {Math.min(bookOutEndIndex, filteredAgents.length)} of {filteredAgents.length} records
                   </p>
                 </div>
 
