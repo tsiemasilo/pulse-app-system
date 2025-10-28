@@ -1425,6 +1425,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/transfers/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Only admins and managers can approve transfers" });
+      }
+
+      const transferId = req.params.id;
+      const transfer = await storage.updateTransferStatus(transferId, 'approved', user.id);
+      res.json(transfer);
+    } catch (error) {
+      console.error("Error approving transfer:", error);
+      res.status(500).json({ message: "Failed to approve transfer" });
+    }
+  });
+
+  app.patch('/api/transfers/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Only admins and managers can reject transfers" });
+      }
+
+      const transferId = req.params.id;
+      const transfer = await storage.updateTransferStatus(transferId, 'rejected', user.id);
+      res.json(transfer);
+    } catch (error) {
+      console.error("Error rejecting transfer:", error);
+      res.status(500).json({ message: "Failed to reject transfer" });
+    }
+  });
+
+  app.post('/api/transfers/:id/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can complete transfers" });
+      }
+
+      const transferId = req.params.id;
+      await storage.completeTransfer(transferId);
+      res.json({ message: "Transfer completed successfully" });
+    } catch (error) {
+      console.error("Error completing transfer:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to complete transfer" });
+    }
+  });
+
   // Termination management routes (HR only)
   app.get('/api/terminations', isAuthenticated, async (req: any, res) => {
     try {
