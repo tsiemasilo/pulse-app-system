@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,35 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { z } from "zod";
-import type { Transfer, User as UserType, Department, Team } from "@shared/schema";
+import type { Transfer, User as UserType, Team } from "@shared/schema";
 
 const transferFormSchema = insertTransferSchema.extend({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
+}).omit({
+  fromDepartmentId: true,
+  toDepartmentId: true,
+  fromRole: true,
+  toRole: true,
+  approvedBy: true,
+  status: true,
 });
 
-// Predefined roles for transfer
-const AVAILABLE_ROLES = [
-  { id: 'taking_calls', name: 'Taking Calls' },
-  { id: 'administrative_work', name: 'Administrative Work' },
-  { id: 'quality_compliance', name: 'Quality and Compliance Tasks' },
-  { id: 'technical_support', name: 'Technical and Support Roles' },
-  { id: 'training_development', name: 'Training and Development' },
-  { id: 'operational_support', name: 'Operational Support' },
-  { id: 'litigation', name: 'Litigation' },
-  { id: 'audit', name: 'Audit' },
-];
-
-// Available locations
 const AVAILABLE_LOCATIONS = [
   { id: 'thandanani', name: 'Thandanani' },
   { id: '16th', name: '16th' },
@@ -49,13 +42,11 @@ export default function TransferManagement() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Fetch teams led by current user
   const { data: leaderTeams = [] } = useQuery<Team[]>({
     queryKey: ["/api/teams/leader", user?.id],
     enabled: !!user?.id,
   });
 
-  // Fetch team members (agents) for teams led by current user
   const { data: teamMembers = [] } = useQuery<UserType[]>({
     queryKey: ["/api/teams/members", leaderTeams.map(t => t.id)],
     queryFn: async () => {
@@ -67,7 +58,6 @@ export default function TransferManagement() {
         const members = await response.json() as UserType[];
         allMembers.push(...members);
       }
-      // Filter to only agents (exclude team leader themselves)
       return allMembers.filter(member => 
         member.role === 'agent' && member.id !== user?.id
       );
@@ -75,33 +65,37 @@ export default function TransferManagement() {
     enabled: leaderTeams.length > 0,
   });
 
-  // Fetch reporting manager information
-  const { data: reportingManager = null } = useQuery<UserType | null>({
-    queryKey: ["/api/users", user?.reportsTo],
+  const { data: allTeamLeaders = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/users/team-leaders"],
     queryFn: async () => {
-      if (!user?.reportsTo) return null;
-      const response = await apiRequest("GET", `/api/users/${user.reportsTo}`);
-      return await response.json() as UserType;
+      const response = await apiRequest("GET", "/api/users");
+      const users = await response.json() as UserType[];
+      return users.filter(u => u.role === 'team_leader' && u.id !== user?.id && u.isActive);
     },
-    enabled: !!user?.reportsTo,
   });
+
+  const getTeamIdForLeader = (leaderId: string): string | undefined => {
+    const team = allTeams.find(t => t.leaderId === leaderId);
+    return team?.id;
+  };
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
   });
 
+  const { data: allTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+  });
 
   const { data: transfers = [] } = useQuery<Transfer[]>({
     queryKey: ["/api/transfers"],
   });
 
-  // Pagination calculations
   const totalPages = Math.ceil(transfers.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
   const paginatedTransfers = transfers.slice(startIndex, endIndex);
 
-  // Pagination handlers
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
@@ -118,14 +112,13 @@ export default function TransferManagement() {
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
       userId: "",
-      fromDepartmentId: "",
-      toDepartmentId: "",
-      fromRole: "",
-      toRole: "",
+      fromTeamId: "",
+      toTeamId: "",
+      location: "",
       transferType: "temporary",
       startDate: "",
       endDate: "",
-      requestedBy: "",
+      requestedBy: user?.id || "",
     },
   });
 
@@ -158,20 +151,23 @@ export default function TransferManagement() {
   });
 
   const onSubmit = (data: z.infer<typeof transferFormSchema>) => {
-    transferMutation.mutate(data);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      default:
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+    const toTeamId = data.toTeamId ? getTeamIdForLeader(data.toTeamId) : undefined;
+    
+    if (!toTeamId) {
+      toast({
+        title: "Error",
+        description: "Selected team leader does not have a team. Please contact administrator.",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    const transferData = {
+      ...data,
+      toTeamId,
+    };
+    
+    transferMutation.mutate(transferData);
   };
 
   const getUserName = (userId: string) => {
@@ -179,14 +175,17 @@ export default function TransferManagement() {
     return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
   };
 
-  const getRoleName = (roleId: string) => {
-    const role = AVAILABLE_ROLES.find(r => r.id === roleId);
-    return role?.name || 'Unknown';
+  const getTeamLeaderName = (teamId: string | null | undefined) => {
+    if (!teamId) return 'Unknown';
+    const team = allTeams.find(t => t.id === teamId);
+    if (!team || !team.leaderId) return 'Unknown';
+    return getUserName(team.leaderId);
   };
 
-  const getLocationName = (locationId: string) => {
+  const getLocationName = (locationId: string | null | undefined) => {
+    if (!locationId) return 'Not specified';
     const location = AVAILABLE_LOCATIONS.find(l => l.id === locationId);
-    return location?.name || 'Unknown';
+    return location?.name || locationId;
   };
 
   return (
@@ -215,7 +214,7 @@ export default function TransferManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Agent to Transfer</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-user">
                             <SelectValue placeholder="Select agent" />
@@ -237,20 +236,20 @@ export default function TransferManagement() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="fromDepartmentId"
+                    name="fromTeamId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>From Role</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>From Team Leader</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-from-role">
-                              <SelectValue placeholder="Select current role" />
+                            <SelectTrigger data-testid="select-from-team">
+                              <SelectValue placeholder="Select current team" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {AVAILABLE_ROLES.map((role) => (
-                              <SelectItem key={role.id} value={role.id}>
-                                {role.name}
+                            {leaderTeams.map((team) => (
+                              <SelectItem key={team.id} value={team.id}>
+                                {team.name} ({user?.firstName} {user?.lastName})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -262,20 +261,20 @@ export default function TransferManagement() {
 
                   <FormField
                     control={form.control}
-                    name="toDepartmentId"
+                    name="toTeamId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>To Role</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>To Team Leader</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-to-role">
-                              <SelectValue placeholder="Select destination role" />
+                            <SelectTrigger data-testid="select-to-team">
+                              <SelectValue placeholder="Select destination team" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {AVAILABLE_ROLES.map((role) => (
-                              <SelectItem key={role.id} value={role.id}>
-                                {role.name}
+                            {allTeamLeaders.map((teamLeader) => (
+                              <SelectItem key={teamLeader.id} value={teamLeader.id}>
+                                {teamLeader.firstName} {teamLeader.lastName}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -292,7 +291,7 @@ export default function TransferManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Transfer Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-transfer-type">
                             <SelectValue placeholder="Select transfer type" />
@@ -310,11 +309,11 @@ export default function TransferManagement() {
 
                 <FormField
                   control={form.control}
-                  name="fromRole"
+                  name="location"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Location</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-location">
                             <SelectValue placeholder="Select location" />
@@ -363,39 +362,6 @@ export default function TransferManagement() {
                   />
                 </div>
 
-
-                <FormField
-                  control={form.control}
-                  name="requestedBy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Requested By</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-requested-by">
-                            <SelectValue placeholder="Select requester" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {/* Show current team leader */}
-                          {user && (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} (Team Leader)
-                            </SelectItem>
-                          )}
-                          {/* Show team leader's manager if available */}
-                          {reportingManager && (
-                            <SelectItem key={reportingManager.id} value={reportingManager.id}>
-                              {reportingManager.firstName} {reportingManager.lastName} (Manager)
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
                     Cancel
@@ -421,9 +387,10 @@ export default function TransferManagement() {
             <table className="w-full">
               <thead style={{ backgroundColor: '#1a1f5c' }}>
                 <tr>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Employee</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Transfer Type</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From → To Roles</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Type</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From Team</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">To Team</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Location</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Start Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">End Date</th>
@@ -434,7 +401,7 @@ export default function TransferManagement() {
               <tbody className="bg-card divide-y divide-border">
                 {paginatedTransfers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">
                       No agent transfers found. Create a new transfer to get started.
                     </td>
                   </tr>
@@ -454,19 +421,14 @@ export default function TransferManagement() {
                           {transfer.transferType}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2 text-sm">
-                          <span>{getRoleName(transfer.fromDepartmentId || '')}</span>
-                          <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                          <span>{getRoleName(transfer.toDepartmentId)}</span>
-                        </div>
+                      <td className="px-6 py-4 text-sm">
+                        {getTeamLeaderName(transfer.fromTeamId)}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {transfer.fromRole ? (
-                          <span>{getLocationName(transfer.fromRole)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">No location</span>
-                        )}
+                        {getTeamLeaderName(transfer.toTeamId)}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {getLocationName(transfer.location)}
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-start-date-${transfer.id}`}>
                         {new Date(transfer.startDate).toLocaleDateString()}
@@ -475,7 +437,7 @@ export default function TransferManagement() {
                         {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant="outline" className={getStatusColor(transfer.status)} data-testid={`badge-status-${transfer.id}`}>
+                        <Badge variant="outline" data-testid={`badge-status-${transfer.id}`}>
                           {transfer.status}
                         </Badge>
                       </td>

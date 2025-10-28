@@ -92,6 +92,8 @@ export interface IStorage {
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
   createTransfer(transfer: InsertTransfer): Promise<Transfer>;
+  updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
+  completeTransfer(transferId: string): Promise<void>;
   
   // Termination management
   getAllTerminations(): Promise<Termination[]>;
@@ -650,6 +652,78 @@ export class DatabaseStorage implements IStorage {
   async createTransfer(transferData: InsertTransfer): Promise<Transfer> {
     const [transfer] = await db.insert(transfers).values(transferData).returning();
     return transfer;
+  }
+
+  async updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer> {
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+    
+    if (approvedBy) {
+      updateData.approvedBy = approvedBy;
+    }
+    
+    const [transfer] = await db
+      .update(transfers)
+      .set(updateData)
+      .where(eq(transfers.id, transferId))
+      .returning();
+    
+    return transfer;
+  }
+
+  async completeTransfer(transferId: string): Promise<void> {
+    const [transfer] = await db
+      .select()
+      .from(transfers)
+      .where(eq(transfers.id, transferId));
+    
+    if (!transfer) {
+      throw new Error("Transfer not found");
+    }
+
+    if (transfer.status !== 'approved') {
+      throw new Error("Transfer must be approved before completion");
+    }
+
+    if (!transfer.toTeamId) {
+      throw new Error("Transfer must have a destination team");
+    }
+
+    await db
+      .delete(teamMembers)
+      .where(eq(teamMembers.userId, transfer.userId));
+
+    await db
+      .insert(teamMembers)
+      .values({
+        teamId: transfer.toTeamId,
+        userId: transfer.userId,
+      });
+
+    const [destinationTeam] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, transfer.toTeamId));
+
+    if (destinationTeam?.leaderId) {
+      await db
+        .update(users)
+        .set({ 
+          reportsTo: destinationTeam.leaderId,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, transfer.userId));
+    }
+
+    await db
+      .update(transfers)
+      .set({ 
+        status: 'completed',
+        updatedAt: new Date(),
+      })
+      .where(eq(transfers.id, transferId));
   }
 
   // Termination management
