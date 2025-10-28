@@ -111,9 +111,12 @@ export const transfers = pgTable("transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   fromDepartmentId: varchar("from_department_id").references(() => departments.id),
-  toDepartmentId: varchar("to_department_id").notNull().references(() => departments.id),
+  toDepartmentId: varchar("to_department_id").references(() => departments.id),
+  fromTeamId: varchar("from_team_id").references(() => teams.id),
+  toTeamId: varchar("to_team_id").references(() => teams.id),
   fromRole: varchar("from_role"),
   toRole: varchar("to_role"),
+  location: varchar("location"), // thandanani, 16th
   transferType: varchar("transfer_type").notNull(), // temporary, permanent
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"), // null for permanent transfers
