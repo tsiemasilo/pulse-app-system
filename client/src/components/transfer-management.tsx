@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
+import { format } from "date-fns";
 import { z } from "zod";
 import type { Transfer, User as UserType, Team } from "@shared/schema";
 import TransfersAuditLog from "./transfers-audit-log";
@@ -41,6 +44,9 @@ export default function TransferManagement() {
   const recordsPerPage = 10;
   const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -94,10 +100,51 @@ export default function TransferManagement() {
     queryKey: ["/api/transfers"],
   });
 
-  const totalPages = Math.ceil(transfers.length / recordsPerPage);
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
+  };
+
+  const getTeamLeaderName = (teamId: string | null | undefined) => {
+    if (!teamId) return 'Unknown';
+    const team = allTeams.find(t => t.id === teamId);
+    if (!team || !team.leaderId) return 'Unknown';
+    return getUserName(team.leaderId);
+  };
+
+  const getLocationName = (locationId: string | null | undefined) => {
+    if (!locationId) return 'Not specified';
+    const location = AVAILABLE_LOCATIONS.find(l => l.id === locationId);
+    return location?.name || locationId;
+  };
+
+  const filteredTransfers = useMemo(() => {
+    return transfers.filter(transfer => {
+      const agentName = getUserName(transfer.userId);
+      const requestedByName = getUserName(transfer.requestedBy);
+      const fromTeam = getTeamLeaderName(transfer.fromTeamId);
+      const toTeam = getTeamLeaderName(transfer.toTeamId);
+      
+      const matchesSearch = searchTerm === "" || 
+        agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        requestedByName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        fromTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        toTeam.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || 
+        transfer.status?.toLowerCase() === statusFilter.toLowerCase();
+      
+      const matchesDate = !selectedDate || 
+        new Date(transfer.startDate).toDateString() === selectedDate.toDateString();
+      
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [transfers, searchTerm, statusFilter, selectedDate, users, allTeams]);
+
+  const totalPages = Math.ceil(filteredTransfers.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
-  const paginatedTransfers = transfers.slice(startIndex, endIndex);
+  const paginatedTransfers = filteredTransfers.slice(startIndex, endIndex);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -110,6 +157,10 @@ export default function TransferManagement() {
       setCurrentPage(currentPage - 1);
     }
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, selectedDate]);
 
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
@@ -171,24 +222,6 @@ export default function TransferManagement() {
     };
     
     transferMutation.mutate(transferData);
-  };
-
-  const getUserName = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    return user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'Unknown';
-  };
-
-  const getTeamLeaderName = (teamId: string | null | undefined) => {
-    if (!teamId) return 'Unknown';
-    const team = allTeams.find(t => t.id === teamId);
-    if (!team || !team.leaderId) return 'Unknown';
-    return getUserName(team.leaderId);
-  };
-
-  const getLocationName = (locationId: string | null | undefined) => {
-    if (!locationId) return 'Not specified';
-    const location = AVAILABLE_LOCATIONS.find(l => l.id === locationId);
-    return location?.name || locationId;
   };
 
   return (
@@ -379,10 +412,66 @@ export default function TransferManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by agent name, team, or requested by..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-transfers"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+                <Calendar className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Start Date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date)}
+                initialFocus
+              />
+              {selectedDate && (
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setSelectedDate(undefined)}
+                    data-testid="button-clear-date"
+                  >
+                    Clear Date Filter
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <div className="bg-card rounded-lg border border-border shadow-sm">
           <div className="p-4 border-b border-border">
             <p className="text-sm text-muted-foreground">
-              Showing {transfers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, transfers.length)} of {transfers.length} records
+              Showing {filteredTransfers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredTransfers.length)} of {filteredTransfers.length} records
             </p>
           </div>
 
@@ -406,7 +495,9 @@ export default function TransferManagement() {
                 {paginatedTransfers.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-6 py-8 text-center text-muted-foreground">
-                      No agent transfers found. Create a new transfer to get started.
+                      {searchTerm || statusFilter !== "all" || selectedDate
+                        ? "No transfers match your filters."
+                        : "No agent transfers found. Create a new transfer to get started."}
                     </td>
                   </tr>
                 ) : (
