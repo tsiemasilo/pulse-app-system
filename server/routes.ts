@@ -1144,6 +1144,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/attendance/:id/audit', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.role || !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const attendanceId = req.params.id;
+      const auditLogs = await storage.getAttendanceAuditByAttendanceId(attendanceId);
+      res.json(auditLogs);
+    } catch (error) {
+      console.error("Error fetching attendance audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch attendance audit logs" });
+    }
+  });
+
   app.patch('/api/attendance/:attendanceId/status', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
@@ -1238,6 +1254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Capture previous status for audit
+      const previousStatus = attendanceRecord.status;
+
       // Update the attendance status
       const updatedRecord = await db
         .update(attendance)
@@ -1247,6 +1266,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!updatedRecord || updatedRecord.length === 0) {
         return res.status(404).json({ message: "Failed to update attendance record" });
+      }
+
+      // Create audit entry
+      try {
+        await storage.createAttendanceAudit({
+          attendanceId: req.params.attendanceId,
+          userId: attendanceRecord.userId,
+          previousStatus: previousStatus,
+          newStatus: status,
+          reason: `Status changed from ${previousStatus} to ${status}`,
+          changedBy: user.id,
+          changedAt: new Date(),
+        });
+      } catch (auditError) {
+        console.error("Error creating attendance audit:", auditError);
+        // Continue even if audit fails
       }
 
       res.json(updatedRecord[0]);
@@ -1433,7 +1468,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const transferId = req.params.id;
+      
+      // Fetch the transfer first to capture previous status
+      const allTransfers = await storage.getAllTransfers();
+      const existingTransfer = allTransfers.find(t => t.id === transferId);
+      
+      if (!existingTransfer) {
+        return res.status(404).json({ message: "Transfer not found" });
+      }
+
+      const previousStatus = existingTransfer.status;
       const transfer = await storage.updateTransferStatus(transferId, 'approved', user.id);
+      
+      // Create audit entry
+      try {
+        await storage.createTransfersAudit({
+          transferId: transferId,
+          userId: existingTransfer.userId,
+          action: 'approved',
+          previousStatus: previousStatus,
+          newStatus: 'approved',
+          comment: `Transfer approved by ${user.username || user.firstName || 'user'}`,
+          actionBy: user.id,
+          actionAt: new Date(),
+        });
+      } catch (auditError) {
+        console.error("Error creating transfers audit:", auditError);
+        // Continue even if audit fails
+      }
+      
       res.json(transfer);
     } catch (error) {
       console.error("Error approving transfer:", error);
@@ -1449,11 +1512,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const transferId = req.params.id;
+      
+      // Fetch the transfer first to capture previous status
+      const allTransfers = await storage.getAllTransfers();
+      const existingTransfer = allTransfers.find(t => t.id === transferId);
+      
+      if (!existingTransfer) {
+        return res.status(404).json({ message: "Transfer not found" });
+      }
+
+      const previousStatus = existingTransfer.status;
       const transfer = await storage.updateTransferStatus(transferId, 'rejected', user.id);
+      
+      // Create audit entry
+      try {
+        await storage.createTransfersAudit({
+          transferId: transferId,
+          userId: existingTransfer.userId,
+          action: 'rejected',
+          previousStatus: previousStatus,
+          newStatus: 'rejected',
+          comment: `Transfer rejected by ${user.username || user.firstName || 'user'}`,
+          actionBy: user.id,
+          actionAt: new Date(),
+        });
+      } catch (auditError) {
+        console.error("Error creating transfers audit:", auditError);
+        // Continue even if audit fails
+      }
+      
       res.json(transfer);
     } catch (error) {
       console.error("Error rejecting transfer:", error);
       res.status(500).json({ message: "Failed to reject transfer" });
+    }
+  });
+
+  app.get('/api/transfers/:id/audit', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.role || !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const transferId = req.params.id;
+      const auditLogs = await storage.getTransfersAuditByTransferId(transferId);
+      res.json(auditLogs);
+    } catch (error) {
+      console.error("Error fetching transfers audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch transfers audit logs" });
     }
   });
 
@@ -1465,7 +1572,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const transferId = req.params.id;
+      
+      // Fetch the transfer first to capture previous status
+      const allTransfers = await storage.getAllTransfers();
+      const existingTransfer = allTransfers.find(t => t.id === transferId);
+      
+      if (!existingTransfer) {
+        return res.status(404).json({ message: "Transfer not found" });
+      }
+
+      const previousStatus = existingTransfer.status;
       await storage.completeTransfer(transferId);
+      
+      // Create audit entry
+      try {
+        await storage.createTransfersAudit({
+          transferId: transferId,
+          userId: existingTransfer.userId,
+          action: 'completed',
+          previousStatus: previousStatus,
+          newStatus: 'completed',
+          comment: `Transfer completed by ${user.username || user.firstName || 'user'}`,
+          actionBy: user.id,
+          actionAt: new Date(),
+        });
+      } catch (auditError) {
+        console.error("Error creating transfers audit:", auditError);
+        // Continue even if audit fails
+      }
+      
       res.json({ message: "Transfer completed successfully" });
     } catch (error) {
       console.error("Error completing transfer:", error);

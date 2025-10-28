@@ -11,6 +11,8 @@ import {
   historicalAssetRecords,
   assetDailyStates,
   assetStateAudit,
+  attendanceAudit,
+  transfersAudit,
   assetIncidents,
   assetDetails,
   type User,
@@ -37,6 +39,10 @@ import {
   type InsertAssetDailyState,
   type AssetStateAudit,
   type InsertAssetStateAudit,
+  type AttendanceAudit,
+  type InsertAttendanceAudit,
+  type TransfersAudit,
+  type InsertTransfersAudit,
   type AssetIncident,
   type InsertAssetIncident,
   type AssetDetails,
@@ -137,6 +143,14 @@ export interface IStorage {
   createAssetStateAudit(audit: InsertAssetStateAudit): Promise<AssetStateAudit>;
   getAssetStateAuditByUserId(userId: string): Promise<AssetStateAudit[]>;
   deleteAssetStateAuditByDailyStateId(dailyStateId: string): Promise<void>;
+  
+  // Attendance audit management
+  createAttendanceAudit(audit: InsertAttendanceAudit): Promise<AttendanceAudit>;
+  getAttendanceAuditByAttendanceId(attendanceId: string): Promise<AttendanceAudit[]>;
+  
+  // Transfers audit management
+  createTransfersAudit(audit: InsertTransfersAudit): Promise<TransfersAudit>;
+  getTransfersAuditByTransferId(transferId: string): Promise<TransfersAudit[]>;
   
   // Asset incident management
   createAssetIncident(incident: InsertAssetIncident): Promise<AssetIncident>;
@@ -1057,6 +1071,40 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(assetStateAudit)
       .where(eq(assetStateAudit.dailyStateId, dailyStateId));
+  }
+
+  // Attendance audit management
+  async createAttendanceAudit(auditData: InsertAttendanceAudit): Promise<AttendanceAudit> {
+    const [audit] = await db
+      .insert(attendanceAudit)
+      .values(auditData)
+      .returning();
+    return audit;
+  }
+
+  async getAttendanceAuditByAttendanceId(attendanceId: string): Promise<AttendanceAudit[]> {
+    return await db
+      .select()
+      .from(attendanceAudit)
+      .where(eq(attendanceAudit.attendanceId, attendanceId))
+      .orderBy(desc(attendanceAudit.changedAt));
+  }
+
+  // Transfers audit management
+  async createTransfersAudit(auditData: InsertTransfersAudit): Promise<TransfersAudit> {
+    const [audit] = await db
+      .insert(transfersAudit)
+      .values(auditData)
+      .returning();
+    return audit;
+  }
+
+  async getTransfersAuditByTransferId(transferId: string): Promise<TransfersAudit[]> {
+    return await db
+      .select()
+      .from(transfersAudit)
+      .where(eq(transfersAudit.transferId, transferId))
+      .orderBy(desc(transfersAudit.actionAt));
   }
 
   // Enhanced daily reset functionality

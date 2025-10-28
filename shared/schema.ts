@@ -185,6 +185,33 @@ export const assetStateAudit = pgTable("asset_state_audit", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Attendance audit (tracking attendance status changes)
+export const attendanceAudit = pgTable("attendance_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attendanceId: varchar("attendance_id").notNull().references(() => attendance.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  previousStatus: varchar("previous_status"), // previous status (null for initial creation)
+  newStatus: varchar("new_status").notNull(), // new status
+  reason: text("reason"), // reason for status change
+  changedBy: varchar("changed_by").notNull().references(() => users.id), // who made the change
+  changedAt: timestamp("changed_at").notNull().defaultNow(), // when change was made
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Transfers audit (tracking transfer action changes)
+export const transfersAudit = pgTable("transfers_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transferId: varchar("transfer_id").notNull().references(() => transfers.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  action: varchar("action").notNull(), // approved, rejected, completed
+  previousStatus: varchar("previous_status"), // previous status
+  newStatus: varchar("new_status").notNull(), // new status
+  comment: text("comment"), // optional comment about the action
+  actionBy: varchar("action_by").notNull().references(() => users.id), // who performed the action
+  actionAt: timestamp("action_at").notNull().defaultNow(), // when action was performed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Asset incidents (tracking asset-related incidents and issues)
 export const assetIncidents = pgTable("asset_incidents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -324,6 +351,16 @@ export const insertAssetStateAuditSchema = createInsertSchema(assetStateAudit).o
   createdAt: true,
 });
 
+export const insertAttendanceAuditSchema = createInsertSchema(attendanceAudit).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTransfersAuditSchema = createInsertSchema(transfersAudit).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertAssetIncidentSchema = createInsertSchema(assetIncidents).omit({
   id: true,
   createdAt: true,
@@ -372,6 +409,10 @@ export type AssetDailyState = typeof assetDailyStates.$inferSelect;
 export type InsertAssetDailyState = z.infer<typeof insertAssetDailyStateSchema>;
 export type AssetStateAudit = typeof assetStateAudit.$inferSelect;
 export type InsertAssetStateAudit = z.infer<typeof insertAssetStateAuditSchema>;
+export type AttendanceAudit = typeof attendanceAudit.$inferSelect;
+export type InsertAttendanceAudit = z.infer<typeof insertAttendanceAuditSchema>;
+export type TransfersAudit = typeof transfersAudit.$inferSelect;
+export type InsertTransfersAudit = z.infer<typeof insertTransfersAuditSchema>;
 export type AssetIncident = typeof assetIncidents.$inferSelect;
 export type InsertAssetIncident = z.infer<typeof insertAssetIncidentSchema>;
 export type AssetDetails = typeof assetDetails.$inferSelect;
