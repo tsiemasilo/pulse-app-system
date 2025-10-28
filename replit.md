@@ -40,10 +40,12 @@ Preferred communication style: Simple, everyday language.
     - **Terminations System**: Redesigned to integrate with attendance tracking, allowing team leaders to initiate terminations (AWOL, Suspended, Resignation) directly from attendance actions, requiring comments, and automatically creating termination records.
     - **Asset Management**: Centralized filter controls in header for consistent user experience. Features include:
         - **Global Search Filter**: Search by agent name applies across all tabs (Book Out, Book In, Unreturned Assets)
-        - **Status Filter**: Filters unreturned assets by status (Lost, Not Returned)
-        - **Date Filter**: Filters unreturned assets by date lost
+        - **Status Filter**: Applies to all tabs - filters Book In/Book Out by checking agent asset states, filters Unreturned Assets by status (Lost, Not Returned)
+        - **Date Filter**: Applies to all tabs - fetches and displays data for selected date across Book In, Book Out, and Unreturned Assets
         - **Unified Header Layout**: All filters positioned in header alongside Reset Agent button for easy access
-        - **Tab-Specific Filtering**: Status and date filters scope to Unreturned Assets tab; search applies globally
+        - **Universal Filtering**: All filters (search, status, date) apply across all three tabs with timezone-safe date handling
+        - **Timezone-Safe Implementation**: All date operations use date-fns (parseISO, isSameDay, format) to prevent UTC conversion issues
+        - **Smart Cache Invalidation**: Mutations invalidate both current date and selected date cache keys for immediate UI updates
         - **Robust Asset Handling**: Unreturned and lost assets persist across days with daily scheduler for state updates
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
     - **Transfer Management**: Team-based agent transfer system enabling movement of agents between team leaders. Features include:
