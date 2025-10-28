@@ -74,9 +74,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [bookInPage, setBookInPage] = useState(1);
   const [bookOutPage, setBookOutPage] = useState(1);
   const [lostAssetsPage, setLostAssetsPage] = useState(1);
-  const [searchTermUnreturned, setSearchTermUnreturned] = useState("");
-  const [statusFilterUnreturned, setStatusFilterUnreturned] = useState("all");
-  const [selectedDateUnreturned, setSelectedDateUnreturned] = useState<Date | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const recordsPerPage = 10;
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -285,24 +285,24 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return unreturnedAssets.filter(asset => {
       const agentName = asset.agentName || getAgentName(asset.userId);
       
-      const matchesSearch = searchTermUnreturned === "" || 
-        agentName.toLowerCase().includes(searchTermUnreturned.toLowerCase());
+      const matchesSearch = searchTerm === "" || 
+        agentName.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = statusFilterUnreturned === "all" || 
-        (statusFilterUnreturned === "lost" && asset.status?.toLowerCase() === "lost") ||
-        (statusFilterUnreturned === "not_returned" && asset.status?.toLowerCase() === "not_returned");
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "lost" && asset.status?.toLowerCase() === "lost") ||
+        (statusFilter === "not_returned" && asset.status?.toLowerCase() === "not_returned");
       
-      const matchesDate = !selectedDateUnreturned || 
-        new Date(asset.date).toDateString() === selectedDateUnreturned.toDateString();
+      const matchesDate = !selectedDate || 
+        new Date(asset.date).toDateString() === selectedDate.toDateString();
       
       return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [unreturnedAssets, searchTermUnreturned, statusFilterUnreturned, selectedDateUnreturned]);
+  }, [unreturnedAssets, searchTerm, statusFilter, selectedDate]);
 
   // Reset page to 1 when filters change
   useEffect(() => {
     setLostAssetsPage(1);
-  }, [searchTermUnreturned, statusFilterUnreturned, selectedDateUnreturned]);
+  }, [searchTerm, statusFilter, selectedDate]);
 
   // Unreturned Assets pagination
   const lostAssetsTotalPages = Math.ceil(filteredUnreturnedAssets.length / recordsPerPage);
@@ -592,14 +592,64 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           <CardTitle>Asset Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center mb-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by agent name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-assets"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="lost">Lost</SelectItem>
+                <SelectItem value="not_returned">Not Returned</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                />
+                {selectedDate && (
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setSelectedDate(undefined)}
+                      data-testid="button-clear-date"
+                    >
+                      Clear Date
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
             {currentUser?.role === 'team_leader' && (
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowResetDialog(true)}
                 data-testid="button-reset-agent"
-                className="ml-auto"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset Agent
@@ -863,64 +913,11 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 Assets that are lost or not returned. Use "Mark as Found" to restore assets to available status.
               </div>
 
-              <div className="mb-6 flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by agent name..."
-                    value={searchTermUnreturned}
-                    onChange={(e) => setSearchTermUnreturned(e.target.value)}
-                    className="pl-10"
-                    data-testid="input-search-unreturned"
-                  />
-                </div>
-
-                <Select value={statusFilterUnreturned} onValueChange={setStatusFilterUnreturned}>
-                  <SelectTrigger className="w-[200px]" data-testid="select-status-filter-unreturned">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
-                    <SelectItem value="not_returned">Not Returned</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter-unreturned">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {selectedDateUnreturned ? format(selectedDateUnreturned, "PPP") : <span>Filter by Date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent
-                      mode="single"
-                      selected={selectedDateUnreturned}
-                      onSelect={setSelectedDateUnreturned}
-                      initialFocus
-                    />
-                    {selectedDateUnreturned && (
-                      <div className="p-3 border-t">
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setSelectedDateUnreturned(undefined)}
-                          data-testid="button-clear-date-unreturned"
-                        >
-                          Clear Date
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
               {unreturnedLoading ? (
                 <div className="text-center py-8">Loading unreturned assets...</div>
               ) : filteredUnreturnedAssets.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {searchTermUnreturned || statusFilterUnreturned !== "all" || selectedDateUnreturned
+                  {searchTerm || statusFilter !== "all" || selectedDate
                     ? "No assets match your filters."
                     : "No unreturned assets found."}
                 </div>
