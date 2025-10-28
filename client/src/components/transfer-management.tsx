@@ -13,9 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { z } from "zod";
 import type { Transfer, User as UserType, Team } from "@shared/schema";
+import TransfersAuditLog from "./transfers-audit-log";
 
 const transferFormSchema = insertTransferSchema.extend({
   startDate: z.string().min(1, "Start date is required"),
@@ -38,6 +39,8 @@ export default function TransferManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
+  const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
+  const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -396,12 +399,13 @@ export default function TransferManagement() {
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">End Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Requested By</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {paginatedTransfers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={10} className="px-6 py-8 text-center text-muted-foreground">
                       No agent transfers found. Create a new transfer to get started.
                     </td>
                   </tr>
@@ -444,6 +448,20 @@ export default function TransferManagement() {
                       <td className="px-6 py-4 text-sm" data-testid={`text-requested-by-${transfer.id}`}>
                         {getUserName(transfer.requestedBy)}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedTransferId(transfer.id);
+                            setAuditLogDialogOpen(true);
+                          }}
+                          data-testid={`button-audit-log-${transfer.id}`}
+                          title="View Audit Log"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -480,6 +498,17 @@ export default function TransferManagement() {
           </div>
         </div>
       </CardContent>
+
+      <Dialog open={auditLogDialogOpen} onOpenChange={setAuditLogDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-transfers-audit-log">
+          <DialogHeader>
+            <DialogTitle>Transfer Audit Log</DialogTitle>
+          </DialogHeader>
+          {selectedTransferId && (
+            <TransfersAuditLog transferId={selectedTransferId} />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

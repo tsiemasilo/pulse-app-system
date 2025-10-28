@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Laptop, Headphones, Usb, Check, X, Eye, AlertTriangle, RotateCcw, Mouse, Cable, ChevronLeft, ChevronRight } from "lucide-react";
 import type { User, AssetDailyState } from "@shared/schema";
+import AssetAuditLog from "./asset-audit-log";
 
 interface AssetManagementProps {
   userId?: string;
@@ -83,6 +84,8 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [showMarkFoundDialog, setShowMarkFoundDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showPasswordConfirmDialog, setShowPasswordConfirmDialog] = useState(false);
+  const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Pending action states
   const [pendingBookIn, setPendingBookIn] = useState<{
@@ -607,6 +610,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             </div>
                           </th>
                         ))}
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
@@ -656,6 +660,20 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                               </td>
                             );
                           })}
+                          <td className="px-6 py-4 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserId(agent.id);
+                                setAuditLogDialogOpen(true);
+                              }}
+                              data-testid={`button-audit-log-${agent.id}`}
+                              title="View Audit Log"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -718,6 +736,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             </div>
                           </th>
                         ))}
+                        <th className="px-6 py-5 text-center text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
@@ -758,6 +777,20 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                               </td>
                             );
                           })}
+                          <td className="px-6 py-4 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserId(agent.id);
+                                setAuditLogDialogOpen(true);
+                              }}
+                              data-testid={`button-audit-log-bookout-${agent.id}`}
+                              title="View Audit Log"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1198,6 +1231,21 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
               {resetAgentMutation.isPending ? "Resetting..." : "Reset Agent Records"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Audit Log Dialog */}
+      <Dialog open={auditLogDialogOpen} onOpenChange={setAuditLogDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-asset-audit-log">
+          <DialogHeader>
+            <DialogTitle>Asset Audit Log</DialogTitle>
+            <DialogDescription>
+              View the complete history of asset state changes for this user.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUserId && (
+            <AssetAuditLog userId={selectedUserId} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

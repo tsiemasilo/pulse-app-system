@@ -960,6 +960,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alias route for asset audit (matches UI component specification)
+  app.get('/api/assets/audit/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      // Allow access to own data or if user has management permissions
+      if (user?.id !== req.params.userId && !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user?.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const auditTrail = await storage.getAssetStateAuditByUserId(req.params.userId);
+      res.json(auditTrail);
+    } catch (error) {
+      console.error("Error fetching asset audit:", error);
+      res.status(500).json({ message: "Failed to fetch asset audit" });
+    }
+  });
+
   // Alias route for unreturned assets (matches required API specification)
   app.get('/api/assets/unreturned', isAuthenticated, async (req: any, res) => {
     try {
