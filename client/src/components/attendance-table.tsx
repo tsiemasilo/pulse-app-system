@@ -529,13 +529,12 @@ export default function AttendanceTable() {
                 <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Clock In</th>
                 <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Clock Out</th>
                 <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Hours</th>
-                <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
               {displayRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                     No team members found
                   </td>
                 </tr>
@@ -603,23 +602,6 @@ export default function AttendanceTable() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground" data-testid={`text-hours-${record.id}`}>
                         -
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (!record.id.startsWith('placeholder-')) {
-                              setSelectedAttendanceId(record.id);
-                              setAuditLogDialogOpen(true);
-                            }
-                          }}
-                          disabled={record.id.startsWith('placeholder-')}
-                          data-testid={`button-audit-log-${record.id}`}
-                          title="View Audit Log"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
                       </td>
                     </tr>
                   );

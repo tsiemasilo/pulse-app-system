@@ -125,6 +125,16 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return format(new Date(), 'yyyy-MM-dd'); // YYYY-MM-DD format
   };
 
+  // Check if we're viewing today's date
+  const isViewingToday = () => {
+    if (!selectedDate) return true; // No date selected means viewing today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    return selected.getTime() === today.getTime();
+  };
+
   // Fetch current user for role checking
   const { data: currentUser } = useQuery<User>({
     queryKey: ['/api/auth/user'],
@@ -132,13 +142,27 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
 
   // For user-specific view (agents seeing their own assets)
   if (userId) {
-    const { data: userAssets = [] } = useQuery<any[]>({
+    const { data: userAssets = [], isLoading: assetsLoading } = useQuery<any[]>({
       queryKey: [`/api/assets/user/${userId}`],
     });
 
-    const { data: userDailyStates = [] } = useQuery<AssetDailyState[]>({
+    const { data: userDailyStates = [], isLoading: statesLoading } = useQuery<AssetDailyState[]>({
       queryKey: [`/api/assets/daily-states/user/${userId}/date/${getCurrentDate()}`],
     });
+
+    // Show loading state while data is being fetched
+    if (assetsLoading || statesLoading) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>My Assets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-center py-4">Loading assets...</p>
+          </CardContent>
+        </Card>
+      );
+    }
 
     // Transform daily states for easier lookup
     const statesByAssetType = userDailyStates.reduce((acc, state) => {
@@ -613,10 +637,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     });
   };
 
-  if (dailyStatesLoading) {
-    return <div className="text-center py-8">Loading asset states...</div>;
-  }
-
   // Check if user has permission to manage assets
   if (!['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(currentUser?.role || '')) {
     return (
@@ -628,6 +648,20 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           <p className="text-muted-foreground text-center py-4">
             You don't have permission to manage assets.
           </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show loading state while asset data is being fetched
+  if (dailyStatesLoading || unreturnedLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Asset Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-center py-8">Loading asset states...</p>
         </CardContent>
       </Card>
     );
@@ -651,17 +685,6 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                 data-testid="input-search-assets"
               />
             </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="lost">Lost</SelectItem>
-                <SelectItem value="not_returned">Not Returned</SelectItem>
-              </SelectContent>
-            </Select>
 
             <Popover>
               <PopoverTrigger asChild>
@@ -766,7 +789,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      disabled={isDisabled}
+                                      disabled={isDisabled || !isViewingToday()}
                                       onClick={() => handleBookInClick(agent.id, asset.id, 'collected')}
                                       data-testid={`button-book-in-collected-${agent.id}-${asset.id}`}
                                       className="h-8 w-8 p-0"
@@ -776,7 +799,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      disabled={isDisabled}
+                                      disabled={isDisabled || !isViewingToday()}
                                       onClick={() => handleBookInClick(agent.id, asset.id, 'not_collected')}
                                       data-testid={`button-book-in-not-collected-${agent.id}-${asset.id}`}
                                       className="h-8 w-8 p-0"
@@ -892,6 +915,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    disabled={!isViewingToday()}
                                     onClick={() => handleBookOutClick(agent.id, asset.id)}
                                     data-testid={`button-book-out-${agent.id}-${asset.id}`}
                                   >
