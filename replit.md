@@ -49,11 +49,14 @@ Preferred communication style: Simple, everyday language.
         - **Historical Date Support**: When filtering to previous dates, the system displays the most recent asset state for each agent/asset combination up to that date. If no exact records exist for the selected date, the API automatically retrieves the last known state before that date. This ensures badges display correctly for historical dates while maintaining data accuracy.
         - **Read-Only Historical Mode**: When viewing dates in the past, Book Out and Book In action buttons are automatically disabled to prevent modifications to historical data. Only current date records can be edited.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
-    - **Transfer Management**: Team-based agent transfer system enabling movement of agents between team leaders. Features include:
-        - **Transfer Actions Dropdown**: Replaces single "New Transfer" button with dropdown menu offering three actions:
+    - **Transfer Management**: Team-based agent transfer system with unified interface for managing both team transfers and department assignments. Features include:
+        - **Unified Table View**: Single table displays both team transfers and department assignments together, eliminating the need to switch between separate views
+        - **Type Filtering**: Filter by type (All, Team Transfers, Department Assignments) with clear badge indicators for easy identification
+        - **Transfer Actions Dropdown**: Dropdown menu offering three actions:
           - **New Transfer**: Create agent transfers between team leaders
           - **Add Department**: Assign agents to hierarchical department structure (Division → Department → Section)
           - **Remove Department**: Remove agents from department assignments with confirmation
+        - **Simplified Filtering**: Single search bar, type filter, status filter (for transfers), and date picker for efficient data retrieval
         - **Team Leader Selection**: Transfer agents from one team leader to another, with automatic team reassignment
         - **Transfer Types**: Support for both temporary and permanent transfers with configurable start and end dates
         - **Location Tracking**: Captures location information (Thandanani, 16th) for transfer records
