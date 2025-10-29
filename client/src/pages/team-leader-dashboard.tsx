@@ -423,70 +423,58 @@ export default function TeamLeaderDashboard() {
               </CardContent>
             </Card>
 
-            {/* Agent Detail Modal */}
+            {/* Agent Detail Modal - ID Card Style */}
             <Dialog open={isAgentModalOpen} onOpenChange={setIsAgentModalOpen}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900">
-                <DialogHeader className="border-b border-blue-100 dark:border-blue-900 pb-4">
-                  <DialogTitle className="flex items-center gap-4">
-                    <Avatar className="h-14 w-14 border-2 border-blue-200 dark:border-blue-700">
-                      <AvatarFallback className="bg-blue-600 dark:bg-blue-700 text-white text-lg font-semibold">
-                        {selectedAgent ? `${selectedAgent.firstName?.[0] || ''}${selectedAgent.lastName?.[0] || ''}`.toUpperCase() || 'A' : 'A'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                        {selectedAgent?.firstName && selectedAgent?.lastName 
-                          ? `${selectedAgent.firstName} ${selectedAgent.lastName}` 
-                          : selectedAgent?.username || 'Agent Details'}
-                      </h2>
-                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">@{selectedAgent?.username}</p>
-                    </div>
-                  </DialogTitle>
-                </DialogHeader>
-
+              <DialogContent className="max-w-lg bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700">
                 {selectedAgent && (
-                  <div className="space-y-6 mt-6">
-                    {/* Basic Information */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Basic Information</h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {selectedAgent.email && (
-                          <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
-                            <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Email</p>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate" data-testid="text-agent-email">{selectedAgent.email}</p>
-                            </div>
-                          </div>
-                        )}
+                  <div className="space-y-0">
+                    {/* ID Card Header */}
+                    <div className="text-center py-6 border-b border-gray-200 dark:border-gray-700">
+                      <Avatar className="h-24 w-24 mx-auto mb-4 border-2 border-gray-300 dark:border-gray-600">
+                        <AvatarFallback className="bg-gray-700 dark:bg-gray-600 text-white text-2xl font-bold">
+                          {`${selectedAgent.firstName?.[0] || ''}${selectedAgent.lastName?.[0] || ''}`.toUpperCase() || 'A'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                        {selectedAgent.firstName && selectedAgent.lastName 
+                          ? `${selectedAgent.firstName} ${selectedAgent.lastName}` 
+                          : selectedAgent.username || 'Agent'}
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">@{selectedAgent.username}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-2 uppercase tracking-wide font-semibold">
+                        Employee ID Card
+                      </p>
+                    </div>
 
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
-                          <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Role</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-role">
-                              {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
-                            </p>
-                          </div>
+                    {/* ID Card Body */}
+                    <div className="p-6 space-y-4">
+                      {/* Row 1 */}
+                      <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Role</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-role">
+                            {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
+                          </p>
                         </div>
-
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
-                          <div className={`h-5 w-5 rounded-full mt-0.5 flex-shrink-0 ${selectedAgent.isActive ? 'bg-blue-500 dark:bg-blue-600' : 'bg-blue-300 dark:bg-blue-800'}`} />
-                          <div className="flex-1">
-                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Status</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-status">
-                              {selectedAgent.isActive ? 'Active' : 'Inactive'}
-                            </p>
-                          </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Status</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-status">
+                            {selectedAgent.isActive ? 'Active' : 'Inactive'}
+                          </p>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Organizational Structure */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Organizational Allocation</h3>
-                      
+                      {/* Row 2 */}
+                      {selectedAgent.email && (
+                        <div className="pb-4 border-b border-gray-200 dark:border-gray-700">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Email Address</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white break-all" data-testid="text-agent-email">
+                            {selectedAgent.email}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Row 3 - Organization */}
                       {(() => {
                         const assignment = userDepartmentAssignments.find(a => a.userId === selectedAgent.id);
                         const division = assignment?.divisionId ? divisions.find(d => d.id === assignment.divisionId) : null;
@@ -494,100 +482,59 @@ export default function TeamLeaderDashboard() {
                         const section = assignment?.sectionId ? sections.find(s => s.id === assignment.sectionId) : null;
 
                         return (
-                          <div className="grid grid-cols-1 gap-3">
-                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                              <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Division</p>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-division">
-                                  {division?.name || 'Not assigned'}
-                                </p>
-                                {division?.description && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{division.description}</p>
-                                )}
-                              </div>
+                          <div className="grid grid-cols-1 gap-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Division</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-division">
+                                {division?.name || 'Not assigned'}
+                              </p>
                             </div>
-
-                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                              <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Department</p>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-department">
-                                  {department?.name || 'Not assigned'}
-                                </p>
-                                {department?.description && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{department.description}</p>
-                                )}
-                              </div>
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Department</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-department">
+                                {department?.name || 'Not assigned'}
+                              </p>
                             </div>
-
-                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                              <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Section</p>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-section">
-                                  {section?.name || 'Not assigned'}
-                                </p>
-                                {section?.description && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{section.description}</p>
-                                )}
-                              </div>
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Section</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-section">
+                                {section?.name || 'Not assigned'}
+                              </p>
                             </div>
                           </div>
                         );
                       })()}
-                    </div>
 
-                    {/* Reports To & Attendance */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Management & Attendance</h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
-                          <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Reports To</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-reports-to">
-                              {(() => {
-                                const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
-                                return manager ? (
-                                  <span className="block">
-                                    {manager.firstName && manager.lastName 
-                                      ? `${manager.firstName} ${manager.lastName}` 
-                                      : manager.username}
-                                    <span className="block text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                                      {manager.role === 'team_leader' ? 'Team Leader' : manager.role}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
-                                );
-                              })()}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
-                          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Today's Attendance</p>
+                      {/* Row 4 */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Reports To</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-reports-to">
                             {(() => {
-                              const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
-                              const status = attendance?.status || 'absent';
-                              return (
-                                <Badge 
-                                  className={`mt-1 ${
-                                    status === 'at work' || status === 'at work (remote)' || status === 'present' ? 'bg-blue-600 text-white dark:bg-blue-700' :
-                                    status === 'late' ? 'bg-blue-400 text-white dark:bg-blue-600' :
-                                    'bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
-                                  }`}
-                                  data-testid="badge-agent-attendance"
-                                >
-                                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                                </Badge>
+                              const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
+                              return manager ? (
+                                <span>
+                                  {manager.firstName && manager.lastName 
+                                    ? `${manager.firstName} ${manager.lastName}` 
+                                    : manager.username}
+                                </span>
+                              ) : (
+                                <span className="text-xs italic text-gray-400">Unassigned</span>
                               );
                             })()}
-                          </div>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Attendance</p>
+                          {(() => {
+                            const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
+                            const status = attendance?.status || 'absent';
+                            return (
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="badge-agent-attendance">
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </p>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
