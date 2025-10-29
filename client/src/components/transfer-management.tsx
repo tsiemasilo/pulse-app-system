@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -14,11 +15,11 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { insertTransferSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
+import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
-import type { Transfer, User as UserType, Team } from "@shared/schema";
+import type { Transfer, User as UserType, Team, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
 import TransfersAuditLog from "./transfers-audit-log";
 
 const transferFormSchema = insertTransferSchema.extend({
@@ -33,6 +34,15 @@ const transferFormSchema = insertTransferSchema.extend({
   status: true,
 });
 
+const departmentAssignmentFormSchema = insertUserDepartmentAssignmentSchema.omit({
+  assignedBy: true,
+}).extend({
+  userId: z.string().min(1, "Agent is required"),
+  divisionId: z.string().optional(),
+  departmentId: z.string().optional(),
+  sectionId: z.string().optional(),
+});
+
 const AVAILABLE_LOCATIONS = [
   { id: 'thandanani', name: 'Thandanani' },
   { id: '16th', name: '16th' },
@@ -40,6 +50,8 @@ const AVAILABLE_LOCATIONS = [
 
 export default function TransferManagement() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
+  const [isRemoveDepartmentOpen, setIsRemoveDepartmentOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
   const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
@@ -98,6 +110,22 @@ export default function TransferManagement() {
 
   const { data: transfers = [] } = useQuery<Transfer[]>({
     queryKey: ["/api/transfers"],
+  });
+
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+  });
+
+  const { data: sections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+  });
+
+  const { data: userDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
   });
 
   const getUserName = (userId: string) => {
@@ -176,6 +204,46 @@ export default function TransferManagement() {
     },
   });
 
+  const addDepartmentForm = useForm({
+    resolver: zodResolver(departmentAssignmentFormSchema),
+    defaultValues: {
+      userId: "",
+      divisionId: "",
+      departmentId: "",
+      sectionId: "",
+    },
+  });
+
+  const removeDepartmentForm = useForm({
+    defaultValues: {
+      userId: "",
+    },
+  });
+
+  const selectedAddDivisionId = addDepartmentForm.watch("divisionId");
+  const selectedAddDepartmentId = addDepartmentForm.watch("departmentId");
+  const selectedRemoveUserId = removeDepartmentForm.watch("userId");
+
+  const filteredDepartments = useMemo(() => {
+    if (!selectedAddDivisionId) return [];
+    return departments.filter(d => d.divisionId === selectedAddDivisionId);
+  }, [selectedAddDivisionId, departments]);
+
+  const filteredSections = useMemo(() => {
+    if (!selectedAddDepartmentId) return [];
+    return sections.filter(s => s.departmentId === selectedAddDepartmentId);
+  }, [selectedAddDepartmentId, sections]);
+
+  const selectedUserAssignment = useMemo(() => {
+    if (!selectedRemoveUserId) return null;
+    return userDepartmentAssignments.find(a => a.userId === selectedRemoveUserId);
+  }, [selectedRemoveUserId, userDepartmentAssignments]);
+
+  const agentsWithAssignments = useMemo(() => {
+    const assignedUserIds = new Set(userDepartmentAssignments.map(a => a.userId));
+    return teamMembers.filter(member => assignedUserIds.has(member.id));
+  }, [teamMembers, userDepartmentAssignments]);
+
   const transferMutation = useMutation({
     mutationFn: async (data: z.infer<typeof transferFormSchema>) => {
       const transferData = {
@@ -204,6 +272,56 @@ export default function TransferManagement() {
     },
   });
 
+  const addDepartmentMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof departmentAssignmentFormSchema>) => {
+      const assignmentData = {
+        ...data,
+        assignedBy: user?.id,
+      };
+      const res = await apiRequest("POST", "/api/user-department-assignments", assignmentData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
+      setIsAddDepartmentOpen(false);
+      addDepartmentForm.reset();
+      toast({
+        title: "Department Assigned",
+        description: "Agent has been successfully assigned to department.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Assignment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeDepartmentMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("DELETE", `/api/user-department-assignments/${userId}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
+      setIsRemoveDepartmentOpen(false);
+      removeDepartmentForm.reset();
+      toast({
+        title: "Department Removed",
+        description: "Agent's department assignment has been removed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Removal Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: z.infer<typeof transferFormSchema>) => {
     const toTeamId = data.toTeamId ? getTeamIdForLeader(data.toTeamId) : undefined;
     
@@ -224,192 +342,44 @@ export default function TransferManagement() {
     transferMutation.mutate(transferData);
   };
 
+  const onAddDepartmentSubmit = (data: z.infer<typeof departmentAssignmentFormSchema>) => {
+    addDepartmentMutation.mutate(data);
+  };
+
+  const onRemoveDepartmentSubmit = (data: { userId: string }) => {
+    removeDepartmentMutation.mutate(data.userId);
+  };
+
   return (
+    <>
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center">
           <ArrowRightLeft className="h-5 w-5 mr-2" />
           Agent Transfers
         </CardTitle>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-transfer">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button data-testid="button-transfer-actions">
+              Transfer Actions
+              <ChevronDown className="h-4 w-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setIsOpen(true)} data-testid="menu-item-new-transfer">
               <ArrowRightLeft className="h-4 w-4 mr-2" />
               New Transfer
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Agent Transfer</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="userId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Agent to Transfer</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-user">
-                            <SelectValue placeholder="Select agent" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {teamMembers.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id}>
-                              {agent.firstName} {agent.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fromTeamId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>From Team Leader</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-from-team">
-                              <SelectValue placeholder="Select current team" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {leaderTeams.map((team) => (
-                              <SelectItem key={team.id} value={team.id}>
-                                {team.name} ({user?.firstName} {user?.lastName})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="toTeamId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>To Team Leader</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-to-team">
-                              <SelectValue placeholder="Select destination team" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {allTeamLeaders.map((teamLeader) => (
-                              <SelectItem key={teamLeader.id} value={teamLeader.id}>
-                                {teamLeader.firstName} {teamLeader.lastName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="transferType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Transfer Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-transfer-type">
-                            <SelectValue placeholder="Select transfer type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="temporary">Temporary</SelectItem>
-                          <SelectItem value="permanent">Permanent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-location">
-                            <SelectValue placeholder="Select location" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {AVAILABLE_LOCATIONS.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {location.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} data-testid="input-start-date" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date (for temporary transfers)</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} data-testid="input-end-date" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={transferMutation.isPending} data-testid="button-submit-transfer">
-                    {transferMutation.isPending ? "Creating..." : "Create Transfer"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsAddDepartmentOpen(true)} data-testid="menu-item-add-department">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Department
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsRemoveDepartmentOpen(true)} data-testid="menu-item-remove-department">
+              <UserMinus className="h-4 w-4 mr-2" />
+              Remove Department
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
       <CardContent>
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -589,17 +559,400 @@ export default function TransferManagement() {
           </div>
         </div>
       </CardContent>
-
-      <Dialog open={auditLogDialogOpen} onOpenChange={setAuditLogDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-transfers-audit-log">
-          <DialogHeader>
-            <DialogTitle>Transfer Audit Log</DialogTitle>
-          </DialogHeader>
-          {selectedTransferId && (
-            <TransfersAuditLog transferId={selectedTransferId} />
-          )}
-        </DialogContent>
-      </Dialog>
     </Card>
+
+    <Dialog open={auditLogDialogOpen} onOpenChange={setAuditLogDialogOpen}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-transfers-audit-log">
+        <DialogHeader>
+          <DialogTitle>Transfer Audit Log</DialogTitle>
+        </DialogHeader>
+        {selectedTransferId && (
+          <TransfersAuditLog transferId={selectedTransferId} />
+        )}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create Agent Transfer</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="userId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Agent to Transfer</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-transfer-user">
+                        <SelectValue placeholder="Select agent" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teamMembers.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.firstName} {agent.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="fromTeamId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>From Team Leader</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-from-team">
+                          <SelectValue placeholder="Select current team" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {leaderTeams.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name} ({user?.firstName} {user?.lastName})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="toTeamId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>To Team Leader</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-to-team">
+                          <SelectValue placeholder="Select destination team" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {allTeamLeaders.map((teamLeader) => (
+                          <SelectItem key={teamLeader.id} value={teamLeader.id}>
+                            {teamLeader.firstName} {teamLeader.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="transferType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Transfer Type</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-transfer-type">
+                        <SelectValue placeholder="Select transfer type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="temporary">Temporary</SelectItem>
+                      <SelectItem value="permanent">Permanent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-location">
+                        <SelectValue placeholder="Select location" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AVAILABLE_LOCATIONS.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-start-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date (for temporary transfers)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-end-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} data-testid="button-cancel-transfer">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={transferMutation.isPending} data-testid="button-submit-transfer">
+                {transferMutation.isPending ? "Creating..." : "Create Transfer"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isAddDepartmentOpen} onOpenChange={setIsAddDepartmentOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Add Department Assignment</DialogTitle>
+        </DialogHeader>
+        <Form {...addDepartmentForm}>
+          <form onSubmit={addDepartmentForm.handleSubmit(onAddDepartmentSubmit)} className="space-y-4">
+            <FormField
+              control={addDepartmentForm.control}
+              name="userId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Agent</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-add-dept-agent">
+                        <SelectValue placeholder="Select agent" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teamMembers.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.firstName} {agent.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={addDepartmentForm.control}
+              name="divisionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Division</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-division">
+                        <SelectValue placeholder="Select division" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.id}>
+                          {division.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={addDepartmentForm.control}
+              name="departmentId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Department</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={!selectedAddDivisionId}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-department">
+                        <SelectValue placeholder={selectedAddDivisionId ? "Select department" : "Select division first"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {filteredDepartments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={addDepartmentForm.control}
+              name="sectionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Section</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={!selectedAddDepartmentId}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-section">
+                        <SelectValue placeholder={selectedAddDepartmentId ? "Select section" : "Select department first"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {filteredSections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          {section.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsAddDepartmentOpen(false)} data-testid="button-cancel-add-dept">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addDepartmentMutation.isPending} data-testid="button-submit-add-dept">
+                {addDepartmentMutation.isPending ? "Assigning..." : "Assign Department"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isRemoveDepartmentOpen} onOpenChange={setIsRemoveDepartmentOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Remove Department Assignment</DialogTitle>
+        </DialogHeader>
+        <Form {...removeDepartmentForm}>
+          <form onSubmit={removeDepartmentForm.handleSubmit(onRemoveDepartmentSubmit)} className="space-y-4">
+            <FormField
+              control={removeDepartmentForm.control}
+              name="userId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Agent</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-remove-dept-agent">
+                        <SelectValue placeholder="Select agent with department assignment" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {agentsWithAssignments.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.firstName} {agent.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {selectedUserAssignment && (
+              <div className="p-4 bg-muted rounded-lg space-y-2" data-testid="current-assignment-details">
+                <h4 className="font-semibold">Current Assignment:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="font-medium">Division:</span>{' '}
+                    <span data-testid="text-current-division">
+                      {divisions.find(d => d.id === selectedUserAssignment.divisionId)?.name || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Department:</span>{' '}
+                    <span data-testid="text-current-department">
+                      {departments.find(d => d.id === selectedUserAssignment.departmentId)?.name || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Section:</span>{' '}
+                    <span data-testid="text-current-section">
+                      {sections.find(s => s.id === selectedUserAssignment.sectionId)?.name || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-destructive font-medium mt-4">
+                  Are you sure you want to remove this department assignment?
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsRemoveDepartmentOpen(false)} data-testid="button-cancel-remove-dept">
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={removeDepartmentMutation.isPending || !selectedRemoveUserId} 
+                variant="destructive"
+                data-testid="button-submit-remove-dept"
+              >
+                {removeDepartmentMutation.isPending ? "Removing..." : "Remove Assignment"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+
+    </>
   );
 }
