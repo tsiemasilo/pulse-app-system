@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
@@ -36,9 +37,12 @@ import {
   User as UserIcon,
   LogOut,
   Menu,
-  X
+  X,
+  Building2,
+  Layers,
+  MapPin
 } from "lucide-react";
-import type { User, Attendance, Asset, Team } from "@shared/schema";
+import type { User, Attendance, Asset, Team, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
 
 export default function TeamLeaderDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -46,6 +50,8 @@ export default function TeamLeaderDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('attendance');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -116,6 +122,23 @@ export default function TeamLeaderDashboard() {
       return await response.json() as User;
     },
     enabled: !!user?.reportsTo,
+  });
+
+  // Fetch divisions, departments, sections, and user department assignments
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+  });
+
+  const { data: sections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+  });
+
+  const { data: userDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
   });
 
   useEffect(() => {
@@ -326,7 +349,15 @@ export default function TeamLeaderDashboard() {
                     const memberManager = member.reportsTo ? userLookupMap.get(member.reportsTo) : null;
                     
                     return (
-                      <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div 
+                        key={member.id} 
+                        className="border rounded-lg p-4 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all cursor-pointer"
+                        onClick={() => {
+                          setSelectedAgent(member);
+                          setIsAgentModalOpen(true);
+                        }}
+                        data-testid={`card-agent-${member.id}`}
+                      >
                         <div className="flex items-center gap-3 mb-3">
                           <Avatar className="h-10 w-10">
                             <AvatarFallback className="bg-primary text-primary-foreground text-sm">
@@ -391,6 +422,175 @@ export default function TeamLeaderDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Agent Detail Modal */}
+            <Dialog open={isAgentModalOpen} onOpenChange={setIsAgentModalOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {selectedAgent ? `${selectedAgent.firstName?.[0] || ''}${selectedAgent.lastName?.[0] || ''}`.toUpperCase() || 'A' : 'A'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-xl font-bold">
+                        {selectedAgent?.firstName && selectedAgent?.lastName 
+                          ? `${selectedAgent.firstName} ${selectedAgent.lastName}` 
+                          : selectedAgent?.username || 'Agent Details'}
+                      </h2>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-normal">@{selectedAgent?.username}</p>
+                    </div>
+                  </DialogTitle>
+                </DialogHeader>
+
+                {selectedAgent && (
+                  <div className="space-y-6 mt-4">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Basic Information</h3>
+                      
+                      {selectedAgent.email && (
+                        <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                          <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Email Address</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-email">{selectedAgent.email}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                        <UserIcon className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-role">
+                            {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                        <div className={`h-5 w-5 rounded-full mt-0.5 flex-shrink-0 ${selectedAgent.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-status">
+                            {selectedAgent.isActive ? 'Active' : 'Inactive'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Organizational Structure */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organizational Allocation</h3>
+                      
+                      {(() => {
+                        const assignment = userDepartmentAssignments.find(a => a.userId === selectedAgent.id);
+                        const division = assignment?.divisionId ? divisions.find(d => d.id === assignment.divisionId) : null;
+                        const department = assignment?.departmentId ? departments.find(d => d.id === assignment.departmentId) : null;
+                        const section = assignment?.sectionId ? sections.find(s => s.id === assignment.sectionId) : null;
+
+                        return (
+                          <>
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                              <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Division</p>
+                                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100" data-testid="text-agent-division">
+                                  {division?.name || 'Not assigned'}
+                                </p>
+                                {division?.description && (
+                                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">{division.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                              <Layers className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Department</p>
+                                <p className="text-sm font-semibold text-green-900 dark:text-green-100" data-testid="text-agent-department">
+                                  {department?.name || 'Not assigned'}
+                                </p>
+                                {department?.description && (
+                                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">{department.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                              <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Section</p>
+                                <p className="text-sm font-semibold text-purple-900 dark:text-purple-100" data-testid="text-agent-section">
+                                  {section?.name || 'Not assigned'}
+                                </p>
+                                {section?.description && (
+                                  <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">{section.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Reports To & Attendance */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Management & Attendance</h3>
+                      
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                        <UserIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Reports To</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-reports-to">
+                            {(() => {
+                              const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
+                              return manager ? (
+                                <>
+                                  {manager.firstName && manager.lastName 
+                                    ? `${manager.firstName} ${manager.lastName}` 
+                                    : manager.username}
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                    ({manager.role === 'team_leader' ? 'Team Leader' : manager.role})
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
+                              );
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                        <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Attendance Status (Today)</p>
+                          {(() => {
+                            const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
+                            const status = attendance?.status || 'absent';
+                            return (
+                              <Badge 
+                                className={`mt-1 ${
+                                  status === 'at work' || status === 'at work (remote)' || status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' :
+                                  status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' :
+                                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                                }`}
+                                data-testid="badge-agent-attendance"
+                              >
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         );
       case 'onboarding':
