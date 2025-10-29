@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -66,7 +65,6 @@ export default function TransferManagement() {
   // Department Assignments state
   const [deptCurrentPage, setDeptCurrentPage] = useState(1);
   const [deptSearchTerm, setDeptSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("transfers");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -561,20 +559,124 @@ export default function TransferManagement() {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="transfers" data-testid="tab-team-transfers">
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
-              Team Transfers
-            </TabsTrigger>
-            <TabsTrigger value="departments" data-testid="tab-department-assignments">
-              <Building2 className="h-4 w-4 mr-2" />
-              Department Assignments
-            </TabsTrigger>
-          </TabsList>
+      <CardContent className="space-y-8">
+        {/* Department Assignments Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b">
+            <Building2 className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Department Assignments</h3>
+          </div>
+          
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by agent, division, department, or section..."
+                value={deptSearchTerm}
+                onChange={(e) => setDeptSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-departments"
+              />
+            </div>
+          </div>
 
-          <TabsContent value="transfers">
+          <div className="bg-card rounded-lg border border-border shadow-sm">
+            <div className="p-4 border-b border-border">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredDepartmentAssignments.length > 0 ? deptStartIndex + 1 : 0} to {Math.min(deptEndIndex, filteredDepartmentAssignments.length)} of {filteredDepartmentAssignments.length} records
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead style={{ backgroundColor: '#1a1f5c' }}>
+                  <tr>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent Name</th>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Division</th>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Department</th>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Section</th>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned Date</th>
+                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned By</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-card divide-y divide-border">
+                  {paginatedDepartmentAssignments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                        {deptSearchTerm
+                          ? "No department assignments match your search."
+                          : "No department assignments found. Add a department assignment to get started."}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedDepartmentAssignments.map((assignment) => (
+                      <tr key={assignment.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-department-${assignment.id}`}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium" data-testid={`text-agent-${assignment.id}`}>
+                              {getUserName(assignment.userId)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm" data-testid={`text-division-${assignment.id}`}>
+                          {getDivisionName(assignment.divisionId)}
+                        </td>
+                        <td className="px-6 py-4 text-sm" data-testid={`text-department-${assignment.id}`}>
+                          {getDepartmentName(assignment.departmentId)}
+                        </td>
+                        <td className="px-6 py-4 text-sm" data-testid={`text-section-${assignment.id}`}>
+                          {getSectionName(assignment.sectionId)}
+                        </td>
+                        <td className="px-6 py-4 text-sm" data-testid={`text-assigned-date-${assignment.id}`}>
+                          {assignment.assignedAt ? new Date(assignment.assignedAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm" data-testid={`text-assigned-by-${assignment.id}`}>
+                          {assignment.assignedBy ? getUserName(assignment.assignedBy) : 'System'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Page {deptCurrentPage} of {deptTotalPages || 1}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeptPreviousPage}
+                  disabled={deptCurrentPage === 1}
+                  data-testid="button-dept-previous-page"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeptNextPage}
+                  disabled={deptCurrentPage >= deptTotalPages}
+                  data-testid="button-dept-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Team Transfers Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b">
+            <ArrowRightLeft className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Team Transfers</h3>
+          </div>
             <div className="mb-6 flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -800,113 +902,7 @@ export default function TransferManagement() {
             </div>
           </div>
         </div>
-      </TabsContent>
-
-      <TabsContent value="departments">
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by agent, division, department, or section..."
-              value={deptSearchTerm}
-              onChange={(e) => setDeptSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-departments"
-            />
-          </div>
         </div>
-
-        <div className="bg-card rounded-lg border border-border shadow-sm">
-          <div className="p-4 border-b border-border">
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredDepartmentAssignments.length > 0 ? deptStartIndex + 1 : 0} to {Math.min(deptEndIndex, filteredDepartmentAssignments.length)} of {filteredDepartmentAssignments.length} records
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead style={{ backgroundColor: '#1a1f5c' }}>
-                <tr>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent Name</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Division</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Department</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Section</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned Date</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned By</th>
-                </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-border">
-                {paginatedDepartmentAssignments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                      {deptSearchTerm
-                        ? "No department assignments match your search."
-                        : "No department assignments found. Add a department assignment to get started."}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedDepartmentAssignments.map((assignment) => (
-                    <tr key={assignment.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-department-${assignment.id}`}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium" data-testid={`text-agent-${assignment.id}`}>
-                            {getUserName(assignment.userId)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-division-${assignment.id}`}>
-                        {getDivisionName(assignment.divisionId)}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-department-${assignment.id}`}>
-                        {getDepartmentName(assignment.departmentId)}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-section-${assignment.id}`}>
-                        {getSectionName(assignment.sectionId)}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-assigned-date-${assignment.id}`}>
-                        {assignment.assignedAt ? new Date(assignment.assignedAt).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-assigned-by-${assignment.id}`}>
-                        {assignment.assignedBy ? getUserName(assignment.assignedBy) : 'System'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Page {deptCurrentPage} of {deptTotalPages || 1}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDeptPreviousPage}
-                disabled={deptCurrentPage === 1}
-                data-testid="button-dept-previous-page"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDeptNextPage}
-                disabled={deptCurrentPage >= deptTotalPages}
-                data-testid="button-dept-next-page"
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </TabsContent>
-    </Tabs>
       </CardContent>
     </Card>
 
