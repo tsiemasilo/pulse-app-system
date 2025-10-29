@@ -21,7 +21,7 @@ import {
   Eye
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { User, Department } from "@shared/schema";
+import type { User, Department, Division, Section, UserDepartmentAssignment } from "@shared/schema";
 
 export default function HREmployeeManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,6 +35,18 @@ export default function HREmployeeManagement() {
 
   const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: sections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+  });
+
+  const { data: userDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
   });
 
   const filteredEmployees = employees.filter(employee => {
@@ -76,10 +88,39 @@ export default function HREmployeeManagement() {
     return role ? colorMap[role] || 'bg-gray-100 text-gray-800' : 'bg-gray-100 text-gray-800';
   };
 
-  const getDepartmentName = (departmentId: string | null) => {
-    if (!departmentId) return 'No Department';
-    const department = departments.find(dept => dept.id === departmentId);
-    return department?.name || 'Unknown Department';
+  const getDepartmentInfo = (userId: string) => {
+    // First check the new user_department_assignments table
+    const assignment = userDepartmentAssignments.find(a => a.userId === userId);
+    
+    if (assignment) {
+      const parts: string[] = [];
+      
+      if (assignment.divisionId) {
+        const division = divisions.find(d => d.id === assignment.divisionId);
+        if (division) parts.push(division.name);
+      }
+      
+      if (assignment.departmentId) {
+        const department = departments.find(d => d.id === assignment.departmentId);
+        if (department) parts.push(department.name);
+      }
+      
+      if (assignment.sectionId) {
+        const section = sections.find(s => s.id === assignment.sectionId);
+        if (section) parts.push(section.name);
+      }
+      
+      return parts.length > 0 ? parts.join(' → ') : 'No Department';
+    }
+    
+    // Fall back to legacy departmentId field
+    const employee = employees.find(e => e.id === userId);
+    if (employee?.departmentId) {
+      const department = departments.find(dept => dept.id === employee.departmentId);
+      return department?.name || 'Unknown Department';
+    }
+    
+    return 'No Department';
   };
 
   const getEmployeeStats = () => {
@@ -294,7 +335,7 @@ export default function HREmployeeManagement() {
 
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Building2 className="h-4 w-4" />
-                      <span>{getDepartmentName(employee.departmentId)}</span>
+                      <span>{getDepartmentInfo(employee.id)}</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
