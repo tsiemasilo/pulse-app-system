@@ -423,47 +423,54 @@ export default function TeamLeaderDashboard() {
               </CardContent>
             </Card>
 
-            {/* Agent Detail Modal - ID Card Style */}
+            {/* Agent Detail Modal - Stylish ID Card */}
             <Dialog open={isAgentModalOpen} onOpenChange={setIsAgentModalOpen}>
-              <DialogContent className="w-[600px] h-[350px] p-0 bg-white dark:bg-gray-900 border-4 border-gray-400 dark:border-gray-600 rounded-xl overflow-hidden">
+              <DialogContent className="w-[600px] h-[350px] p-0 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 dark:from-blue-950 dark:via-blue-900 dark:to-blue-950 border-4 border-orange-500 dark:border-orange-600 rounded-2xl overflow-hidden shadow-2xl">
                 {selectedAgent && (
-                  <div className="h-full flex">
-                    {/* Left side - Photo and basic info */}
-                    <div className="w-[180px] bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center p-4 border-r-2 border-gray-300 dark:border-gray-600">
-                      <Avatar className="h-28 w-28 mb-3 border-2 border-gray-400 dark:border-gray-500">
-                        <AvatarFallback className="bg-gray-700 dark:bg-gray-600 text-white text-3xl font-bold">
+                  <div className="h-full flex relative">
+                    {/* Decorative corner accent */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500 dark:bg-orange-600 opacity-20 rounded-bl-full"></div>
+                    
+                    {/* Left side - Photo section with dark blue gradient */}
+                    <div className="w-[180px] bg-gradient-to-b from-blue-800 to-blue-900 dark:from-blue-900 dark:to-blue-950 flex flex-col items-center justify-center p-4 border-r-4 border-orange-500 dark:border-orange-600">
+                      <Avatar className="h-28 w-28 mb-3 border-4 border-white dark:border-gray-200 shadow-lg">
+                        <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-3xl font-bold">
                           {`${selectedAgent.firstName?.[0] || ''}${selectedAgent.lastName?.[0] || ''}`.toUpperCase() || 'A'}
                         </AvatarFallback>
                       </Avatar>
-                      <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold text-center">
-                        Employee ID
-                      </p>
+                      <div className="bg-white dark:bg-gray-100 px-3 py-1 rounded-full">
+                        <p className="text-[10px] text-blue-900 uppercase tracking-wider font-bold text-center">
+                          Employee ID
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Right side - Information */}
-                    <div className="flex-1 p-4 flex flex-col justify-between">
-                      {/* Header */}
-                      <div className="border-b border-gray-300 dark:border-gray-700 pb-2 mb-3">
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                    {/* Right side - Information with white background */}
+                    <div className="flex-1 bg-white dark:bg-gray-50 p-5 flex flex-col justify-between">
+                      {/* Header with orange accent */}
+                      <div className="border-b-2 border-orange-500 dark:border-orange-600 pb-2 mb-3">
+                        <h2 className="text-lg font-bold text-blue-900 dark:text-blue-950 leading-tight">
                           {selectedAgent.firstName && selectedAgent.lastName 
                             ? `${selectedAgent.firstName} ${selectedAgent.lastName}`.toUpperCase() 
                             : selectedAgent.username?.toUpperCase() || 'AGENT'}
                         </h2>
-                        <p className="text-[11px] text-gray-600 dark:text-gray-400">@{selectedAgent.username}</p>
+                        <p className="text-[11px] text-blue-700 dark:text-blue-800 font-medium">@{selectedAgent.username}</p>
                       </div>
 
                       {/* Information Grid */}
-                      <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
                         <div>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Role</p>
-                          <p className="text-[11px] font-semibold text-gray-900 dark:text-white" data-testid="text-agent-role">
+                          <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Role</p>
+                          <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950" data-testid="text-agent-role">
                             {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Status</p>
-                          <p className="text-[11px] font-semibold text-gray-900 dark:text-white" data-testid="text-agent-status">
-                            {selectedAgent.isActive ? 'Active' : 'Inactive'}
+                          <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Status</p>
+                          <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950" data-testid="text-agent-status">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-white ${selectedAgent.isActive ? 'bg-green-600' : 'bg-red-600'}`}>
+                              {selectedAgent.isActive ? 'Active' : 'Inactive'}
+                            </span>
                           </p>
                         </div>
                         {(() => {
@@ -476,32 +483,32 @@ export default function TeamLeaderDashboard() {
                           return (
                             <>
                               <div>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Division</p>
-                                <p className="text-[11px] font-semibold text-gray-900 dark:text-white truncate" data-testid="text-agent-division">
+                                <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Division</p>
+                                <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-division">
                                   {division?.name || 'Not assigned'}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Department</p>
-                                <p className="text-[11px] font-semibold text-gray-900 dark:text-white truncate" data-testid="text-agent-department">
+                                <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Department</p>
+                                <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-department">
                                   {department?.name || 'Not assigned'}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Section</p>
-                                <p className="text-[11px] font-semibold text-gray-900 dark:text-white truncate" data-testid="text-agent-section">
+                                <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Section</p>
+                                <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-section">
                                   {section?.name || 'Not assigned'}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Reports To</p>
-                                <p className="text-[11px] font-semibold text-gray-900 dark:text-white truncate" data-testid="text-agent-reports-to">
+                                <p className="text-[10px] text-blue-700 dark:text-blue-800 uppercase font-bold">Reports To</p>
+                                <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-reports-to">
                                   {manager ? (
                                     manager.firstName && manager.lastName 
                                       ? `${manager.firstName} ${manager.lastName}` 
                                       : manager.username
                                   ) : (
-                                    <span className="italic text-gray-400">Unassigned</span>
+                                    <span className="italic text-gray-500">Unassigned</span>
                                   )}
                                 </p>
                               </div>
@@ -510,24 +517,24 @@ export default function TeamLeaderDashboard() {
                         })()}
                       </div>
 
-                      {/* Footer */}
-                      <div className="border-t border-gray-300 dark:border-gray-700 pt-2 mt-2">
+                      {/* Footer with blue background */}
+                      <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-100 dark:to-blue-200 -mx-5 -mb-5 px-5 py-3 border-t-2 border-blue-900 dark:border-blue-950">
                         <div className="flex justify-between items-center">
                           {selectedAgent.email && (
                             <div className="flex-1 min-w-0">
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Email</p>
-                              <p className="text-[11px] font-medium text-gray-900 dark:text-white truncate" data-testid="text-agent-email">
+                              <p className="text-[10px] text-blue-900 dark:text-blue-950 uppercase font-bold">Email</p>
+                              <p className="text-[11px] font-medium text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-email">
                                 {selectedAgent.email}
                               </p>
                             </div>
                           )}
                           <div className="ml-4">
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Attendance</p>
+                            <p className="text-[10px] text-blue-900 dark:text-blue-950 uppercase font-bold">Attendance</p>
                             {(() => {
                               const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
                               const status = attendance?.status || 'absent';
                               return (
-                                <p className="text-[11px] font-bold text-gray-900 dark:text-white" data-testid="badge-agent-attendance">
+                                <p className="text-[11px] font-bold text-orange-600 dark:text-orange-700" data-testid="badge-agent-attendance">
                                   {status.charAt(0).toUpperCase() + status.slice(1)}
                                 </p>
                               );
