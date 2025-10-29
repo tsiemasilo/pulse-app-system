@@ -58,10 +58,14 @@ Preferred communication style: Simple, everyday language.
         - **Transfer Types**: Support for both temporary and permanent transfers with configurable start and end dates
         - **Location Tracking**: Captures location information (Thandanani, 16th) for transfer records
         - **Approval Workflow**: Multi-stage approval process (pending → approved → completed) with role-based authorization
+        - **Inline Action Buttons**: Each transfer row includes contextual action buttons (Approve, Reject, Complete) based on transfer status and user role, with visual indicators (green for approve, red for reject, blue for complete)
+        - **Confirmation Dialogs**: All transfer actions (approve, reject, complete) require explicit confirmation via alert dialogs to prevent accidental changes
         - **Automatic Reassignment**: When transfers are completed, agents are automatically reassigned to the new team leader's team
         - **Organogram Sync**: Organogram automatically updates to reflect new reporting relationships when transfers complete
-        - **Role-Based Access**: Team leaders can initiate transfers and manage department assignments; managers/admins can approve; admins can complete
-        - **Simplified Status Display**: Status badges shown without color coding for clean UI presentation
+        - **Role-Based Access**: Team leaders can initiate transfers and manage department assignments; managers/admins can approve; admins can complete transfers
+        - **Enhanced Status Display**: Status badges with color-coded variants (green for approved, red for rejected, blue for completed, gray for pending)
+        - **Duplicate Submission Prevention**: Action buttons are disabled while mutations are pending to prevent duplicate submissions
+        - **Audit Trail**: Complete audit log for all transfer actions accessible via eye icon button on each transfer row
     - **Department Hierarchy System**: Three-tier organizational structure for agent assignments:
         - **Divisions**: Top-level organizational units (e.g., RAF - Road Accident Fund)
         - **Departments**: Mid-level units under divisions (e.g., Admin, Outbound, Inbound)
