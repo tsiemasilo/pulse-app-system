@@ -425,65 +425,67 @@ export default function TeamLeaderDashboard() {
 
             {/* Agent Detail Modal */}
             <Dialog open={isAgentModalOpen} onOpenChange={setIsAgentModalOpen}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900">
+                <DialogHeader className="border-b border-blue-100 dark:border-blue-900 pb-4">
+                  <DialogTitle className="flex items-center gap-4">
+                    <Avatar className="h-14 w-14 border-2 border-blue-200 dark:border-blue-700">
+                      <AvatarFallback className="bg-blue-600 dark:bg-blue-700 text-white text-lg font-semibold">
                         {selectedAgent ? `${selectedAgent.firstName?.[0] || ''}${selectedAgent.lastName?.[0] || ''}`.toUpperCase() || 'A' : 'A'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h2 className="text-xl font-bold">
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                         {selectedAgent?.firstName && selectedAgent?.lastName 
                           ? `${selectedAgent.firstName} ${selectedAgent.lastName}` 
                           : selectedAgent?.username || 'Agent Details'}
                       </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-normal">@{selectedAgent?.username}</p>
+                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">@{selectedAgent?.username}</p>
                     </div>
                   </DialogTitle>
                 </DialogHeader>
 
                 {selectedAgent && (
-                  <div className="space-y-6 mt-4">
+                  <div className="space-y-6 mt-6">
                     {/* Basic Information */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Basic Information</h3>
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Basic Information</h3>
                       
-                      {selectedAgent.email && (
-                        <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                          <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedAgent.email && (
+                          <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+                            <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Email</p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate" data-testid="text-agent-email">{selectedAgent.email}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+                          <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Email Address</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-email">{selectedAgent.email}</p>
+                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Role</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-role">
+                              {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
+                            </p>
                           </div>
                         </div>
-                      )}
 
-                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <UserIcon className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-role">
-                            {selectedAgent.role === 'agent' ? 'Agent' : selectedAgent.role}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <div className={`h-5 w-5 rounded-full mt-0.5 flex-shrink-0 ${selectedAgent.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-status">
-                            {selectedAgent.isActive ? 'Active' : 'Inactive'}
-                          </p>
+                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+                          <div className={`h-5 w-5 rounded-full mt-0.5 flex-shrink-0 ${selectedAgent.isActive ? 'bg-blue-500 dark:bg-blue-600' : 'bg-blue-300 dark:bg-blue-800'}`} />
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Status</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-status">
+                              {selectedAgent.isActive ? 'Active' : 'Inactive'}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Organizational Structure */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organizational Allocation</h3>
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Organizational Allocation</h3>
                       
                       {(() => {
                         const assignment = userDepartmentAssignments.find(a => a.userId === selectedAgent.id);
@@ -492,98 +494,100 @@ export default function TeamLeaderDashboard() {
                         const section = assignment?.sectionId ? sections.find(s => s.id === assignment.sectionId) : null;
 
                         return (
-                          <>
-                            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
                               <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                               <div className="flex-1">
-                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Division</p>
-                                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100" data-testid="text-agent-division">
+                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Division</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-division">
                                   {division?.name || 'Not assigned'}
                                 </p>
                                 {division?.description && (
-                                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">{division.description}</p>
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{division.description}</p>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                              <Layers className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                              <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                               <div className="flex-1">
-                                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Department</p>
-                                <p className="text-sm font-semibold text-green-900 dark:text-green-100" data-testid="text-agent-department">
+                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Department</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-department">
                                   {department?.name || 'Not assigned'}
                                 </p>
                                 {department?.description && (
-                                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">{department.description}</p>
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{department.description}</p>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-start gap-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
-                              <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                              <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                               <div className="flex-1">
-                                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Section</p>
-                                <p className="text-sm font-semibold text-purple-900 dark:text-purple-100" data-testid="text-agent-section">
+                                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Section</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white" data-testid="text-agent-section">
                                   {section?.name || 'Not assigned'}
                                 </p>
                                 {section?.description && (
-                                  <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">{section.description}</p>
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{section.description}</p>
                                 )}
                               </div>
                             </div>
-                          </>
+                          </div>
                         );
                       })()}
                     </div>
 
                     {/* Reports To & Attendance */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Management & Attendance</h3>
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider mb-4">Management & Attendance</h3>
                       
-                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <UserIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Reports To</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-reports-to">
-                            {(() => {
-                              const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
-                              return manager ? (
-                                <>
-                                  {manager.firstName && manager.lastName 
-                                    ? `${manager.firstName} ${manager.lastName}` 
-                                    : manager.username}
-                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                    ({manager.role === 'team_leader' ? 'Team Leader' : manager.role})
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+                          <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Reports To</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-agent-reports-to">
+                              {(() => {
+                                const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
+                                return manager ? (
+                                  <span className="block">
+                                    {manager.firstName && manager.lastName 
+                                      ? `${manager.firstName} ${manager.lastName}` 
+                                      : manager.username}
+                                    <span className="block text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                                      {manager.role === 'team_leader' ? 'Team Leader' : manager.role}
+                                    </span>
                                   </span>
-                                </>
-                              ) : (
-                                <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
+                                ) : (
+                                  <span className="text-xs italic text-gray-400 dark:text-gray-500">Unassigned</span>
+                                );
+                              })()}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+                          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-1">Today's Attendance</p>
+                            {(() => {
+                              const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
+                              const status = attendance?.status || 'absent';
+                              return (
+                                <Badge 
+                                  className={`mt-1 ${
+                                    status === 'at work' || status === 'at work (remote)' || status === 'present' ? 'bg-blue-600 text-white dark:bg-blue-700' :
+                                    status === 'late' ? 'bg-blue-400 text-white dark:bg-blue-600' :
+                                    'bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
+                                  }`}
+                                  data-testid="badge-agent-attendance"
+                                >
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </Badge>
                               );
                             })()}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Attendance Status (Today)</p>
-                          {(() => {
-                            const attendance = attendanceRecords.find(att => att.userId === selectedAgent.id);
-                            const status = attendance?.status || 'absent';
-                            return (
-                              <Badge 
-                                className={`mt-1 ${
-                                  status === 'at work' || status === 'at work (remote)' || status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' :
-                                  status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' :
-                                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                                }`}
-                                data-testid="badge-agent-attendance"
-                              >
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                              </Badge>
-                            );
-                          })()}
+                          </div>
                         </div>
                       </div>
                     </div>
