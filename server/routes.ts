@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDepartmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
+import { insertUserSchema, insertDivisionSchema, insertDepartmentSchema, insertSectionSchema, insertUserDepartmentAssignmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
 import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
@@ -261,6 +261,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating department:", error);
       res.status(500).json({ message: "Failed to create department" });
+    }
+  });
+
+  // Division management
+  app.get('/api/divisions', isAuthenticated, async (req: any, res) => {
+    try {
+      const divisions = await storage.getAllDivisions();
+      res.json(divisions);
+    } catch (error) {
+      console.error("Error fetching divisions:", error);
+      res.status(500).json({ message: "Failed to fetch divisions" });
+    }
+  });
+
+  app.post('/api/divisions', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const divisionData = insertDivisionSchema.parse(req.body);
+      const division = await storage.createDivision(divisionData);
+      res.json(division);
+    } catch (error) {
+      console.error("Error creating division:", error);
+      res.status(500).json({ message: "Failed to create division" });
+    }
+  });
+
+  // Section management
+  app.get('/api/sections', isAuthenticated, async (req: any, res) => {
+    try {
+      const sections = await storage.getAllSections();
+      res.json(sections);
+    } catch (error) {
+      console.error("Error fetching sections:", error);
+      res.status(500).json({ message: "Failed to fetch sections" });
+    }
+  });
+
+  app.post('/api/sections', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const sectionData = insertSectionSchema.parse(req.body);
+      const section = await storage.createSection(sectionData);
+      res.json(section);
+    } catch (error) {
+      console.error("Error creating section:", error);
+      res.status(500).json({ message: "Failed to create section" });
+    }
+  });
+
+  // User department assignment management
+  app.get('/api/user-department-assignments', isAuthenticated, async (req: any, res) => {
+    try {
+      const assignments = await storage.getAllUserDepartmentAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching user department assignments:", error);
+      res.status(500).json({ message: "Failed to fetch user department assignments" });
+    }
+  });
+
+  app.get('/api/user-department-assignments/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const assignment = await storage.getUserDepartmentAssignment(req.params.userId);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching user department assignment:", error);
+      res.status(500).json({ message: "Failed to fetch user department assignment" });
+    }
+  });
+
+  app.post('/api/user-department-assignments', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const assignmentData = insertUserDepartmentAssignmentSchema.parse(req.body);
+      const assignment = await storage.assignUserToDepartment(assignmentData);
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error assigning user to department:", error);
+      res.status(500).json({ message: "Failed to assign user to department" });
+    }
+  });
+
+  app.delete('/api/user-department-assignments/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.removeUserDepartmentAssignment(req.params.userId);
+      res.json({ message: "User department assignment removed successfully" });
+    } catch (error) {
+      console.error("Error removing user department assignment:", error);
+      res.status(500).json({ message: "Failed to remove user department assignment" });
     }
   });
 

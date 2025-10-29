@@ -1,6 +1,9 @@
 import {
   users,
+  divisions,
   departments,
+  sections,
+  userDepartmentAssignments,
   assets,
   attendance,
   teams,
@@ -18,8 +21,14 @@ import {
   type User,
   type UpsertUser,
   type InsertUser,
+  type Division,
+  type InsertDivision,
   type Department,
   type InsertDepartment,
+  type Section,
+  type InsertSection,
+  type UserDepartmentAssignment,
+  type InsertUserDepartmentAssignment,
   type Asset,
   type InsertAsset,
   type Attendance,
@@ -70,6 +79,21 @@ export interface IStorage {
   // Department management
   getAllDepartments(): Promise<Department[]>;
   createDepartment(department: InsertDepartment): Promise<Department>;
+  
+  // Division management
+  getAllDivisions(): Promise<Division[]>;
+  createDivision(division: InsertDivision): Promise<Division>;
+  
+  // Section management
+  getAllSections(): Promise<Section[]>;
+  getSectionsByDepartment(departmentId: string): Promise<Section[]>;
+  createSection(section: InsertSection): Promise<Section>;
+  
+  // User department assignment management
+  getAllUserDepartmentAssignments(): Promise<UserDepartmentAssignment[]>;
+  getUserDepartmentAssignment(userId: string): Promise<UserDepartmentAssignment | undefined>;
+  assignUserToDepartment(assignment: InsertUserDepartmentAssignment): Promise<UserDepartmentAssignment>;
+  removeUserDepartmentAssignment(userId: string): Promise<void>;
   
   // Asset management
   getAllAssets(): Promise<Asset[]>;
@@ -357,6 +381,69 @@ export class DatabaseStorage implements IStorage {
   async createDepartment(departmentData: InsertDepartment): Promise<Department> {
     const [department] = await db.insert(departments).values(departmentData).returning();
     return department;
+  }
+
+  // Division management
+  async getAllDivisions(): Promise<Division[]> {
+    return await db.select().from(divisions);
+  }
+
+  async createDivision(divisionData: InsertDivision): Promise<Division> {
+    const [division] = await db.insert(divisions).values(divisionData).returning();
+    return division;
+  }
+
+  // Section management
+  async getAllSections(): Promise<Section[]> {
+    return await db.select().from(sections);
+  }
+
+  async getSectionsByDepartment(departmentId: string): Promise<Section[]> {
+    return await db.select().from(sections).where(eq(sections.departmentId, departmentId));
+  }
+
+  async createSection(sectionData: InsertSection): Promise<Section> {
+    const [section] = await db.insert(sections).values(sectionData).returning();
+    return section;
+  }
+
+  // User department assignment management
+  async getAllUserDepartmentAssignments(): Promise<UserDepartmentAssignment[]> {
+    return await db.select().from(userDepartmentAssignments);
+  }
+
+  async getUserDepartmentAssignment(userId: string): Promise<UserDepartmentAssignment | undefined> {
+    const [assignment] = await db.select().from(userDepartmentAssignments).where(eq(userDepartmentAssignments.userId, userId));
+    return assignment;
+  }
+
+  async assignUserToDepartment(assignmentData: InsertUserDepartmentAssignment): Promise<UserDepartmentAssignment> {
+    // First, check if the user already has an assignment
+    const existing = await this.getUserDepartmentAssignment(assignmentData.userId);
+    
+    if (existing) {
+      // Update existing assignment
+      const [updated] = await db
+        .update(userDepartmentAssignments)
+        .set({
+          divisionId: assignmentData.divisionId,
+          departmentId: assignmentData.departmentId,
+          sectionId: assignmentData.sectionId,
+          assignedBy: assignmentData.assignedBy,
+          assignedAt: new Date(),
+        })
+        .where(eq(userDepartmentAssignments.userId, assignmentData.userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new assignment
+      const [assignment] = await db.insert(userDepartmentAssignments).values(assignmentData).returning();
+      return assignment;
+    }
+  }
+
+  async removeUserDepartmentAssignment(userId: string): Promise<void> {
+    await db.delete(userDepartmentAssignments).where(eq(userDepartmentAssignments.userId, userId));
   }
 
   // Asset management
