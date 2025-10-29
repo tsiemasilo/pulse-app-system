@@ -17,9 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2 } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2, Layers } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
+import { motion } from "framer-motion";
 import type { Transfer, User as UserType, Team, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
 import TransfersAuditLog from "./transfers-audit-log";
 
@@ -50,6 +51,7 @@ const AVAILABLE_LOCATIONS = [
 ];
 
 export default function TransferManagement() {
+  const [activeView, setActiveView] = useState<'departments' | 'transfers' | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
   const [isRemoveDepartmentOpen, setIsRemoveDepartmentOpen] = useState(false);
@@ -536,32 +538,130 @@ export default function TransferManagement() {
           <ArrowRightLeft className="h-5 w-5 mr-2" />
           Transfer Management
         </CardTitle>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button data-testid="button-transfer-actions">
-              Transfer Actions
-              <ChevronDown className="h-4 w-4 ml-2" />
+        <div className="flex items-center gap-2">
+          {activeView && (
+            <Button 
+              variant="outline" 
+              onClick={() => setActiveView(activeView === 'departments' ? 'transfers' : 'departments')}
+              data-testid="button-toggle-view"
+            >
+              {activeView === 'departments' ? (
+                <>
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Team Transfers
+                </>
+              ) : (
+                <>
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Department Assignments
+                </>
+              )}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setIsOpen(true)} data-testid="menu-item-new-transfer">
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
-              New Transfer
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setIsAddDepartmentOpen(true)} data-testid="menu-item-add-department">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Department
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setIsRemoveDepartmentOpen(true)} data-testid="menu-item-remove-department">
-              <UserMinus className="h-4 w-4 mr-2" />
-              Remove Department
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button data-testid="button-transfer-actions">
+                Transfer Actions
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsOpen(true)} data-testid="menu-item-new-transfer">
+                <ArrowRightLeft className="h-4 w-4 mr-2" />
+                New Transfer
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsAddDepartmentOpen(true)} data-testid="menu-item-add-department">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Department
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsRemoveDepartmentOpen(true)} data-testid="menu-item-remove-department">
+                <UserMinus className="h-4 w-4 mr-2" />
+                Remove Department
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Department Assignments Section */}
-        <div className="space-y-4">
+        {!activeView ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8"
+          >
+            <motion.div
+              whileHover={{ scale: 1.02, y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveView('departments')}
+              className="cursor-pointer"
+              data-testid="card-select-departments"
+            >
+              <Card className="h-full bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-lg hover:shadow-xl">
+                <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1, rotate: 360 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                    className="p-6 bg-blue-100 dark:bg-blue-900/50 rounded-full"
+                  >
+                    <Building2 className="h-16 w-16 text-blue-600 dark:text-blue-400" />
+                  </motion.div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-2">
+                      Department Assignments
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Manage agent assignments to divisions, departments, and sections
+                    </p>
+                  </div>
+                  <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
+                    {filteredDepartmentAssignments.length} Assignments
+                  </Badge>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.02, y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveView('transfers')}
+              className="cursor-pointer"
+              data-testid="card-select-transfers"
+            >
+              <Card className="h-full bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all shadow-lg hover:shadow-xl">
+                <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
+                  <motion.div
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                    className="p-6 bg-green-100 dark:bg-green-900/50 rounded-full"
+                  >
+                    <ArrowRightLeft className="h-16 w-16 text-green-600 dark:text-green-400" />
+                  </motion.div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-2">
+                      Team Transfers
+                    </h3>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      View and manage agent transfers between teams
+                    </p>
+                  </div>
+                  <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                    {filteredTransfers.length} Transfers
+                  </Badge>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        ) : activeView === 'departments' ? (
+          <motion.div 
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 50 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-4"
+          >
           <div className="flex items-center gap-2 pb-2 border-b">
             <Building2 className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Department Assignments</h3>
@@ -669,10 +769,15 @@ export default function TransferManagement() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Team Transfers Section */}
-        <div className="space-y-4">
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-4"
+          >
           <div className="flex items-center gap-2 pb-2 border-b">
             <ArrowRightLeft className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Team Transfers</h3>
@@ -902,7 +1007,8 @@ export default function TransferManagement() {
             </div>
           </div>
         </div>
-        </div>
+          </motion.div>
+        )}
       </CardContent>
     </Card>
 
