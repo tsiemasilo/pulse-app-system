@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
 import type { Transfer, User as UserType, Team, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
@@ -59,6 +60,7 @@ export default function TransferManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete', transferId: string } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -322,6 +324,72 @@ export default function TransferManagement() {
     },
   });
 
+  const approveMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      const res = await apiRequest("PATCH", `/api/transfers/${transferId}/approve`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      setConfirmAction(null);
+      toast({
+        title: "Transfer Approved",
+        description: "The transfer has been successfully approved.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Approval Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      const res = await apiRequest("PATCH", `/api/transfers/${transferId}/reject`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      setConfirmAction(null);
+      toast({
+        title: "Transfer Rejected",
+        description: "The transfer has been rejected.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Rejection Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      const res = await apiRequest("POST", `/api/transfers/${transferId}/complete`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      setConfirmAction(null);
+      toast({
+        title: "Transfer Completed",
+        description: "The transfer has been marked as completed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Completion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: z.infer<typeof transferFormSchema>) => {
     const toTeamId = data.toTeamId ? getTeamIdForLeader(data.toTeamId) : undefined;
     
@@ -348,6 +416,52 @@ export default function TransferManagement() {
 
   const onRemoveDepartmentSubmit = (data: { userId: string }) => {
     removeDepartmentMutation.mutate(data.userId);
+  };
+
+  const canPerformAction = (transfer: Transfer, action: 'approve' | 'reject' | 'complete') => {
+    const isAdmin = user?.role === 'admin';
+    const isManager = user?.role === 'contact_center_manager';
+    
+    if (action === 'approve' || action === 'reject') {
+      return (isAdmin || isManager) && transfer.status === 'pending';
+    }
+    
+    if (action === 'complete') {
+      return isAdmin && transfer.status === 'approved';
+    }
+    
+    return false;
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'secondary';
+      case 'approved':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      case 'completed':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    
+    switch (confirmAction.type) {
+      case 'approve':
+        approveMutation.mutate(confirmAction.transferId);
+        break;
+      case 'reject':
+        rejectMutation.mutate(confirmAction.transferId);
+        break;
+      case 'complete':
+        completeMutation.mutate(confirmAction.transferId);
+        break;
+    }
   };
 
   return (
@@ -502,7 +616,15 @@ export default function TransferManagement() {
                         {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant="outline" data-testid={`badge-status-${transfer.id}`}>
+                        <Badge 
+                          variant={getStatusBadgeVariant(transfer.status)} 
+                          data-testid={`badge-status-${transfer.id}`}
+                          className={
+                            transfer.status === 'approved' ? 'bg-green-600 hover:bg-green-700' :
+                            transfer.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
+                            ''
+                          }
+                        >
                           {transfer.status}
                         </Badge>
                       </td>
@@ -510,18 +632,59 @@ export default function TransferManagement() {
                         {getUserName(transfer.requestedBy)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTransferId(transfer.id);
-                            setAuditLogDialogOpen(true);
-                          }}
-                          data-testid={`button-audit-log-${transfer.id}`}
-                          title="View Audit Log"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {canPerformAction(transfer, 'approve') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmAction({ type: 'approve', transferId: transfer.id })}
+                              data-testid={`button-approve-${transfer.id}`}
+                              title="Approve Transfer"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canPerformAction(transfer, 'reject') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmAction({ type: 'reject', transferId: transfer.id })}
+                              data-testid={`button-reject-${transfer.id}`}
+                              title="Reject Transfer"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canPerformAction(transfer, 'complete') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmAction({ type: 'complete', transferId: transfer.id })}
+                              data-testid={`button-complete-${transfer.id}`}
+                              title="Complete Transfer"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedTransferId(transfer.id);
+                              setAuditLogDialogOpen(true);
+                            }}
+                            data-testid={`button-audit-log-${transfer.id}`}
+                            title="View Audit Log"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -952,6 +1115,43 @@ export default function TransferManagement() {
         </Form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirmAction?.type === 'approve' && 'Approve Transfer?'}
+            {confirmAction?.type === 'reject' && 'Reject Transfer?'}
+            {confirmAction?.type === 'complete' && 'Complete Transfer?'}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirmAction?.type === 'approve' && 
+              'Are you sure you want to approve this transfer? This will allow the agent to move to the new team.'}
+            {confirmAction?.type === 'reject' && 
+              'Are you sure you want to reject this transfer? This action will deny the transfer request.'}
+            {confirmAction?.type === 'complete' && 
+              'Are you sure you want to mark this transfer as completed? This indicates the agent has successfully moved to the new team.'}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="button-cancel-confirm">Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleConfirmAction}
+            data-testid="button-confirm-action"
+            className={
+              confirmAction?.type === 'reject' ? 'bg-red-600 hover:bg-red-700' :
+              confirmAction?.type === 'approve' ? 'bg-green-600 hover:bg-green-700' :
+              confirmAction?.type === 'complete' ? 'bg-blue-600 hover:bg-blue-700' :
+              ''
+            }
+          >
+            {confirmAction?.type === 'approve' && 'Approve'}
+            {confirmAction?.type === 'reject' && 'Reject'}
+            {confirmAction?.type === 'complete' && 'Complete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     </>
   );
