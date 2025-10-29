@@ -629,25 +629,25 @@ export default function TransferManagement() {
               className="cursor-pointer"
               data-testid="card-select-transfers"
             >
-              <Card className="h-full bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all shadow-lg hover:shadow-xl">
+              <Card className="h-full bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/20 dark:to-slate-950/20 border-2 border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 transition-all shadow-lg hover:shadow-xl">
                 <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
                   <motion.div
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                    className="p-6 bg-green-100 dark:bg-green-900/50 rounded-full"
+                    className="p-6 bg-gray-100 dark:bg-gray-900/50 rounded-full"
                   >
-                    <ArrowRightLeft className="h-16 w-16 text-green-600 dark:text-green-400" />
+                    <ArrowRightLeft className="h-16 w-16 text-gray-600 dark:text-gray-400" />
                   </motion.div>
                   <div>
-                    <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-2">
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                       Team Transfers
                     </h3>
-                    <p className="text-sm text-green-700 dark:text-green-300">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
                       View and manage agent transfers between teams
                     </p>
                   </div>
-                  <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                  <Badge className="bg-gray-600 hover:bg-gray-700 text-white">
                     {filteredTransfers.length} Transfers
                   </Badge>
                 </CardContent>
