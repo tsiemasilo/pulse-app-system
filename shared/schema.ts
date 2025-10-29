@@ -31,12 +31,41 @@ export const canRoleLogin = (role: UserRole): boolean => {
   return ['admin', 'team_leader', 'contact_center_manager'].includes(role);
 };
 
-// Departments
-export const departments = pgTable("departments", {
+// Divisions (top level: RAF, UIF, etc.)
+export const divisions = pgTable("divisions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Departments (under divisions: Admin, Outbound, Inbound, etc.)
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  divisionId: varchar("division_id").references(() => divisions.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Sections (under departments: admin1, admin2, Language callback, etc.)
+export const sections = pgTable("sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  departmentId: varchar("department_id").references(() => departments.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User department assignments (links users to division, department, and section)
+export const userDepartmentAssignments = pgTable("user_department_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  divisionId: varchar("division_id").references(() => divisions.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  sectionId: varchar("section_id").references(() => sections.id),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by").references(() => users.id),
 });
 
 // User storage table with local authentication
@@ -297,9 +326,24 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const insertDivisionSchema = createInsertSchema(divisions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertDepartmentSchema = createInsertSchema(departments).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertSectionSchema = createInsertSchema(sections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserDepartmentAssignmentSchema = createInsertSchema(userDepartmentAssignments).omit({
+  id: true,
+  assignedAt: true,
 });
 
 export const insertAssetSchema = createInsertSchema(assets).omit({
@@ -388,8 +432,14 @@ export const insertUserPositionSchema = createInsertSchema(userPositions).omit({
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Division = typeof divisions.$inferSelect;
+export type InsertDivision = z.infer<typeof insertDivisionSchema>;
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Section = typeof sections.$inferSelect;
+export type InsertSection = z.infer<typeof insertSectionSchema>;
+export type UserDepartmentAssignment = typeof userDepartmentAssignments.$inferSelect;
+export type InsertUserDepartmentAssignment = z.infer<typeof insertUserDepartmentAssignmentSchema>;
 export type Asset = typeof assets.$inferSelect;
 export type InsertAsset = z.infer<typeof insertAssetSchema>;
 export type Attendance = typeof attendance.$inferSelect;
