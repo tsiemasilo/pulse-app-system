@@ -13,11 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
 import type { Transfer, User as UserType, Team, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
@@ -61,6 +62,12 @@ export default function TransferManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete', transferId: string } | null>(null);
+  
+  // Department Assignments state
+  const [deptCurrentPage, setDeptCurrentPage] = useState(1);
+  const [deptSearchTerm, setDeptSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("transfers");
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -148,6 +155,24 @@ export default function TransferManagement() {
     return location?.name || locationId;
   };
 
+  const getDivisionName = (divisionId: string | null | undefined) => {
+    if (!divisionId) return 'N/A';
+    const division = divisions.find(d => d.id === divisionId);
+    return division?.name || 'Unknown';
+  };
+
+  const getDepartmentName = (departmentId: string | null | undefined) => {
+    if (!departmentId) return 'N/A';
+    const department = departments.find(d => d.id === departmentId);
+    return department?.name || 'Unknown';
+  };
+
+  const getSectionName = (sectionId: string | null | undefined) => {
+    if (!sectionId) return 'N/A';
+    const section = sections.find(s => s.id === sectionId);
+    return section?.name || 'Unknown';
+  };
+
   const filteredTransfers = useMemo(() => {
     return transfers.filter(transfer => {
       const agentName = getUserName(transfer.userId);
@@ -176,6 +201,31 @@ export default function TransferManagement() {
   const endIndex = startIndex + recordsPerPage;
   const paginatedTransfers = filteredTransfers.slice(startIndex, endIndex);
 
+  // Filter and paginate department assignments
+  const filteredDepartmentAssignments = useMemo(() => {
+    return userDepartmentAssignments.filter(assignment => {
+      const agentName = getUserName(assignment.userId);
+      const assignedByName = assignment.assignedBy ? getUserName(assignment.assignedBy) : 'N/A';
+      const divisionName = getDivisionName(assignment.divisionId);
+      const departmentName = getDepartmentName(assignment.departmentId);
+      const sectionName = getSectionName(assignment.sectionId);
+      
+      const matchesSearch = deptSearchTerm === "" || 
+        agentName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
+        assignedByName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
+        divisionName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
+        departmentName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
+        sectionName.toLowerCase().includes(deptSearchTerm.toLowerCase());
+      
+      return matchesSearch;
+    });
+  }, [userDepartmentAssignments, deptSearchTerm, users, divisions, departments, sections]);
+
+  const deptTotalPages = Math.ceil(filteredDepartmentAssignments.length / recordsPerPage);
+  const deptStartIndex = (deptCurrentPage - 1) * recordsPerPage;
+  const deptEndIndex = deptStartIndex + recordsPerPage;
+  const paginatedDepartmentAssignments = filteredDepartmentAssignments.slice(deptStartIndex, deptEndIndex);
+
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
@@ -188,9 +238,25 @@ export default function TransferManagement() {
     }
   };
 
+  const handleDeptNextPage = () => {
+    if (deptCurrentPage < deptTotalPages) {
+      setDeptCurrentPage(deptCurrentPage + 1);
+    }
+  };
+
+  const handleDeptPreviousPage = () => {
+    if (deptCurrentPage > 1) {
+      setDeptCurrentPage(deptCurrentPage - 1);
+    }
+  };
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, selectedDate]);
+
+  useEffect(() => {
+    setDeptCurrentPage(1);
+  }, [deptSearchTerm]);
 
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
@@ -470,7 +536,7 @@ export default function TransferManagement() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center">
           <ArrowRightLeft className="h-5 w-5 mr-2" />
-          Agent Transfers
+          Transfer Management
         </CardTitle>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -496,61 +562,74 @@ export default function TransferManagement() {
         </DropdownMenu>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by agent name, team, or requested by..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-transfers"
-            />
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="transfers" data-testid="tab-team-transfers">
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Team Transfers
+            </TabsTrigger>
+            <TabsTrigger value="departments" data-testid="tab-department-assignments">
+              <Building2 className="h-4 w-4 mr-2" />
+              Department Assignments
+            </TabsTrigger>
+          </TabsList>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+          <TabsContent value="transfers">
+            <div className="mb-6 flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by agent name, team, or requested by..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-transfers"
+                />
+              </div>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
-                <Calendar className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Start Date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => setSelectedDate(date)}
-                initialFocus
-              />
-              {selectedDate && (
-                <div className="p-3 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setSelectedDate(undefined)}
-                    data-testid="button-clear-date"
-                  >
-                    Clear Date Filter
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Start Date</span>}
                   </Button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => setSelectedDate(date)}
+                    initialFocus
+                  />
+                  {selectedDate && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setSelectedDate(undefined)}
+                        data-testid="button-clear-date"
+                      >
+                        Clear Date Filter
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
 
         <div className="bg-card rounded-lg border border-border shadow-sm">
           <div className="p-4 border-b border-border">
@@ -721,6 +800,113 @@ export default function TransferManagement() {
             </div>
           </div>
         </div>
+      </TabsContent>
+
+      <TabsContent value="departments">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by agent, division, department, or section..."
+              value={deptSearchTerm}
+              onChange={(e) => setDeptSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-departments"
+            />
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border shadow-sm">
+          <div className="p-4 border-b border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredDepartmentAssignments.length > 0 ? deptStartIndex + 1 : 0} to {Math.min(deptEndIndex, filteredDepartmentAssignments.length)} of {filteredDepartmentAssignments.length} records
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead style={{ backgroundColor: '#1a1f5c' }}>
+                <tr>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent Name</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Division</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Department</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Section</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned By</th>
+                </tr>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {paginatedDepartmentAssignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                      {deptSearchTerm
+                        ? "No department assignments match your search."
+                        : "No department assignments found. Add a department assignment to get started."}
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedDepartmentAssignments.map((assignment) => (
+                    <tr key={assignment.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-department-${assignment.id}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium" data-testid={`text-agent-${assignment.id}`}>
+                            {getUserName(assignment.userId)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-division-${assignment.id}`}>
+                        {getDivisionName(assignment.divisionId)}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-department-${assignment.id}`}>
+                        {getDepartmentName(assignment.departmentId)}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-section-${assignment.id}`}>
+                        {getSectionName(assignment.sectionId)}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-assigned-date-${assignment.id}`}>
+                        {assignment.assignedAt ? new Date(assignment.assignedAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-assigned-by-${assignment.id}`}>
+                        {assignment.assignedBy ? getUserName(assignment.assignedBy) : 'System'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {deptCurrentPage} of {deptTotalPages || 1}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeptPreviousPage}
+                disabled={deptCurrentPage === 1}
+                data-testid="button-dept-previous-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeptNextPage}
+                disabled={deptCurrentPage >= deptTotalPages}
+                data-testid="button-dept-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </TabsContent>
+    </Tabs>
       </CardContent>
     </Card>
 
