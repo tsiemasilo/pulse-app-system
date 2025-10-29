@@ -50,8 +50,19 @@ const AVAILABLE_LOCATIONS = [
   { id: '16th', name: '16th' },
 ];
 
+type UnifiedRecord = {
+  id: string;
+  type: 'transfer' | 'department';
+  agentName: string;
+  agentId: string;
+  details: string;
+  date: Date;
+  status?: string;
+  transfer?: Transfer;
+  assignment?: UserDepartmentAssignment;
+};
+
 export default function TransferManagement() {
-  const [activeView, setActiveView] = useState<'departments' | 'transfers' | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
   const [isRemoveDepartmentOpen, setIsRemoveDepartmentOpen] = useState(false);
@@ -60,13 +71,10 @@ export default function TransferManagement() {
   const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete', transferId: string } | null>(null);
-  
-  // Department Assignments state
-  const [deptCurrentPage, setDeptCurrentPage] = useState(1);
-  const [deptSearchTerm, setDeptSearchTerm] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -173,58 +181,64 @@ export default function TransferManagement() {
     return section?.name || 'Unknown';
   };
 
-  const filteredTransfers = useMemo(() => {
-    return transfers.filter(transfer => {
-      const agentName = getUserName(transfer.userId);
-      const requestedByName = getUserName(transfer.requestedBy);
-      const fromTeam = getTeamLeaderName(transfer.fromTeamId);
-      const toTeam = getTeamLeaderName(transfer.toTeamId);
-      
+  const unifiedRecords = useMemo(() => {
+    const records: UnifiedRecord[] = [];
+
+    transfers.forEach(transfer => {
+      const details = `${getTeamLeaderName(transfer.fromTeamId)} → ${getTeamLeaderName(transfer.toTeamId)} | ${getLocationName(transfer.location)} | ${transfer.transferType}`;
+      records.push({
+        id: transfer.id,
+        type: 'transfer',
+        agentName: getUserName(transfer.userId),
+        agentId: transfer.userId,
+        details,
+        date: new Date(transfer.startDate),
+        status: transfer.status,
+        transfer,
+      });
+    });
+
+    userDepartmentAssignments.forEach(assignment => {
+      const divName = getDivisionName(assignment.divisionId);
+      const deptName = getDepartmentName(assignment.departmentId);
+      const sectName = getSectionName(assignment.sectionId);
+      const details = `${divName} > ${deptName} > ${sectName}`;
+      records.push({
+        id: assignment.id,
+        type: 'department',
+        agentName: getUserName(assignment.userId),
+        agentId: assignment.userId,
+        details,
+        date: assignment.assignedAt ? new Date(assignment.assignedAt) : new Date(),
+        assignment,
+      });
+    });
+
+    return records.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [transfers, userDepartmentAssignments, users, allTeams, divisions, departments, sections]);
+
+  const filteredRecords = useMemo(() => {
+    return unifiedRecords.filter(record => {
       const matchesSearch = searchTerm === "" || 
-        agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        requestedByName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        fromTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        toTeam.toLowerCase().includes(searchTerm.toLowerCase());
+        record.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.details.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesType = typeFilter === "all" || record.type === typeFilter;
       
       const matchesStatus = statusFilter === "all" || 
-        transfer.status?.toLowerCase() === statusFilter.toLowerCase();
+        (record.type === 'transfer' && record.status?.toLowerCase() === statusFilter.toLowerCase());
       
       const matchesDate = !selectedDate || 
-        new Date(transfer.startDate).toDateString() === selectedDate.toDateString();
+        record.date.toDateString() === selectedDate.toDateString();
       
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesType && matchesStatus && matchesDate;
     });
-  }, [transfers, searchTerm, statusFilter, selectedDate, users, allTeams]);
+  }, [unifiedRecords, searchTerm, typeFilter, statusFilter, selectedDate]);
 
-  const totalPages = Math.ceil(filteredTransfers.length / recordsPerPage);
+  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
-  const paginatedTransfers = filteredTransfers.slice(startIndex, endIndex);
-
-  // Filter and paginate department assignments
-  const filteredDepartmentAssignments = useMemo(() => {
-    return userDepartmentAssignments.filter(assignment => {
-      const agentName = getUserName(assignment.userId);
-      const assignedByName = assignment.assignedBy ? getUserName(assignment.assignedBy) : 'N/A';
-      const divisionName = getDivisionName(assignment.divisionId);
-      const departmentName = getDepartmentName(assignment.departmentId);
-      const sectionName = getSectionName(assignment.sectionId);
-      
-      const matchesSearch = deptSearchTerm === "" || 
-        agentName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
-        assignedByName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
-        divisionName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
-        departmentName.toLowerCase().includes(deptSearchTerm.toLowerCase()) ||
-        sectionName.toLowerCase().includes(deptSearchTerm.toLowerCase());
-      
-      return matchesSearch;
-    });
-  }, [userDepartmentAssignments, deptSearchTerm, users, divisions, departments, sections]);
-
-  const deptTotalPages = Math.ceil(filteredDepartmentAssignments.length / recordsPerPage);
-  const deptStartIndex = (deptCurrentPage - 1) * recordsPerPage;
-  const deptEndIndex = deptStartIndex + recordsPerPage;
-  const paginatedDepartmentAssignments = filteredDepartmentAssignments.slice(deptStartIndex, deptEndIndex);
+  const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -238,25 +252,9 @@ export default function TransferManagement() {
     }
   };
 
-  const handleDeptNextPage = () => {
-    if (deptCurrentPage < deptTotalPages) {
-      setDeptCurrentPage(deptCurrentPage + 1);
-    }
-  };
-
-  const handleDeptPreviousPage = () => {
-    if (deptCurrentPage > 1) {
-      setDeptCurrentPage(deptCurrentPage - 1);
-    }
-  };
-
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, selectedDate]);
-
-  useEffect(() => {
-    setDeptCurrentPage(1);
-  }, [deptSearchTerm]);
+  }, [searchTerm, typeFilter, statusFilter, selectedDate]);
 
   const form = useForm({
     resolver: zodResolver(transferFormSchema),
@@ -539,29 +537,10 @@ export default function TransferManagement() {
           Transfer Management
         </CardTitle>
         <div className="flex items-center gap-2">
-          {activeView && (
-            <Button 
-              variant="outline" 
-              onClick={() => setActiveView(activeView === 'departments' ? 'transfers' : 'departments')}
-              data-testid="button-toggle-view"
-            >
-              {activeView === 'departments' ? (
-                <>
-                  <ArrowRightLeft className="h-4 w-4 mr-2" />
-                  Team Transfers
-                </>
-              ) : (
-                <>
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Department Assignments
-                </>
-              )}
-            </Button>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button data-testid="button-transfer-actions">
-                Transfer Actions
+                Actions
                 <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
@@ -582,266 +561,78 @@ export default function TransferManagement() {
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="space-y-8">
-        {!activeView ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8"
-          >
-            <motion.div
-              whileHover={{ scale: 1.02, y: -5 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveView('departments')}
-              className="cursor-pointer"
-              data-testid="card-select-departments"
-            >
-              <Card className="h-full bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-lg hover:shadow-xl">
-                <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1, rotate: 360 }}
-                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                    className="p-6 bg-blue-100 dark:bg-blue-900/50 rounded-full"
-                  >
-                    <Building2 className="h-16 w-16 text-blue-600 dark:text-blue-400" />
-                  </motion.div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-2">
-                      Department Assignments
-                    </h3>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Manage agent assignments to divisions, departments, and sections
-                    </p>
-                  </div>
-                  <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
-                    {filteredDepartmentAssignments.length} Assignments
-                  </Badge>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ scale: 1.02, y: -5 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveView('transfers')}
-              className="cursor-pointer"
-              data-testid="card-select-transfers"
-            >
-              <Card className="h-full bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-950/20 dark:to-slate-950/20 border-2 border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 transition-all shadow-lg hover:shadow-xl">
-                <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-                  <motion.div
-                    initial={{ x: -100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                    className="p-6 bg-gray-100 dark:bg-gray-900/50 rounded-full"
-                  >
-                    <ArrowRightLeft className="h-16 w-16 text-gray-600 dark:text-gray-400" />
-                  </motion.div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                      Team Transfers
-                    </h3>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      View and manage agent transfers between teams
-                    </p>
-                  </div>
-                  <Badge className="bg-gray-600 hover:bg-gray-700 text-white">
-                    {filteredTransfers.length} Transfers
-                  </Badge>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
-        ) : activeView === 'departments' ? (
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 50 }}
-            transition={{ duration: 0.4 }}
-            className="space-y-4"
-          >
-          <div className="flex items-center gap-2 pb-2 border-b">
-            <Building2 className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Department Assignments</h3>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by agent name or details..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search"
+            />
           </div>
-          
-          <div className="mb-6 flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by agent, division, department, or section..."
-                value={deptSearchTerm}
-                onChange={(e) => setDeptSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-departments"
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-full lg:w-[200px]" data-testid="select-type-filter">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="transfer">Team Transfers</SelectItem>
+              <SelectItem value="department">Department Assignments</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full lg:w-[200px]" data-testid="select-status-filter">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+                <Calendar className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date)}
+                initialFocus
               />
-            </div>
-          </div>
-
-          <div className="bg-card rounded-lg border border-border shadow-sm">
-            <div className="p-4 border-b border-border">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredDepartmentAssignments.length > 0 ? deptStartIndex + 1 : 0} to {Math.min(deptEndIndex, filteredDepartmentAssignments.length)} of {filteredDepartmentAssignments.length} records
-              </p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead style={{ backgroundColor: '#1a1f5c' }}>
-                  <tr>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent Name</th>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Division</th>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Department</th>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Section</th>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned Date</th>
-                    <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Assigned By</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-card divide-y divide-border">
-                  {paginatedDepartmentAssignments.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                        {deptSearchTerm
-                          ? "No department assignments match your search."
-                          : "No department assignments found. Add a department assignment to get started."}
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedDepartmentAssignments.map((assignment) => (
-                      <tr key={assignment.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-department-${assignment.id}`}>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium" data-testid={`text-agent-${assignment.id}`}>
-                              {getUserName(assignment.userId)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm" data-testid={`text-division-${assignment.id}`}>
-                          {getDivisionName(assignment.divisionId)}
-                        </td>
-                        <td className="px-6 py-4 text-sm" data-testid={`text-department-${assignment.id}`}>
-                          {getDepartmentName(assignment.departmentId)}
-                        </td>
-                        <td className="px-6 py-4 text-sm" data-testid={`text-section-${assignment.id}`}>
-                          {getSectionName(assignment.sectionId)}
-                        </td>
-                        <td className="px-6 py-4 text-sm" data-testid={`text-assigned-date-${assignment.id}`}>
-                          {assignment.assignedAt ? new Date(assignment.assignedAt).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 text-sm" data-testid={`text-assigned-by-${assignment.id}`}>
-                          {assignment.assignedBy ? getUserName(assignment.assignedBy) : 'System'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Page {deptCurrentPage} of {deptTotalPages || 1}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDeptPreviousPage}
-                  disabled={deptCurrentPage === 1}
-                  data-testid="button-dept-previous-page"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDeptNextPage}
-                  disabled={deptCurrentPage >= deptTotalPages}
-                  data-testid="button-dept-next-page"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4 }}
-            className="space-y-4"
-          >
-          <div className="flex items-center gap-2 pb-2 border-b">
-            <ArrowRightLeft className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Team Transfers</h3>
-          </div>
-            <div className="mb-6 flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by agent name, team, or requested by..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-transfers"
-                />
-              </div>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Start Date</span>}
+              {selectedDate && (
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setSelectedDate(undefined)}
+                    data-testid="button-clear-date"
+                  >
+                    Clear Date Filter
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => setSelectedDate(date)}
-                    initialFocus
-                  />
-                  {selectedDate && (
-                    <div className="p-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => setSelectedDate(undefined)}
-                        data-testid="button-clear-date"
-                      >
-                        Clear Date Filter
-                      </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            </div>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
 
         <div className="bg-card rounded-lg border border-border shadow-sm">
           <div className="p-4 border-b border-border">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredTransfers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredTransfers.length)} of {filteredTransfers.length} records
+              Showing {filteredRecords.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredRecords.length)} of {filteredRecords.length} records
             </p>
           </div>
 
@@ -849,127 +640,128 @@ export default function TransferManagement() {
             <table className="w-full">
               <thead style={{ backgroundColor: '#1a1f5c' }}>
                 <tr>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Type</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">From Team</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">To Team</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Location</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Start Date</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">End Date</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Requested By</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Agent</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Details</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Date</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status/Info</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
-                {paginatedTransfers.length === 0 ? (
+                {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center text-muted-foreground">
-                      {searchTerm || statusFilter !== "all" || selectedDate
-                        ? "No transfers match your filters."
-                        : "No agent transfers found. Create a new transfer to get started."}
+                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                      {searchTerm || typeFilter !== "all" || statusFilter !== "all" || selectedDate
+                        ? "No records match your filters."
+                        : "No transfers or assignments found. Create a new transfer or assignment to get started."}
                     </td>
                   </tr>
                 ) : (
-                  paginatedTransfers.map((transfer) => (
-                    <tr key={transfer.id} className="hover:bg-muted/20 transition-colors" data-testid={`row-transfer-${transfer.id}`}>
+                  paginatedRecords.map((record) => (
+                    <tr key={`${record.type}-${record.id}`} className="hover:bg-muted/20 transition-colors" data-testid={`row-${record.type}-${record.id}`}>
+                      <td className="px-6 py-4">
+                        <Badge variant={record.type === 'transfer' ? 'default' : 'secondary'} data-testid={`badge-type-${record.id}`}>
+                          {record.type === 'transfer' ? (
+                            <><ArrowRightLeft className="h-3 w-3 mr-1 inline" />Transfer</>
+                          ) : (
+                            <><Building2 className="h-3 w-3 mr-1 inline" />Department</>
+                          )}
+                        </Badge>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium" data-testid={`text-user-${transfer.id}`}>
-                            {getUserName(transfer.userId)}
+                          <span className="font-medium" data-testid={`text-agent-${record.id}`}>
+                            {record.agentName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="secondary" data-testid={`badge-type-${transfer.id}`}>
-                          {transfer.transferType}
-                        </Badge>
+                      <td className="px-6 py-4 text-sm" data-testid={`text-details-${record.id}`}>
+                        {record.details}
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        {getTeamLeaderName(transfer.fromTeamId)}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {getTeamLeaderName(transfer.toTeamId)}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {getLocationName(transfer.location)}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-start-date-${transfer.id}`}>
-                        {new Date(transfer.startDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-end-date-${transfer.id}`}>
-                        {transfer.endDate ? new Date(transfer.endDate).toLocaleDateString() : 'Permanent'}
+                      <td className="px-6 py-4 text-sm" data-testid={`text-date-${record.id}`}>
+                        {record.date.toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <Badge 
-                          variant={getStatusBadgeVariant(transfer.status)} 
-                          data-testid={`badge-status-${transfer.id}`}
-                          className={
-                            transfer.status === 'approved' ? 'bg-green-600 hover:bg-green-700' :
-                            transfer.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
-                            ''
-                          }
-                        >
-                          {transfer.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-requested-by-${transfer.id}`}>
-                        {getUserName(transfer.requestedBy)}
+                        {record.type === 'transfer' && record.status ? (
+                          <Badge 
+                            variant={getStatusBadgeVariant(record.status)} 
+                            data-testid={`badge-status-${record.id}`}
+                            className={
+                              record.status === 'approved' ? 'bg-green-600 hover:bg-green-700 text-white' :
+                              record.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
+                              ''
+                            }
+                          >
+                            {record.status}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground" data-testid={`text-assigned-by-${record.id}`}>
+                            {record.assignment?.assignedBy ? `By ${getUserName(record.assignment.assignedBy)}` : 'Active'}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-1">
-                          {canPerformAction(transfer, 'approve') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmAction({ type: 'approve', transferId: transfer.id })}
-                              data-testid={`button-approve-${transfer.id}`}
-                              title="Approve Transfer"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
+                          {record.type === 'transfer' && record.transfer && (
+                            <>
+                              {canPerformAction(record.transfer, 'approve') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmAction({ type: 'approve', transferId: record.transfer!.id })}
+                                  data-testid={`button-approve-${record.id}`}
+                                  title="Approve Transfer"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canPerformAction(record.transfer, 'reject') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmAction({ type: 'reject', transferId: record.transfer!.id })}
+                                  data-testid={`button-reject-${record.id}`}
+                                  title="Reject Transfer"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canPerformAction(record.transfer, 'complete') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmAction({ type: 'complete', transferId: record.transfer!.id })}
+                                  data-testid={`button-complete-${record.id}`}
+                                  title="Complete Transfer"
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTransferId(record.transfer!.id);
+                                  setAuditLogDialogOpen(true);
+                                }}
+                                data-testid={`button-audit-log-${record.id}`}
+                                title="View Audit Log"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
-                          {canPerformAction(transfer, 'reject') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmAction({ type: 'reject', transferId: transfer.id })}
-                              data-testid={`button-reject-${transfer.id}`}
-                              title="Reject Transfer"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                          {record.type === 'department' && (
+                            <span className="text-xs text-muted-foreground px-2">-</span>
                           )}
-                          {canPerformAction(transfer, 'complete') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmAction({ type: 'complete', transferId: transfer.id })}
-                              data-testid={`button-complete-${transfer.id}`}
-                              title="Complete Transfer"
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedTransferId(transfer.id);
-                              setAuditLogDialogOpen(true);
-                            }}
-                            data-testid={`button-audit-log-${transfer.id}`}
-                            title="View Audit Log"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -1007,8 +799,6 @@ export default function TransferManagement() {
             </div>
           </div>
         </div>
-          </motion.div>
-        )}
       </CardContent>
     </Card>
 
