@@ -645,13 +645,12 @@ export default function TransferManagement() {
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Details</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status/Info</th>
-                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                       {searchTerm || typeFilter !== "all" || statusFilter !== "all" || selectedDate
                         ? "No records match your filters."
                         : "No transfers or assignments found. Create a new transfer or assignment to get started."}
@@ -661,7 +660,7 @@ export default function TransferManagement() {
                   paginatedRecords.map((record) => (
                     <tr key={`${record.type}-${record.id}`} className="hover:bg-muted/20 transition-colors" data-testid={`row-${record.type}-${record.id}`}>
                       <td className="px-6 py-4">
-                        <Badge variant={record.type === 'transfer' ? 'default' : 'secondary'} data-testid={`badge-type-${record.id}`}>
+                        <Badge variant="outline" data-testid={`badge-type-${record.id}`}>
                           {record.type === 'transfer' ? (
                             <><ArrowRightLeft className="h-3 w-3 mr-1 inline" />Transfer</>
                           ) : (
@@ -716,13 +715,8 @@ export default function TransferManagement() {
                       <td className="px-6 py-4">
                         {record.type === 'transfer' && record.status ? (
                           <Badge 
-                            variant={getStatusBadgeVariant(record.status)} 
+                            variant="outline"
                             data-testid={`badge-status-${record.id}`}
-                            className={
-                              record.status === 'approved' ? 'bg-green-600 hover:bg-green-700 text-white' :
-                              record.status === 'completed' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
-                              ''
-                            }
                           >
                             {record.status}
                           </Badge>
@@ -731,68 +725,6 @@ export default function TransferManagement() {
                             {record.assignment?.assignedBy ? `By ${getUserName(record.assignment.assignedBy)}` : 'Active'}
                           </span>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-1">
-                          {record.type === 'transfer' && record.transfer && (
-                            <>
-                              {canPerformAction(record.transfer, 'approve') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setConfirmAction({ type: 'approve', transferId: record.transfer!.id })}
-                                  data-testid={`button-approve-${record.id}`}
-                                  title="Approve Transfer"
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {canPerformAction(record.transfer, 'reject') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setConfirmAction({ type: 'reject', transferId: record.transfer!.id })}
-                                  data-testid={`button-reject-${record.id}`}
-                                  title="Reject Transfer"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {canPerformAction(record.transfer, 'complete') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setConfirmAction({ type: 'complete', transferId: record.transfer!.id })}
-                                  data-testid={`button-complete-${record.id}`}
-                                  title="Complete Transfer"
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  disabled={approveMutation.isPending || rejectMutation.isPending || completeMutation.isPending}
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedTransferId(record.transfer!.id);
-                                  setAuditLogDialogOpen(true);
-                                }}
-                                data-testid={`button-audit-log-${record.id}`}
-                                title="View Audit Log"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          {record.type === 'department' && (
-                            <span className="text-xs text-muted-foreground px-2">-</span>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))
