@@ -58,13 +58,15 @@ Preferred communication style: Simple, everyday language.
           - **Remove Department**: Remove agents from department assignments with confirmation
         - **Simplified Filtering**: Single search bar, type filter, status filter (for transfers), and date picker for efficient data retrieval
         - **Team Leader Selection**: Transfer agents from one team leader to another, with automatic team reassignment
+        - **Immediate Reassignment**: When a transfer is created, the agent is immediately reassigned to the new team leader (no longer requires approval or completion). Agent is removed from old team and added to new team instantly.
+        - **Department Confirmation Dialog**: Before transfer submission, a confirmation dialog allows HR to either keep the agent's current department or update it to a new department during the transfer process
         - **Transfer Types**: Support for both temporary and permanent transfers with configurable start and end dates
         - **Location Tracking**: Captures location information (Thandanani, 16th) for transfer records
-        - **Approval Workflow**: Multi-stage approval process (pending → approved → completed) with role-based authorization
+        - **Approval Workflow**: Multi-stage approval process (pending → approved → completed) with role-based authorization for record-keeping and audit purposes
         - **Inline Action Buttons**: Each transfer row includes contextual action buttons (Approve, Reject, Complete) based on transfer status and user role, with visual indicators (green for approve, red for reject, blue for complete)
         - **Confirmation Dialogs**: All transfer actions (approve, reject, complete) require explicit confirmation via alert dialogs to prevent accidental changes
-        - **Automatic Reassignment**: When transfers are completed, agents are automatically reassigned to the new team leader's team
-        - **Organogram Sync**: Organogram automatically updates to reflect new reporting relationships when transfers complete
+        - **Real-time Dashboard Updates**: Comprehensive query invalidation ensures changes reflect immediately across all dashboards (/api/transfers, /api/users, /api/teams, /api/teams/leader, /api/teams/members)
+        - **Organogram Sync**: Organogram automatically updates to reflect new reporting relationships when transfers are created
         - **Role-Based Access**: Team leaders can initiate transfers and manage department assignments; managers/admins can approve; admins can complete transfers
         - **Enhanced Status Display**: Status badges with color-coded variants (green for approved, red for rejected, blue for completed, gray for pending)
         - **Duplicate Submission Prevention**: Action buttons are disabled while mutations are pending to prevent duplicate submissions
