@@ -774,12 +774,15 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             const state = getAssetState(agent.id, asset.id);
                             const isDisabled = isAssetDisabled(agent.id, asset.id);
                             const hasState = state && ['ready_for_collection', 'collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
+                            const badgeColor = isViewingToday() 
+                              ? STATE_CONFIG[state?.currentState as keyof typeof STATE_CONFIG]?.color
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
                             
                             return (
                               <td key={asset.id} className="px-6 py-4 text-center">
                                 {hasState ? (
                                   <Badge 
-                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    className={badgeColor}
                                     data-testid={`badge-${agent.id}-${asset.id}`}
                                   >
                                     {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
@@ -901,19 +904,22 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             const canBook = canBookOut(agent.id, asset.id);
                             const isDisabled = isAssetDisabled(agent.id, asset.id);
                             const hasBookOutState = state && ['ready_for_collection', 'collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
+                            const badgeColor = isViewingToday() 
+                              ? STATE_CONFIG[state?.currentState as keyof typeof STATE_CONFIG]?.color
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
                             
                             return (
                               <td key={asset.id} className="px-6 py-4 text-center">
                                 {hasBookOutState && (state.currentState === 'returned' || state.currentState === 'not_returned' || state.currentState === 'lost') ? (
                                   <Badge 
-                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    className={badgeColor}
                                     data-testid={`badge-book-out-${agent.id}-${asset.id}`}
                                   >
                                     {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
                                   </Badge>
                                 ) : hasBookOutState && !isViewingToday() ? (
                                   <Badge 
-                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    className={badgeColor}
                                     data-testid={`badge-book-out-${agent.id}-${asset.id}`}
                                   >
                                     {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
