@@ -121,7 +121,7 @@ export interface IStorage {
   
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
-  createTransfer(transfer: InsertTransfer): Promise<Transfer>;
+  createTransfer(transfer: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer>;
   updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
   completeTransfer(transferId: string): Promise<void>;
   
@@ -750,8 +750,41 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
   }
 
-  async createTransfer(transferData: InsertTransfer): Promise<Transfer> {
-    const [transfer] = await db.insert(transfers).values(transferData).returning();
+  async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer> {
+    const { newDepartmentId, ...transferValues } = transferData;
+    const [transfer] = await db.insert(transfers).values(transferValues).returning();
+    
+    // Immediately reassign the agent to the new team leader when transfer is created
+    if (transfer.toTeamId) {
+      const [destinationTeam] = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, transfer.toTeamId));
+      
+      if (destinationTeam?.leaderId) {
+        // Remove from all existing teams
+        await db.delete(teamMembers).where(eq(teamMembers.userId, transfer.userId));
+        
+        // Update the agent's reportsTo field to the new team leader
+        const updateData: any = { 
+          reportsTo: destinationTeam.leaderId,
+          updatedAt: new Date(),
+        };
+        
+        // Update department if provided
+        if (newDepartmentId) {
+          updateData.departmentId = newDepartmentId;
+        }
+        
+        await db.update(users)
+          .set(updateData)
+          .where(eq(users.id, transfer.userId));
+        
+        // Add agent to the new team
+        await this.addTeamMember(transfer.toTeamId, transfer.userId);
+      }
+    }
+    
     return transfer;
   }
 

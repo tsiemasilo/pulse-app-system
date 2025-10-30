@@ -1584,8 +1584,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: z.string().nullable().transform((str) => str ? new Date(str) : null),
       });
 
-      const transferData = transferApiSchema.parse(req.body);
-      const transfer = await storage.createTransfer(transferData);
+      const { newDepartmentId, ...transferBody } = req.body;
+      const transferData = transferApiSchema.parse(transferBody);
+      
+      // Pass newDepartmentId separately to createTransfer
+      const transfer = await storage.createTransfer({
+        ...transferData,
+        newDepartmentId,
+      });
+      
       res.json(transfer);
     } catch (error) {
       console.error("Error creating transfer:", error);

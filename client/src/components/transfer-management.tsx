@@ -75,6 +75,9 @@ export default function TransferManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete', transferId: string } | null>(null);
+  const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
+  const [pendingTransferData, setPendingTransferData] = useState<any>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -311,22 +314,31 @@ export default function TransferManagement() {
   }, [teamMembers, userDepartmentAssignments]);
 
   const transferMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof transferFormSchema>) => {
+    mutationFn: async (data: z.infer<typeof transferFormSchema> & { newDepartmentId?: string }) => {
+      const { newDepartmentId, ...formData } = data;
       const transferData = {
-        ...data,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
+        ...formData,
+        startDate: new Date(formData.startDate),
+        endDate: formData.endDate ? new Date(formData.endDate) : null,
+        newDepartmentId,
       };
       const res = await apiRequest("POST", "/api/transfers", transferData);
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/leader"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/members"] });
       setIsOpen(false);
+      setShowDepartmentDialog(false);
+      setPendingTransferData(null);
+      setSelectedDepartmentId("");
       form.reset();
       toast({
         title: "Transfer Created",
-        description: "Agent transfer has been submitted for approval.",
+        description: "Agent has been successfully transferred to the new team leader.",
       });
     },
     onError: (error: Error) => {
@@ -471,7 +483,42 @@ export default function TransferManagement() {
       toTeamId,
     };
     
-    transferMutation.mutate(transferData);
+    // Get the agent's current department
+    const agent = users.find(u => u.id === data.userId);
+    const currentDepartmentId = agent?.departmentId || "";
+    setSelectedDepartmentId(currentDepartmentId);
+    
+    // Store pending transfer data and show department confirmation dialog
+    setPendingTransferData(transferData);
+    setShowDepartmentDialog(true);
+  };
+  
+  const handleDepartmentConfirmation = (keepDepartment: boolean) => {
+    if (!pendingTransferData) return;
+    
+    if (keepDepartment) {
+      // Transfer with the same department
+      transferMutation.mutate(pendingTransferData);
+    } else {
+      // User needs to select a new department - show the department selection in the dialog
+      // The department selection will be handled in the dialog itself
+    }
+  };
+  
+  const handleTransferWithNewDepartment = () => {
+    if (!pendingTransferData || !selectedDepartmentId) {
+      toast({
+        title: "Error",
+        description: "Please select a department",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    transferMutation.mutate({
+      ...pendingTransferData,
+      newDepartmentId: selectedDepartmentId,
+    });
   };
 
   const onAddDepartmentSubmit = (data: z.infer<typeof departmentAssignmentFormSchema>) => {
@@ -768,6 +815,9 @@ export default function TransferManagement() {
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-transfers-audit-log">
         <DialogHeader>
           <DialogTitle>Transfer Audit Log</DialogTitle>
+          <DialogDescription>
+            View the complete history and audit trail for this transfer
+          </DialogDescription>
         </DialogHeader>
         {selectedTransferId && (
           <TransfersAuditLog transferId={selectedTransferId} />
@@ -779,6 +829,9 @@ export default function TransferManagement() {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create Agent Transfer</DialogTitle>
+          <DialogDescription>
+            Transfer an agent from your team to another team leader
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -953,6 +1006,9 @@ export default function TransferManagement() {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add Department Assignment</DialogTitle>
+          <DialogDescription>
+            Assign an agent to a division, department, and section
+          </DialogDescription>
         </DialogHeader>
         <Form {...addDepartmentForm}>
           <form onSubmit={addDepartmentForm.handleSubmit(onAddDepartmentSubmit)} className="space-y-4">
@@ -1081,6 +1137,9 @@ export default function TransferManagement() {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Remove Department Assignment</DialogTitle>
+          <DialogDescription>
+            Remove an agent's department assignment
+          </DialogDescription>
         </DialogHeader>
         <Form {...removeDepartmentForm}>
           <form onSubmit={removeDepartmentForm.handleSubmit(onRemoveDepartmentSubmit)} className="space-y-4">
@@ -1153,6 +1212,92 @@ export default function TransferManagement() {
             </div>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showDepartmentDialog} onOpenChange={(open) => {
+      if (!open) {
+        setShowDepartmentDialog(false);
+        setPendingTransferData(null);
+        setSelectedDepartmentId("");
+      }
+    }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Department Transfer Confirmation</DialogTitle>
+          <DialogDescription>
+            Will the agent be transferring with the same department or do you need to update their department?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {pendingTransferData && (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <p className="text-sm">
+                <span className="font-medium">Agent:</span>{' '}
+                {getUserName(pendingTransferData.userId)}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Current Department:</span>{' '}
+                {getDepartmentName(users.find(u => u.id === pendingTransferData.userId)?.departmentId)}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">New Team Leader:</span>{' '}
+                {getTeamLeaderName(pendingTransferData.toTeamId)}
+              </p>
+            </div>
+          )}
+          
+          <div className="space-y-3">
+            <Button
+              onClick={() => handleDepartmentConfirmation(true)}
+              className="w-full"
+              data-testid="button-keep-department"
+            >
+              Keep Same Department
+            </Button>
+            
+            <div className="space-y-2">
+              <Select 
+                value={selectedDepartmentId} 
+                onValueChange={setSelectedDepartmentId}
+              >
+                <SelectTrigger data-testid="select-new-department">
+                  <SelectValue placeholder="Select new department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button
+                onClick={handleTransferWithNewDepartment}
+                variant="outline"
+                className="w-full"
+                disabled={!selectedDepartmentId || selectedDepartmentId === users.find(u => u.id === pendingTransferData?.userId)?.departmentId}
+                data-testid="button-transfer-new-department"
+              >
+                Transfer with New Department
+              </Button>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowDepartmentDialog(false);
+              setPendingTransferData(null);
+              setSelectedDepartmentId("");
+            }}
+            data-testid="button-cancel-department-dialog"
+          >
+            Cancel Transfer
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
 
