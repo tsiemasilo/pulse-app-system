@@ -677,8 +677,38 @@ export default function TransferManagement() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm" data-testid={`text-details-${record.id}`}>
-                        {record.details}
+                      <td className="px-6 py-4" data-testid={`text-details-${record.id}`}>
+                        {record.type === 'transfer' && record.transfer ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-muted-foreground font-medium">From:</span>
+                              <span className="font-medium">{getTeamLeaderName(record.transfer.fromTeamId)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-muted-foreground font-medium">To:</span>
+                              <span className="font-medium">{getTeamLeaderName(record.transfer.toTeamId)}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Layers className="h-3 w-3" />
+                                {getLocationName(record.transfer.location)}
+                              </span>
+                              <span>•</span>
+                              <span className="capitalize">{record.transfer.transferType}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <div className="text-xs text-muted-foreground">Division / Department / Section</div>
+                            <div className="text-sm font-medium">
+                              {getDivisionName(record.assignment?.divisionId)} 
+                              <span className="text-muted-foreground mx-1">›</span>
+                              {getDepartmentName(record.assignment?.departmentId)}
+                              <span className="text-muted-foreground mx-1">›</span>
+                              {getSectionName(record.assignment?.sectionId)}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm" data-testid={`text-date-${record.id}`}>
                         {record.date.toLocaleDateString()}
