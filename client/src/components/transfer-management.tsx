@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2, Layers } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2, Layers, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
 import { motion } from "framer-motion";
@@ -74,7 +74,7 @@ export default function TransferManagement() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete', transferId: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'complete' | 'delete', transferId: string } | null>(null);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [pendingTransferData, setPendingTransferData] = useState<any>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
@@ -466,6 +466,32 @@ export default function TransferManagement() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      const res = await apiRequest("DELETE", `/api/transfers/${transferId}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/leader"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/members"] });
+      setConfirmAction(null);
+      toast({
+        title: "Transfer Deleted",
+        description: "The transfer record has been permanently deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Deletion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: z.infer<typeof transferFormSchema>) => {
     const toTeamId = data.toTeamId ? getTeamIdForLeader(data.toTeamId) : undefined;
     
@@ -571,6 +597,9 @@ export default function TransferManagement() {
         break;
       case 'complete':
         completeMutation.mutate(confirmAction.transferId);
+        break;
+      case 'delete':
+        deleteMutation.mutate(confirmAction.transferId);
         break;
     }
   };
@@ -692,12 +721,13 @@ export default function TransferManagement() {
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Details</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Date</th>
                   <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Status/Info</th>
+                  <th className="px-6 py-5 text-left text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                       {searchTerm || typeFilter !== "all" || statusFilter !== "all" || selectedDate
                         ? "No records match your filters."
                         : "No transfers or assignments found. Create a new transfer or assignment to get started."}
@@ -771,6 +801,19 @@ export default function TransferManagement() {
                           <span className="text-sm text-muted-foreground" data-testid={`text-assigned-by-${record.id}`}>
                             {record.assignment?.assignedBy ? `By ${getUserName(record.assignment.assignedBy)}` : 'Active'}
                           </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {record.type === 'transfer' && (user?.role === 'admin' || user?.role === 'hr') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmAction({ type: 'delete', transferId: record.id })}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            data-testid={`button-delete-${record.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -1308,6 +1351,7 @@ export default function TransferManagement() {
             {confirmAction?.type === 'approve' && 'Approve Transfer?'}
             {confirmAction?.type === 'reject' && 'Reject Transfer?'}
             {confirmAction?.type === 'complete' && 'Complete Transfer?'}
+            {confirmAction?.type === 'delete' && 'Delete Transfer?'}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {confirmAction?.type === 'approve' && 
@@ -1316,6 +1360,8 @@ export default function TransferManagement() {
               'Are you sure you want to reject this transfer? This action will deny the transfer request.'}
             {confirmAction?.type === 'complete' && 
               'Are you sure you want to mark this transfer as completed? This indicates the agent has successfully moved to the new team.'}
+            {confirmAction?.type === 'delete' && 
+              'Are you sure you want to permanently delete this transfer record? This action cannot be undone.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -1327,12 +1373,14 @@ export default function TransferManagement() {
               confirmAction?.type === 'reject' ? 'bg-red-600 hover:bg-red-700' :
               confirmAction?.type === 'approve' ? 'bg-green-600 hover:bg-green-700' :
               confirmAction?.type === 'complete' ? 'bg-blue-600 hover:bg-blue-700' :
+              confirmAction?.type === 'delete' ? 'bg-red-600 hover:bg-red-700' :
               ''
             }
           >
             {confirmAction?.type === 'approve' && 'Approve'}
             {confirmAction?.type === 'reject' && 'Reject'}
             {confirmAction?.type === 'complete' && 'Complete'}
+            {confirmAction?.type === 'delete' && 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -124,6 +124,7 @@ export interface IStorage {
   createTransfer(transfer: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer>;
   updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
   completeTransfer(transferId: string): Promise<void>;
+  deleteTransfer(transferId: string): Promise<void>;
   
   // Termination management
   getAllTerminations(): Promise<Termination[]>;
@@ -857,6 +858,12 @@ export class DatabaseStorage implements IStorage {
         status: 'completed',
         updatedAt: new Date(),
       })
+      .where(eq(transfers.id, transferId));
+  }
+
+  async deleteTransfer(transferId: string): Promise<void> {
+    await db
+      .delete(transfers)
       .where(eq(transfers.id, transferId));
   }
 

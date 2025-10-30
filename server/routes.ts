@@ -1748,6 +1748,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/transfers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.role || !['admin', 'hr'].includes(user.role)) {
+        return res.status(403).json({ message: "Only admins and HR can delete transfers" });
+      }
+
+      const transferId = req.params.id;
+      await storage.deleteTransfer(transferId);
+      
+      res.json({ message: "Transfer deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting transfer:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to delete transfer" });
+    }
+  });
+
   // Termination management routes (HR only)
   app.get('/api/terminations', isAuthenticated, async (req: any, res) => {
     try {
