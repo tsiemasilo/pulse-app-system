@@ -1015,7 +1015,7 @@ export class DatabaseStorage implements IStorage {
         ) as agent_name,
         uwl.asset_type,
         uwl.current_state,
-        COALESCE(uwl.date_lost, uwl.date) as date,
+        COALESCE(TO_CHAR(uwl.date_lost, 'YYYY-MM-DD'), uwl.date) as date,
         CASE 
           WHEN uwl.state_reason IS NULL 
             OR uwl.state_reason LIKE '%Persisting%'
