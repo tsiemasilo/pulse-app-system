@@ -773,7 +773,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                           {ASSET_TYPES.map(asset => {
                             const state = getAssetState(agent.id, asset.id);
                             const isDisabled = isAssetDisabled(agent.id, asset.id);
-                            const hasState = state && ['collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
+                            const hasState = state && ['ready_for_collection', 'collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
                             
                             return (
                               <td key={asset.id} className="px-6 py-4 text-center">
@@ -900,11 +900,18 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             const state = getAssetState(agent.id, asset.id);
                             const canBook = canBookOut(agent.id, asset.id);
                             const isDisabled = isAssetDisabled(agent.id, asset.id);
-                            const hasBookOutState = state && ['returned', 'not_returned', 'lost'].includes(state.currentState);
+                            const hasBookOutState = state && ['ready_for_collection', 'collected', 'not_collected', 'returned', 'not_returned', 'lost'].includes(state.currentState);
                             
                             return (
                               <td key={asset.id} className="px-6 py-4 text-center">
-                                {hasBookOutState ? (
+                                {hasBookOutState && (state.currentState === 'returned' || state.currentState === 'not_returned' || state.currentState === 'lost') ? (
+                                  <Badge 
+                                    className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
+                                    data-testid={`badge-book-out-${agent.id}-${asset.id}`}
+                                  >
+                                    {STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.label}
+                                  </Badge>
+                                ) : hasBookOutState && !isViewingToday() ? (
                                   <Badge 
                                     className={STATE_CONFIG[state.currentState as keyof typeof STATE_CONFIG]?.color}
                                     data-testid={`badge-book-out-${agent.id}-${asset.id}`}
@@ -921,9 +928,17 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                                   >
                                     Book In
                                   </Button>
+                                ) : state?.currentState === 'not_collected' ? (
+                                  <div className="text-xs text-muted-foreground">
+                                    Not Collected
+                                  </div>
+                                ) : state?.currentState === 'ready_for_collection' && isViewingToday() ? (
+                                  <div className="text-xs text-muted-foreground">
+                                    Not Collected Yet
+                                  </div>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">
-                                    {state?.currentState === 'not_collected' ? 'Not Collected' : 'Not Available'}
+                                    Not Available
                                   </div>
                                 )}
                               </td>
