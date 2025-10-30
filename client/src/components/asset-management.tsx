@@ -589,6 +589,9 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${getCurrentDate()}`] });
+      if (queryDate !== getCurrentDate()) {
+        queryClient.invalidateQueries({ queryKey: [`/api/assets/daily-states/${queryDate}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/unreturned-assets'] });
       setShowPasswordConfirmDialog(false);
       setShowResetDialog(false);
