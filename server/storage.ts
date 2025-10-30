@@ -971,82 +971,101 @@ export class DatabaseStorage implements IStorage {
     date: string;
     reason?: string;
   }>> {
-    const unreturnedAssets: Array<{
-      userId: string;
-      agentName: string;
-      assetType: string;
-      status: string;
-      date: string;
-      reason?: string;
-    }> = [];
+    const results = await db.execute(sql`
+      WITH ranked_states AS (
+        SELECT 
+          ads.user_id,
+          ads.asset_type,
+          ads.current_state,
+          ads.date,
+          ads.date_lost,
+          ads.reason as state_reason,
+          ROW_NUMBER() OVER (
+            PARTITION BY ads.user_id, ads.asset_type 
+            ORDER BY ads.date DESC
+          ) as rn
+        FROM asset_daily_states ads
+      ),
+      most_recent_states AS (
+        SELECT * FROM ranked_states WHERE rn = 1
+      ),
+      unreturned_with_loss AS (
+        SELECT 
+          mrs.user_id,
+          mrs.asset_type,
+          mrs.current_state,
+          mrs.date,
+          mrs.date_lost,
+          mrs.state_reason,
+          alr.reason as loss_reason
+        FROM most_recent_states mrs
+        LEFT JOIN asset_loss_records alr ON (
+          alr.user_id = mrs.user_id 
+          AND alr.asset_type = mrs.asset_type
+          AND alr.status = 'reported'
+        )
+        WHERE mrs.current_state IN ('lost', 'not_returned')
+      )
+      SELECT 
+        u.id as user_id,
+        COALESCE(
+          NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''),
+          u.username,
+          'Unknown User'
+        ) as agent_name,
+        uwl.asset_type,
+        uwl.current_state,
+        COALESCE(uwl.date_lost, uwl.date) as date,
+        CASE 
+          WHEN uwl.state_reason IS NULL 
+            OR uwl.state_reason LIKE '%Persisting%'
+            OR uwl.state_reason LIKE '%Daily reset%'
+            OR uwl.state_reason LIKE '%Asset was not returned from previous day%'
+          THEN COALESCE(
+            CASE 
+              WHEN uwl.loss_reason NOT LIKE '%Daily reset%' 
+                AND uwl.loss_reason NOT LIKE '%Asset was not returned%'
+              THEN uwl.loss_reason
+              ELSE NULL
+            END,
+            uwl.state_reason
+          )
+          ELSE uwl.state_reason
+        END as reason
+      FROM unreturned_with_loss uwl
+      INNER JOIN users u ON u.id = uwl.user_id
+      ORDER BY agent_name
+    `);
 
-    // Get all users and asset types to check for most recent states
-    const allUsers = await this.getAllUsers();
-    const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
-
-    // For each user and asset type, get the most recent state
-    for (const user of allUsers) {
-      for (const assetType of assetTypes) {
-        const mostRecentState = await this.getMostRecentAssetState(user.id, assetType);
-        
-        // If the most recent state is lost or not_returned, add to unreturned assets
-        if (mostRecentState && (mostRecentState.currentState === 'lost' || mostRecentState.currentState === 'not_returned')) {
-          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-          const displayName = fullName || user.username || 'Unknown User';
-          
-          // Use dateLost if available (original date when asset was lost), otherwise fallback to state date
-          const lostDate = mostRecentState.dateLost 
-            ? (mostRecentState.dateLost instanceof Date ? mostRecentState.dateLost.toISOString().split('T')[0] : mostRecentState.dateLost)
-            : mostRecentState.date;
-          
-          // Try to get the most meaningful reason
-          let displayReason = mostRecentState.reason;
-          
-          // If the daily state reason is generic/system-generated, try to get the original reason from loss records
-          const isGenericReason = !displayReason || 
-            displayReason.includes('Persisting') || 
-            displayReason.includes('Daily reset') ||
-            displayReason.includes('Asset was not returned from previous day');
-          
-          if (isGenericReason) {
-            // Check if there's a loss record with a more specific reason
-            const lossRecord = await this.getAssetLossRecordByUserAndType(user.id, assetType);
-            if (lossRecord && lossRecord.reason && 
-                !lossRecord.reason.includes('Daily reset') && 
-                !lossRecord.reason.includes('Asset was not returned')) {
-              displayReason = lossRecord.reason;
-            }
-          }
-          
-          unreturnedAssets.push({
-            userId: user.id,
-            agentName: displayName,
-            assetType: assetType,
-            status: mostRecentState.currentState === 'lost' ? 'Lost' : 'Not Returned Yet',
-            date: lostDate,
-            reason: displayReason || undefined
-          });
-        }
-      }
-    }
-
-    return unreturnedAssets.sort((a, b) => a.agentName.localeCompare(b.agentName));
+    return results.rows.map((row: any) => ({
+      userId: row.user_id,
+      agentName: row.agent_name,
+      assetType: row.asset_type,
+      status: row.current_state === 'lost' ? 'Lost' : 'Not Returned Yet',
+      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
+      reason: row.reason || undefined
+    }));
   }
 
   async hasUnreturnedAssets(userId: string): Promise<boolean> {
-    // Check the most recent state for each asset type
-    const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
+    const results = await db.execute(sql`
+      WITH ranked_states AS (
+        SELECT 
+          current_state,
+          ROW_NUMBER() OVER (
+            PARTITION BY asset_type 
+            ORDER BY date DESC
+          ) as rn
+        FROM asset_daily_states
+        WHERE user_id = ${userId}
+      )
+      SELECT COUNT(*) as count
+      FROM ranked_states
+      WHERE rn = 1 AND current_state IN ('lost', 'not_returned')
+    `);
     
-    for (const assetType of assetTypes) {
-      const mostRecentState = await this.getMostRecentAssetState(userId, assetType);
-      
-      // If the most recent state is lost or not_returned, user has unreturned assets
-      if (mostRecentState && (mostRecentState.currentState === 'lost' || mostRecentState.currentState === 'not_returned')) {
-        return true;
-      }
-    }
-
-    return false;
+    const count = (results.rows[0] as any)?.count || 0;
+    return count > 0;
   }
 
   // Historical asset records management
