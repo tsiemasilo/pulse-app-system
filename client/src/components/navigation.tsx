@@ -98,7 +98,7 @@ export default function Navigation({ user }: NavigationProps) {
             <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
               <div className="flex flex-col items-end justify-center">
                 <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
-                  {user?.firstName || user?.email || 'User'}
+                  {`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
                 </span>
                 <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role">
                   {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
