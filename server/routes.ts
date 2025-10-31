@@ -881,7 +881,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Remove the agent's daily states for today (this will reset their assets to default state)
       await storage.deleteAssetDailyStatesByUserAndDate(agentId, today);
 
-      // Now create new audit records for the reset action (without dailyStateId since states are deleted)
+      // Create new "ready_for_collection" states for all asset types to make them available
+      const assetTypes = ['laptop', 'headsets', 'dongle', 'mouse', 'lan_adapter'];
+      for (const assetType of assetTypes) {
+        await storage.upsertAssetDailyState({
+          userId: agentId,
+          assetType,
+          date: today,
+          currentState: 'ready_for_collection',
+          confirmedBy: user.id,
+          confirmedAt: new Date()
+        });
+      }
+
+      // Now create new audit records for the reset action
       for (const state of existingStates) {
         await storage.createAssetIncident({
           userId: agentId,

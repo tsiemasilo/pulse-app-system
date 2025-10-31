@@ -188,6 +188,12 @@ export interface IStorage {
   upsertAssetDetails(details: InsertAssetDetails): Promise<AssetDetails>;
   deleteAssetDetails(id: string): Promise<void>;
   
+  // Reset agent asset records
+  resetAgentAssetRecords(agentId: string, resetBy: string, date: string): Promise<{
+    message: string;
+    assetTypesReset: string[];
+  }>;
+  
   // Enhanced daily reset functionality
   performDailyReset(targetDate: string, resetPerformedBy: string): Promise<{
     message: string;
@@ -753,38 +759,27 @@ export class DatabaseStorage implements IStorage {
 
   async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer> {
     const { newDepartmentId, ...transferValues } = transferData;
-    const [transfer] = await db.insert(transfers).values(transferValues).returning();
     
-    // Immediately reassign the agent to the new team leader when transfer is created
-    if (transfer.toTeamId) {
-      const [destinationTeam] = await db
+    const toDepartmentId = newDepartmentId || transferValues.toDepartmentId;
+    
+    if (toDepartmentId) {
+      const [department] = await db
         .select()
-        .from(teams)
-        .where(eq(teams.id, transfer.toTeamId));
+        .from(departments)
+        .where(eq(departments.id, toDepartmentId))
+        .limit(1);
       
-      if (destinationTeam?.leaderId) {
-        // Remove from all existing teams
-        await db.delete(teamMembers).where(eq(teamMembers.userId, transfer.userId));
-        
-        // Update the agent's reportsTo field to the new team leader
-        const updateData: any = { 
-          reportsTo: destinationTeam.leaderId,
-          updatedAt: new Date(),
-        };
-        
-        // Update department if provided
-        if (newDepartmentId) {
-          updateData.departmentId = newDepartmentId;
-        }
-        
-        await db.update(users)
-          .set(updateData)
-          .where(eq(users.id, transfer.userId));
-        
-        // Add agent to the new team
-        await this.addTeamMember(transfer.toTeamId, transfer.userId);
+      if (!department) {
+        throw new Error(`Invalid department ID: ${toDepartmentId}`);
       }
     }
+    
+    const transferDataWithDept = {
+      ...transferValues,
+      toDepartmentId
+    };
+    
+    const [transfer] = await db.insert(transfers).values(transferDataWithDept).returning();
     
     return transfer;
   }
@@ -843,12 +838,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(teams.id, transfer.toTeamId));
 
     if (destinationTeam?.leaderId) {
+      const updateData: any = { 
+        reportsTo: destinationTeam.leaderId,
+        updatedAt: new Date(),
+      };
+      
+      // Update department if specified in the transfer
+      if (transfer.toDepartmentId) {
+        updateData.departmentId = transfer.toDepartmentId;
+      }
+      
       await db
         .update(users)
-        .set({ 
-          reportsTo: destinationTeam.leaderId,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(users.id, transfer.userId));
     }
 
@@ -1596,6 +1598,84 @@ export class DatabaseStorage implements IStorage {
   
   async deleteAssetDetails(id: string): Promise<void> {
     await db.delete(assetDetails).where(eq(assetDetails.id, id));
+  }
+
+  async resetAgentAssetRecords(agentId: string, resetBy: string, date: string): Promise<{
+    message: string;
+    assetTypesReset: string[];
+  }> {
+    return await db.transaction(async (tx) => {
+      const agent = await tx.select().from(users).where(eq(users.id, agentId)).limit(1);
+      if (agent.length === 0) {
+        throw new Error("Agent not found");
+      }
+
+      const agentName = `${agent[0].firstName || ''} ${agent[0].lastName || ''}`.trim() || agent[0].username;
+
+      const existingStates = await tx
+        .select()
+        .from(assetDailyStates)
+        .where(and(
+          eq(assetDailyStates.userId, agentId),
+          eq(assetDailyStates.date, date)
+        ));
+
+      for (const state of existingStates) {
+        await tx
+          .delete(assetStateAudit)
+          .where(eq(assetStateAudit.dailyStateId, state.id));
+      }
+
+      await tx
+        .delete(assetDailyStates)
+        .where(and(
+          eq(assetDailyStates.userId, agentId),
+          eq(assetDailyStates.date, date)
+        ));
+
+      const historicalStates = await tx
+        .select()
+        .from(assetDailyStates)
+        .where(eq(assetDailyStates.userId, agentId));
+
+      const assetTypesUsed = new Set<string>();
+      for (const state of historicalStates) {
+        assetTypesUsed.add(state.assetType);
+      }
+
+      const assetTypesArray = Array.from(assetTypesUsed);
+
+      for (const assetType of assetTypesArray) {
+        await tx.insert(assetDailyStates).values({
+          userId: agentId,
+          assetType,
+          date,
+          currentState: 'ready_for_collection',
+          confirmedBy: null,
+          confirmedAt: null,
+          agentName
+        });
+      }
+
+      for (const state of existingStates) {
+        await tx.insert(assetIncidents).values({
+          userId: agentId,
+          assetType: state.assetType,
+          incidentType: 'maintenance',
+          description: `Asset records reset by: ${resetBy}. Previous state was: ${state.currentState}`,
+          reportedBy: resetBy,
+          status: 'resolved',
+          resolution: 'Records reset - agent can start fresh booking process',
+          resolvedBy: resetBy,
+          resolvedAt: new Date()
+        });
+      }
+
+      return {
+        message: "Agent asset records reset successfully",
+        assetTypesReset: assetTypesArray
+      };
+    });
   }
 }
 
