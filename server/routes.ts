@@ -1758,8 +1758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/transfers/:id', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (!user?.role || !['admin', 'hr'].includes(user.role)) {
-        return res.status(403).json({ message: "Only admins and HR can delete transfers" });
+      if (!user?.role || !['admin', 'hr', 'team_leader'].includes(user.role)) {
+        return res.status(403).json({ message: "Only admins, HR, and team leaders can delete transfers" });
       }
 
       const transferId = req.params.id;
