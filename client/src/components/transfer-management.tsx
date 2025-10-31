@@ -804,16 +804,68 @@ export default function TransferManagement() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {record.type === 'transfer' && (user?.role === 'admin' || user?.role === 'hr') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmAction({ type: 'delete', transferId: record.id })}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            data-testid={`button-delete-${record.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        {record.type === 'transfer' && record.transfer && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" data-testid={`button-actions-${record.id}`}>
+                                Actions
+                                <ChevronDown className="h-4 w-4 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedTransferId(record.id);
+                                  setAuditLogDialogOpen(true);
+                                }}
+                                data-testid={`menu-item-audit-${record.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Audit Log
+                              </DropdownMenuItem>
+                              
+                              {canPerformAction(record.transfer, 'approve') && (
+                                <DropdownMenuItem 
+                                  onClick={() => setConfirmAction({ type: 'approve', transferId: record.id })}
+                                  data-testid={`menu-item-approve-${record.id}`}
+                                >
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Approve Transfer
+                                </DropdownMenuItem>
+                              )}
+                              
+                              {canPerformAction(record.transfer, 'reject') && (
+                                <DropdownMenuItem 
+                                  onClick={() => setConfirmAction({ type: 'reject', transferId: record.id })}
+                                  data-testid={`menu-item-reject-${record.id}`}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Reject Transfer
+                                </DropdownMenuItem>
+                              )}
+                              
+                              {canPerformAction(record.transfer, 'complete') && (
+                                <DropdownMenuItem 
+                                  onClick={() => setConfirmAction({ type: 'complete', transferId: record.id })}
+                                  data-testid={`menu-item-complete-${record.id}`}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Mark as Completed
+                                </DropdownMenuItem>
+                              )}
+                              
+                              {(user?.role === 'admin' || user?.role === 'hr') && (
+                                <DropdownMenuItem 
+                                  onClick={() => setConfirmAction({ type: 'delete', transferId: record.id })}
+                                  className="text-destructive focus:text-destructive"
+                                  data-testid={`menu-item-delete-${record.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Transfer
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </td>
                     </tr>
