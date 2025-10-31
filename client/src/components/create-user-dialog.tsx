@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { insertUserSchema, canRoleLogin } from "@shared/schema";
-import type { User, UserRole } from "@shared/schema";
+import type { User, UserRole, Division, Department, Section } from "@shared/schema";
 import { z } from "zod";
 
 interface CreateUserDialogProps {
@@ -27,13 +27,28 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     queryKey: ["/api/team-leaders"],
   });
 
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: allDepartments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+  });
+
+  const { data: allSections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+  });
+
   const form = useForm({
     resolver: zodResolver(
       insertUserSchema
         .omit({ departmentId: true })
         .extend({ 
           teamLeaderId: z.string().optional(),
-          password: z.string().optional()
+          password: z.string().optional(),
+          divisionId: z.string().optional(),
+          departmentId: z.string().optional(),
+          sectionId: z.string().optional(),
         })
         .refine((data) => {
           if (canRoleLogin(data.role as UserRole) && !data.password) {
@@ -54,14 +69,39 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       role: "agent" as const,
       isActive: true,
       teamLeaderId: "",
+      divisionId: "",
+      departmentId: "",
+      sectionId: "",
     },
   });
 
+  const selectedDivisionId = form.watch("divisionId");
+  const selectedDepartmentId = form.watch("departmentId");
+
+  const filteredDepartments = allDepartments.filter(
+    dept => !selectedDivisionId || dept.divisionId === selectedDivisionId
+  );
+
+  const filteredSections = allSections.filter(
+    section => !selectedDepartmentId || section.departmentId === selectedDepartmentId
+  );
+
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
-      const { teamLeaderId, ...userDataForAPI } = userData;
+      const { teamLeaderId, divisionId, departmentId, sectionId, ...userDataForAPI } = userData;
       const response = await apiRequest("POST", "/api/users", userDataForAPI);
       const user = await response.json();
+      
+      // Create user department assignment if any department fields are selected
+      if (divisionId || departmentId || sectionId) {
+        await apiRequest("POST", "/api/user-department-assignments", {
+          userId: user.id,
+          divisionId: divisionId || null,
+          departmentId: departmentId || null,
+          sectionId: sectionId || null,
+          assignedBy: user.id,
+        });
+      }
       
       // If agent role and team leader selected, use the reassign-team-leader endpoint
       // This endpoint automatically creates a team if the team leader doesn't have one
@@ -211,6 +251,105 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       <SelectItem value="contact_center_manager">Contact Center Manager</SelectItem>
                       <SelectItem value="team_leader">Team Leader</SelectItem>
                       <SelectItem value="agent">Agent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Division Selection */}
+            <FormField
+              control={form.control}
+              name="divisionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Division (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue("departmentId", "");
+                      form.setValue("sectionId", "");
+                    }} 
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-division">
+                        <SelectValue placeholder="Select a division" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.id}>
+                          {division.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Department Selection */}
+            <FormField
+              control={form.control}
+              name="departmentId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Department (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue("sectionId", "");
+                    }} 
+                    value={field.value}
+                    disabled={!selectedDivisionId && filteredDepartments.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-department">
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {filteredDepartments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Section Selection */}
+            <FormField
+              control={form.control}
+              name="sectionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Section (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={!selectedDepartmentId && filteredSections.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-section">
+                        <SelectValue placeholder="Select a section" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {filteredSections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          {section.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
