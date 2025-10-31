@@ -639,7 +639,7 @@ export default function TransferManagement() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
+          <div className="relative lg:flex-[2] lg:min-w-[400px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by agent name or details..."
@@ -651,7 +651,7 @@ export default function TransferManagement() {
           </div>
 
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full lg:w-[200px]" data-testid="select-type-filter">
+            <SelectTrigger className="w-full lg:w-[160px]" data-testid="select-type-filter">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -662,7 +662,7 @@ export default function TransferManagement() {
           </Select>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full lg:w-[200px]" data-testid="select-status-filter">
+            <SelectTrigger className="w-full lg:w-[160px]" data-testid="select-status-filter">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -676,7 +676,7 @@ export default function TransferManagement() {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full lg:w-[240px] justify-start text-left font-normal" data-testid="button-date-filter">
+              <Button variant="outline" className="w-full lg:w-[180px] justify-start text-left font-normal" data-testid="button-date-filter">
                 <Calendar className="mr-2 h-4 w-4" />
                 {selectedDate ? format(selectedDate, "PPP") : <span>Filter by Date</span>}
               </Button>
