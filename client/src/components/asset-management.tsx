@@ -645,7 +645,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Asset Management</CardTitle>
+          <CardTitle>Asset Control</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-4">
@@ -661,7 +661,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Asset Management</CardTitle>
+          <CardTitle>Asset Control</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-8">Loading asset states...</p>
@@ -674,7 +674,7 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Asset Management</CardTitle>
+          <CardTitle>Asset Control</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">

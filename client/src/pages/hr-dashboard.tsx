@@ -407,7 +407,7 @@ export default function HRDashboard() {
                  activeView === 'attendance' ? 'Attendance Management' :
                  activeView === 'transfers' ? 'Employee Transfers' :
                  activeView === 'terminations' ? 'Termination Management' :
-                 activeView === 'assets' ? 'Asset Management' :
+                 activeView === 'assets' ? 'Asset Control' :
                  'HR Dashboard'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
