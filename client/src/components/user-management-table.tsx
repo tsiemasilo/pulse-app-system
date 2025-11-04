@@ -43,6 +43,17 @@ export default function UserManagementTable() {
     queryKey: ["/api/users"],
   });
 
+  // Auto-expand all managers (users with direct reports) by default
+  useEffect(() => {
+    if (users.length > 0) {
+      const managersWithReports = users
+        .filter(user => users.some(u => u.reportsTo === user.id))
+        .map(user => user.id);
+      
+      setExpandedUsers(new Set(managersWithReports));
+    }
+  }, [users]);
+
   const getReportsToUser = (userId: string | null) => {
     if (!userId) return null;
     return users.find(u => u.id === userId);
