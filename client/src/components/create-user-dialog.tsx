@@ -68,10 +68,10 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       email: "",
       role: "agent" as const,
       isActive: true,
-      teamLeaderId: "",
-      divisionId: "",
-      departmentId: "",
-      sectionId: "",
+      teamLeaderId: "none",
+      divisionId: "none",
+      departmentId: "none",
+      sectionId: "none",
     },
   });
 
@@ -79,11 +79,11 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const selectedDepartmentId = form.watch("departmentId");
 
   const filteredDepartments = allDepartments.filter(
-    dept => !selectedDivisionId || dept.divisionId === selectedDivisionId
+    dept => !selectedDivisionId || selectedDivisionId === 'none' || dept.divisionId === selectedDivisionId
   );
 
   const filteredSections = allSections.filter(
-    section => !selectedDepartmentId || section.departmentId === selectedDepartmentId
+    section => !selectedDepartmentId || selectedDepartmentId === 'none' || section.departmentId === selectedDepartmentId
   );
 
   const createUserMutation = useMutation({
@@ -93,12 +93,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       const user = await response.json();
       
       // Create user department assignment if any department fields are selected
-      if (divisionId || departmentId || sectionId) {
+      const validDivisionId = divisionId && divisionId !== 'none' ? divisionId : null;
+      const validDepartmentId = departmentId && departmentId !== 'none' ? departmentId : null;
+      const validSectionId = sectionId && sectionId !== 'none' ? sectionId : null;
+      
+      if (validDivisionId || validDepartmentId || validSectionId) {
         await apiRequest("POST", "/api/user-department-assignments", {
           userId: user.id,
-          divisionId: divisionId || null,
-          departmentId: departmentId || null,
-          sectionId: sectionId || null,
+          divisionId: validDivisionId,
+          departmentId: validDepartmentId,
+          sectionId: validSectionId,
           assignedBy: user.id,
         });
       }
@@ -268,8 +272,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   <Select 
                     onValueChange={(value) => {
                       field.onChange(value);
-                      form.setValue("departmentId", "");
-                      form.setValue("sectionId", "");
+                      form.setValue("departmentId", "none");
+                      form.setValue("sectionId", "none");
                     }} 
                     value={field.value}
                   >
@@ -279,7 +283,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {divisions.map((division) => (
                         <SelectItem key={division.id} value={division.id}>
                           {division.name}
@@ -302,10 +306,10 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   <Select 
                     onValueChange={(value) => {
                       field.onChange(value);
-                      form.setValue("sectionId", "");
+                      form.setValue("sectionId", "none");
                     }} 
                     value={field.value}
-                    disabled={!selectedDivisionId && filteredDepartments.length === 0}
+                    disabled={(!selectedDivisionId || selectedDivisionId === 'none') && filteredDepartments.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger data-testid="select-department">
@@ -313,7 +317,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {filteredDepartments.map((department) => (
                         <SelectItem key={department.id} value={department.id}>
                           {department.name}
@@ -336,7 +340,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   <Select 
                     onValueChange={field.onChange} 
                     value={field.value}
-                    disabled={!selectedDepartmentId && filteredSections.length === 0}
+                    disabled={(!selectedDepartmentId || selectedDepartmentId === 'none') && filteredSections.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger data-testid="select-section">
@@ -344,7 +348,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {filteredSections.map((section) => (
                         <SelectItem key={section.id} value={section.id}>
                           {section.name}
