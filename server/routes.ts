@@ -1570,7 +1570,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      const transfers = await storage.getAllTransfers();
+      let transfers;
+      if (user.role === 'team_leader') {
+        transfers = await storage.getTransfersByRequester(user.id);
+      } else {
+        transfers = await storage.getAllTransfers();
+      }
+      
       res.json(transfers);
     } catch (error) {
       console.error("Error fetching transfers:", error);

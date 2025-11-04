@@ -121,6 +121,7 @@ export interface IStorage {
   
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
+  getTransfersByRequester(requesterId: string): Promise<Transfer[]>;
   createTransfer(transfer: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer>;
   updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
   completeTransfer(transferId: string): Promise<void>;
@@ -755,6 +756,14 @@ export class DatabaseStorage implements IStorage {
   // Transfer management
   async getAllTransfers(): Promise<Transfer[]> {
     return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
+  async getTransfersByRequester(requesterId: string): Promise<Transfer[]> {
+    return await db
+      .select()
+      .from(transfers)
+      .where(eq(transfers.requestedBy, requesterId))
+      .orderBy(desc(transfers.createdAt));
   }
 
   async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer> {
