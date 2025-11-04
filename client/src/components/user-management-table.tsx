@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { User, Team } from "@shared/schema";
 import { canRoleLogin } from "@shared/schema";
-import { Search, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 export default function UserManagementTable() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -34,6 +34,7 @@ export default function UserManagementTable() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [roleTypeFilter, setRoleTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const recordsPerPage = 10;
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -121,6 +122,26 @@ export default function UserManagementTable() {
     agent: "bg-slate-100 text-slate-700 border border-slate-200",
   };
 
+  const toggleExpand = (userId: string) => {
+    setExpandedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const getDirectReports = (userId: string) => {
+    return users.filter(u => u.reportsTo === userId);
+  };
+
+  const hasDirectReports = (userId: string) => {
+    return users.some(u => u.reportsTo === userId);
+  };
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const matchesSearch = searchQuery === "" || 
@@ -143,10 +164,54 @@ export default function UserManagementTable() {
     });
   }, [users, searchQuery, statusFilter, roleFilter, roleTypeFilter]);
 
-  const totalPages = Math.ceil(filteredUsers.length / recordsPerPage);
+  const hierarchicalUsers = useMemo(() => {
+    const result: Array<{ user: User; level: number; isExpanded: boolean; hasChildren: boolean }> = [];
+    
+    const roleOrder = {
+      'admin': 1,
+      'hr': 2,
+      'contact_center_ops_manager': 3,
+      'contact_center_manager': 4,
+      'team_leader': 5,
+      'agent': 6
+    };
+
+    const addUserWithChildren = (user: User, level: number) => {
+      const hasChildren = hasDirectReports(user.id);
+      const isExpanded = expandedUsers.has(user.id);
+      
+      result.push({ user, level, isExpanded, hasChildren });
+      
+      if (isExpanded && hasChildren) {
+        const directReports = getDirectReports(user.id)
+          .filter(u => filteredUsers.some(fu => fu.id === u.id))
+          .sort((a, b) => {
+            const roleComparison = (roleOrder[a.role as keyof typeof roleOrder] || 999) - (roleOrder[b.role as keyof typeof roleOrder] || 999);
+            if (roleComparison !== 0) return roleComparison;
+            return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          });
+        
+        directReports.forEach(report => addUserWithChildren(report, level + 1));
+      }
+    };
+
+    const topLevelUsers = filteredUsers
+      .filter(u => !u.reportsTo || !filteredUsers.some(fu => fu.id === u.reportsTo))
+      .sort((a, b) => {
+        const roleComparison = (roleOrder[a.role as keyof typeof roleOrder] || 999) - (roleOrder[b.role as keyof typeof roleOrder] || 999);
+        if (roleComparison !== 0) return roleComparison;
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      });
+
+    topLevelUsers.forEach(user => addUserWithChildren(user, 0));
+    
+    return result;
+  }, [filteredUsers, expandedUsers, users]);
+
+  const totalPages = Math.ceil(hierarchicalUsers.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
-  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+  const paginatedUsers = hierarchicalUsers.slice(startIndex, endIndex);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -161,7 +226,7 @@ export default function UserManagementTable() {
   };
 
   // Reset to page 1 when filters change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, roleFilter, roleTypeFilter]);
 
@@ -243,7 +308,7 @@ export default function UserManagementTable() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Showing {filteredUsers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} records
+            Showing {hierarchicalUsers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, hierarchicalUsers.length)} of {hierarchicalUsers.length} records
           </p>
         </div>
 
@@ -266,10 +331,26 @@ export default function UserManagementTable() {
                   </td>
                 </tr>
               ) : (
-                paginatedUsers.map((user) => (
+                paginatedUsers.map(({ user, level, isExpanded, hasChildren }) => (
                   <tr key={user.id} data-testid={`row-user-${user.id}`} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                      <div className="flex items-center" style={{ paddingLeft: `${level * 2}rem` }}>
+                        {hasChildren && (
+                          <button
+                            onClick={() => toggleExpand(user.id)}
+                            className="mr-2 p-1 hover:bg-muted rounded transition-colors"
+                            data-testid={`button-expand-${user.id}`}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                        {!hasChildren && level > 0 && (
+                          <div className="w-6 mr-2" />
+                        )}
                         <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                           {((user.firstName?.[0] || '') + (user.lastName?.[0] || '')).toUpperCase() || 'U'}
                         </div>
