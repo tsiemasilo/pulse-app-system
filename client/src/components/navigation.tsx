@@ -159,7 +159,9 @@ export default function Navigation({ user }: NavigationProps) {
             })}
             <div className="pt-2 border-t border-border mt-2">
               <div className="px-3 py-2">
-                <p className="text-sm font-medium">{user?.firstName || user?.email || 'User'}</p>
+                <p className="text-sm font-medium">
+                  {`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
                 </p>
