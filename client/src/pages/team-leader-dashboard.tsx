@@ -727,7 +727,9 @@ export default function TeamLeaderDashboard() {
                 </Avatar>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-header-username">
-                    {user?.firstName || user?.username || 'User'}
+                    {user?.firstName && user?.lastName 
+                      ? `${user.firstName} ${user.lastName}` 
+                      : user?.username || 'User'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="text-header-role">
                     Team Leader
