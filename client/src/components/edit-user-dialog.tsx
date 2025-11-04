@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { User, Team, UserRole } from "@shared/schema";
+import type { User, Team, UserRole, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
 import { canRoleLogin } from "@shared/schema";
 
 const editUserSchema = z.object({
@@ -24,6 +24,9 @@ const editUserSchema = z.object({
   isActive: z.boolean(),
   password: z.string().optional().or(z.literal("")),
   reportsTo: z.string().optional().or(z.literal("")),
+  divisionId: z.string().optional(),
+  departmentId: z.string().optional(),
+  sectionId: z.string().optional(),
 });
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -40,6 +43,28 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch divisions, departments, and sections
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+    enabled: open,
+  });
+
+  const { data: allDepartments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+    enabled: open,
+  });
+
+  const { data: allSections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+    enabled: open,
+  });
+
+  // Fetch user's current department assignment
+  const { data: userDepartmentAssignment } = useQuery<UserDepartmentAssignment>({
+    queryKey: ["/api/user-department-assignments", user?.id],
+    enabled: open && !!user?.id,
+  });
+
   const form = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
@@ -51,8 +76,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       isActive: true,
       password: "",
       reportsTo: "",
+      divisionId: "none",
+      departmentId: "none",
+      sectionId: "none",
     },
   });
+
+  const selectedDivisionId = form.watch("divisionId");
+  const selectedDepartmentId = form.watch("departmentId");
+
+  const filteredDepartments = allDepartments.filter(
+    dept => !selectedDivisionId || selectedDivisionId === 'none' || dept.divisionId === selectedDivisionId
+  );
+
+  const filteredSections = allSections.filter(
+    section => !selectedDepartmentId || selectedDepartmentId === 'none' || section.departmentId === selectedDepartmentId
+  );
 
   // Reset form when user changes
   useEffect(() => {
@@ -66,10 +105,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         isActive: user.isActive,
         password: "",
         reportsTo: user.reportsTo || "",
+        divisionId: userDepartmentAssignment?.divisionId || "none",
+        departmentId: userDepartmentAssignment?.departmentId || "none",
+        sectionId: userDepartmentAssignment?.sectionId || "none",
       });
       setSelectedReportsTo(user.reportsTo || "none");
     }
-  }, [user, form]);
+  }, [user, form, userDepartmentAssignment]);
 
   // Get team leaders for reassignment
   const { data: teamLeaders = [] } = useQuery<User[]>({
@@ -127,6 +169,40 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       
       const updatedUser = await apiRequest("PATCH", `/api/users/${user.id}`, updatePayload) as any;
 
+      // Handle department assignment changes
+      const validDivisionId = data.divisionId && data.divisionId !== 'none' ? data.divisionId : null;
+      const validDepartmentId = data.departmentId && data.departmentId !== 'none' ? data.departmentId : null;
+      const validSectionId = data.sectionId && data.sectionId !== 'none' ? data.sectionId : null;
+
+      // If user had a department assignment before
+      if (userDepartmentAssignment) {
+        // If all department fields are now "none", delete the assignment
+        if (!validDivisionId && !validDepartmentId && !validSectionId) {
+          await apiRequest("DELETE", `/api/user-department-assignments/${user.id}`);
+        } else {
+          // Update the existing assignment
+          await apiRequest("DELETE", `/api/user-department-assignments/${user.id}`);
+          await apiRequest("POST", "/api/user-department-assignments", {
+            userId: user.id,
+            divisionId: validDivisionId,
+            departmentId: validDepartmentId,
+            sectionId: validSectionId,
+            assignedBy: user.id,
+          });
+        }
+      } else {
+        // Create new assignment if any department field is selected
+        if (validDivisionId || validDepartmentId || validSectionId) {
+          await apiRequest("POST", "/api/user-department-assignments", {
+            userId: user.id,
+            divisionId: validDivisionId,
+            departmentId: validDepartmentId,
+            sectionId: validSectionId,
+            assignedBy: user.id,
+          });
+        }
+      }
+
       // Only allow team assignment for agents - remove team assignment if role changes from agent
       if (user.role === 'agent' && data.role !== 'agent') {
         // Remove from team when role changes from agent to something else
@@ -149,6 +225,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "teams"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments", user?.id] });
       
       // If role changed to/from team_leader, invalidate team leaders cache
       if (updatedUser.role === 'team_leader' || user?.role === 'team_leader') {
@@ -273,6 +351,105 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 )}
               />
             )}
+
+            {/* Division Selection */}
+            <FormField
+              control={form.control}
+              name="divisionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Division (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue("departmentId", "none");
+                      form.setValue("sectionId", "none");
+                    }} 
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-division">
+                        <SelectValue placeholder="Select a division" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.id}>
+                          {division.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Department Selection */}
+            <FormField
+              control={form.control}
+              name="departmentId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Department (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue("sectionId", "none");
+                    }} 
+                    value={field.value}
+                    disabled={(!selectedDivisionId || selectedDivisionId === 'none') && filteredDepartments.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-department">
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {filteredDepartments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Section Selection */}
+            <FormField
+              control={form.control}
+              name="sectionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Section (Optional)</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={(!selectedDepartmentId || selectedDepartmentId === 'none') && filteredSections.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger data-testid="select-section">
+                        <SelectValue placeholder="Select a section" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {filteredSections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          {section.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
