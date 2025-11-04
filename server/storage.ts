@@ -352,11 +352,11 @@ export class DatabaseStorage implements IStorage {
         .where(eq(terminations.processedBy, userId));
       await tx.delete(terminations).where(eq(terminations.userId, userId));
       
-      // 7. Delete asset daily states for the user
-      await tx.delete(assetDailyStates).where(eq(assetDailyStates.userId, userId));
-      
-      // 8. Delete asset state audit records for the user
+      // 7. Delete asset state audit records FIRST (they reference daily states)
       await tx.delete(assetStateAudit).where(eq(assetStateAudit.userId, userId));
+      
+      // 8. Delete asset daily states AFTER audit records are deleted
+      await tx.delete(assetDailyStates).where(eq(assetDailyStates.userId, userId));
       
       // 9. Delete asset incidents for the user
       await tx.delete(assetIncidents).where(eq(assetIncidents.userId, userId));
