@@ -43,11 +43,14 @@ export default function UserManagementTable() {
     queryKey: ["/api/users"],
   });
 
-  // Auto-expand all managers (users with direct reports) by default
+  // Auto-expand managers except team leaders
   useEffect(() => {
     if (users.length > 0) {
       const managersWithReports = users
-        .filter(user => users.some(u => u.reportsTo === user.id))
+        .filter(user => 
+          user.role !== 'team_leader' && 
+          users.some(u => u.reportsTo === user.id)
+        )
         .map(user => user.id);
       
       setExpandedUsers(new Set(managersWithReports));
