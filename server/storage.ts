@@ -911,6 +911,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transfers.id, transferId))
       .returning();
     
+    // If approving, immediately update agent's reportsTo and team membership
+    if (status === 'approved' && transfer.toTeamId) {
+      // Update team membership
+      await db
+        .delete(teamMembers)
+        .where(eq(teamMembers.userId, transfer.userId));
+
+      await db
+        .insert(teamMembers)
+        .values({
+          teamId: transfer.toTeamId,
+          userId: transfer.userId,
+        });
+
+      // Get the new team leader ID
+      const [destinationTeam] = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, transfer.toTeamId));
+
+      if (destinationTeam?.leaderId) {
+        const userUpdateData: any = { 
+          reportsTo: destinationTeam.leaderId,
+          updatedAt: new Date(),
+        };
+        
+        // Update department if specified in the transfer
+        if (transfer.toDepartmentId) {
+          userUpdateData.departmentId = transfer.toDepartmentId;
+        }
+        
+        await db
+          .update(users)
+          .set(userUpdateData)
+          .where(eq(users.id, transfer.userId));
+      }
+    }
+    
     return transfer;
   }
 
