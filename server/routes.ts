@@ -1585,7 +1585,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let transfers;
       if (user.role === 'team_leader') {
-        transfers = await storage.getTransfersByRequester(user.id);
+        // Team leaders can see transfers they created AND transfers involving their teams
+        transfers = await storage.getTransfersForTeamLeader(user.id);
       } else {
         transfers = await storage.getAllTransfers();
       }

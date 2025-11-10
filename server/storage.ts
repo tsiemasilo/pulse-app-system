@@ -59,7 +59,7 @@ import {
   type UserRole,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, or, desc, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for local auth)
@@ -126,6 +126,7 @@ export interface IStorage {
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
   getTransfersByRequester(requesterId: string): Promise<Transfer[]>;
+  getTransfersForTeamLeader(teamLeaderId: string): Promise<Transfer[]>;
   createTransfer(transfer: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer>;
   updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
   completeTransfer(transferId: string): Promise<void>;
@@ -866,6 +867,48 @@ export class DatabaseStorage implements IStorage {
       .from(transfers)
       .where(eq(transfers.requestedBy, requesterId))
       .orderBy(desc(transfers.createdAt));
+  }
+
+  async getTransfersForTeamLeader(teamLeaderId: string): Promise<Transfer[]> {
+    // Get transfers where team leader is either:
+    // 1. The requester (requestedBy)
+    // 2. Leader of the fromTeam
+    // 3. Leader of the toTeam
+    
+    // Use subqueries to get team IDs where this user is the leader
+    const leaderTeams = await db
+      .select({ id: teams.id })
+      .from(teams)
+      .where(eq(teams.leaderId, teamLeaderId));
+    
+    const teamIds = leaderTeams.map(t => t.id);
+    
+    // If no teams, just get transfers requested by this user
+    if (teamIds.length === 0) {
+      return await db
+        .select()
+        .from(transfers)
+        .where(eq(transfers.requestedBy, teamLeaderId))
+        .orderBy(desc(transfers.createdAt));
+    }
+    
+    // Get all transfers where:
+    // - User is the requester, OR
+    // - fromTeamId is one of user's teams, OR
+    // - toTeamId is one of user's teams
+    const result = await db
+      .select()
+      .from(transfers)
+      .where(
+        or(
+          eq(transfers.requestedBy, teamLeaderId),
+          ...teamIds.map(teamId => eq(transfers.fromTeamId, teamId)),
+          ...teamIds.map(teamId => eq(transfers.toTeamId, teamId))
+        )
+      )
+      .orderBy(desc(transfers.createdAt));
+    
+    return result;
   }
 
   async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer> {

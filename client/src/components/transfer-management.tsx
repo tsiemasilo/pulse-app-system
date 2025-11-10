@@ -764,6 +764,10 @@ export default function TransferManagement() {
                               <span className="text-muted-foreground font-medium">To:</span>
                               <span className="font-medium">{getTeamLeaderName(record.transfer.toTeamId)}</span>
                             </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="font-medium">Created By:</span>
+                              <span>{getUserName(record.transfer.requestedBy)}</span>
+                            </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Layers className="h-3 w-3" />
