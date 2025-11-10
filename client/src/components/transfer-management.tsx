@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertTransferSchema, insertUserDepartmentAssignmentSchema } from "@shared/schema";
-import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, Building2, Layers, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Calendar, User, ChevronLeft, ChevronRight, Eye, Search, ChevronDown, UserPlus, UserMinus, Check, X, CheckCircle, CheckCircle2, XCircle, Building2, Layers, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
 import { motion } from "framer-motion";
@@ -804,16 +804,51 @@ export default function TransferManagement() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {record.type === 'transfer' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmAction({ type: 'delete', transferId: record.id })}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            data-testid={`button-delete-${record.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        {record.type === 'transfer' && record.transfer && (
+                          <div className="flex items-center gap-2">
+                            {canPerformAction(record.transfer, 'approve') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmAction({ type: 'approve', transferId: record.id })}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                                data-testid={`button-approve-${record.id}`}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canPerformAction(record.transfer, 'reject') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmAction({ type: 'reject', transferId: record.id })}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                data-testid={`button-reject-${record.id}`}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canPerformAction(record.transfer, 'complete') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmAction({ type: 'complete', transferId: record.id })}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                data-testid={`button-complete-${record.id}`}
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmAction({ type: 'delete', transferId: record.id })}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              data-testid={`button-delete-${record.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </td>
                     </tr>
