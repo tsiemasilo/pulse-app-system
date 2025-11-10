@@ -67,7 +67,7 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
     
     // Start the daily reset scheduler
@@ -76,6 +76,36 @@ app.use((req, res, next) => {
       log("Daily reset scheduler started successfully");
     } catch (error) {
       console.error("Failed to start daily reset scheduler:", error);
+    }
+    
+    // Backfill attendance for the last 30 days on startup
+    try {
+      log("Starting attendance backfill for last 30 days...");
+      const { storage } = await import("./storage");
+      const daysToBackfill = 30;
+      let totalCreated = 0;
+      
+      for (let i = 0; i < daysToBackfill; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateString = date.toISOString().split('T')[0];
+        
+        const result = await storage.ensureAttendanceForDate(dateString);
+        totalCreated += result.created;
+        
+        // Short-circuit if no records created for consecutive days
+        if (i > 0 && result.created === 0) {
+          break;
+        }
+      }
+      
+      if (totalCreated > 0) {
+        log(`Attendance backfill completed: Created ${totalCreated} records across last ${daysToBackfill} days`);
+      } else {
+        log("Attendance backfill completed: All records already exist");
+      }
+    } catch (error) {
+      console.error("Failed to backfill attendance:", error);
     }
   });
 })();
