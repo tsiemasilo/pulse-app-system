@@ -1607,86 +1607,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // AUTO-CREATE ATTENDANCE RECORDS FOR ALL ACTIVE AGENTS
-    let attendanceCreatedCount = 0;
-    const agents = allUsers.filter(u => u.role === 'agent' && u.isActive);
-    
-    for (const agent of agents) {
-      try {
-        // Check if attendance record already exists for this agent on target date
-        const targetDateTime = new Date(targetDate);
-        const startOfDay = new Date(targetDateTime);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDateTime);
-        endOfDay.setHours(23, 59, 59, 999);
-        
-        const existingRecords = await db
-          .select()
-          .from(attendance)
-          .where(and(
-            eq(attendance.userId, agent.id),
-            gte(attendance.date, startOfDay),
-            lte(attendance.date, endOfDay)
-          ));
-        
-        // Skip if attendance record already exists
-        if (existingRecords.length > 0) {
-          continue;
-        }
-        
-        // Determine appropriate status
-        let statusToUse: any = 'at work';
-        
-        // Check for recent termination status
-        const recentTerminations = await db
-          .select()
-          .from(attendance)
-          .where(and(
-            eq(attendance.userId, agent.id),
-            sql`(${attendance.status} = 'AWOL' OR ${attendance.status} = 'suspended' OR ${attendance.status} = 'resignation' OR ${attendance.status} = 'terminated')`
-          ))
-          .orderBy(desc(attendance.date))
-          .limit(1);
-        
-        if (recentTerminations.length > 0) {
-          statusToUse = recentTerminations[0].status;
-        } else {
-          // Check for remote work persistence
-          const recentWorkingDay = await db
-            .select()
-            .from(attendance)
-            .where(and(
-              eq(attendance.userId, agent.id),
-              sql`(${attendance.status} = 'at work' OR ${attendance.status} = 'at work (remote)')`
-            ))
-            .orderBy(desc(attendance.date))
-            .limit(1);
-          
-          if (recentWorkingDay.length > 0 && recentWorkingDay[0].status === 'at work (remote)') {
-            statusToUse = 'at work (remote)';
-          }
-        }
-        
-        // Create attendance record for target date
-        const recordDate = new Date(targetDate);
-        recordDate.setHours(8, 0, 0, 0); // Default to 8:00 AM clock-in
-        
-        await db
-          .insert(attendance)
-          .values({
-            userId: agent.id,
-            date: recordDate,
-            clockIn: recordDate,
-            status: statusToUse,
-          });
-        
-        attendanceCreatedCount++;
-      } catch (error) {
-        console.error(`Failed to create attendance for agent ${agent.id}:`, error);
-      }
-    }
-    
-    console.log(`Daily reset: Created ${attendanceCreatedCount} attendance records for ${targetDate}`);
+    // AUTO-CREATE ATTENDANCE RECORDS FOR ALL ACTIVE AGENTS using helper
+    const attendanceResult = await this.ensureAttendanceForDate(targetDate, resetPerformedBy);
+    const attendanceCreatedCount = attendanceResult.created;
     
     return {
       message: `Daily reset completed for ${targetDate}. Created ${attendanceCreatedCount} attendance records.`,
