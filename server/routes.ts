@@ -1168,6 +1168,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/attendance/today', isAuthenticated, async (req: any, res) => {
     try {
       const today = new Date();
+      const todayString = today.toISOString().split('T')[0];
+      
+      // Ensure attendance records exist for today (on-demand backfill)
+      await storage.ensureAttendanceForDate(todayString);
+      
       const attendanceRecords = await storage.getAttendanceByDate(today);
       res.json(attendanceRecords);
     } catch (error) {
@@ -1206,6 +1211,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set end date to end of day (23:59:59.999) to include all records from that day
       endDate.setHours(23, 59, 59, 999);
+      
+      // Ensure attendance records exist for each date in the range (on-demand backfill)
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const dateString = currentDate.toISOString().split('T')[0];
+        await storage.ensureAttendanceForDate(dateString);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
       
       const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
       res.json(attendanceRecords);

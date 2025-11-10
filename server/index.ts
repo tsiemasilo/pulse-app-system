@@ -84,6 +84,7 @@ app.use((req, res, next) => {
       const { storage } = await import("./storage");
       const daysToBackfill = 30;
       let totalCreated = 0;
+      const backfillDetails: { date: string; created: number }[] = [];
       
       for (let i = 0; i < daysToBackfill; i++) {
         const date = new Date();
@@ -93,16 +94,18 @@ app.use((req, res, next) => {
         const result = await storage.ensureAttendanceForDate(dateString);
         totalCreated += result.created;
         
-        // Short-circuit if no records created for consecutive days
-        if (i > 0 && result.created === 0) {
-          break;
+        if (result.created > 0) {
+          backfillDetails.push({ date: dateString, created: result.created });
         }
       }
       
       if (totalCreated > 0) {
-        log(`Attendance backfill completed: Created ${totalCreated} records across last ${daysToBackfill} days`);
+        log(`Attendance backfill completed: Created ${totalCreated} records across ${backfillDetails.length} days`);
+        backfillDetails.forEach(detail => {
+          log(`  - ${detail.date}: ${detail.created} records created`);
+        });
       } else {
-        log("Attendance backfill completed: All records already exist");
+        log("Attendance backfill completed: All records already exist for last 30 days");
       }
     } catch (error) {
       console.error("Failed to backfill attendance:", error);
