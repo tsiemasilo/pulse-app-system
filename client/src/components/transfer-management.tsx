@@ -1298,34 +1298,6 @@ export default function TransferManagement() {
             >
               Keep Same Department
             </Button>
-            
-            <div className="space-y-2">
-              <Select 
-                value={selectedDepartmentId} 
-                onValueChange={setSelectedDepartmentId}
-              >
-                <SelectTrigger data-testid="select-new-department">
-                  <SelectValue placeholder="Select new department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Button
-                onClick={handleTransferWithNewDepartment}
-                variant="outline"
-                className="w-full"
-                disabled={!selectedDepartmentId || selectedDepartmentId === users.find(u => u.id === pendingTransferData?.userId)?.departmentId}
-                data-testid="button-transfer-new-department"
-              >
-                Transfer with New Department
-              </Button>
-            </div>
           </div>
         </div>
         <DialogFooter>
