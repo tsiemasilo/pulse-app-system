@@ -219,6 +219,57 @@ export interface IStorage {
   
   // Team Leader summaries for CC Manager dashboard
   getTeamLeaderSummariesForManager(managerId: string): Promise<TeamLeaderSummary[]>;
+  
+  // Team Leader-scoped operations data with pagination
+  getPendingTransfersForTeamLeader(leaderId: string, page?: number, limit?: number): Promise<{
+    data: Transfer[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
+  
+  getTerminationsForTeamLeader(leaderId: string, page?: number, limit?: number): Promise<{
+    data: Termination[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
+  
+  getAssetIssuesForTeamLeader(leaderId: string, page?: number, limit?: number): Promise<{
+    data: AssetDailyState[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
+  
+  getAttendanceExceptionsForTeamLeader(leaderId: string, date: string, page?: number, limit?: number): Promise<{
+    data: Attendance[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
+  
+  getOnboardingTasksForTeamLeader(leaderId: string, page?: number, limit?: number): Promise<{
+    data: User[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1883,6 +1934,11 @@ export class DatabaseStorage implements IStorage {
     // Get today's date in SQL format
     const today = new Date().toISOString().split('T')[0];
     
+    // Get date 7 days ago for onboarding calculation
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+    
     // Fetch team leaders with their organizational hierarchy and aggregated stats
     const query = sql`
       SELECT 
@@ -1933,7 +1989,44 @@ export class DatabaseStorage implements IStorage {
          WHERE agents.reports_to = leaders.id
          AND agents.role = 'agent'
          AND DATE(a.date) = ${today}
-         AND a.status = 'late') as late_today
+         AND a.status = 'late') as late_today,
+        -- Operations metrics
+        -- Pending transfers for agents under this leader
+        (SELECT COUNT(*)
+         FROM ${transfers} t
+         INNER JOIN ${users} agents ON t.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND t.status = 'pending') as pending_transfers,
+        -- Pending terminations for agents under this leader
+        (SELECT COUNT(*)
+         FROM ${terminations} term
+         INNER JOIN ${users} agents ON term.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent') as pending_terminations,
+        -- Onboarding tasks (new agents in last 7 days)
+        (SELECT COUNT(*)
+         FROM ${users} agents
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND agents.is_active = true
+         AND agents.created_at >= ${sevenDaysAgoStr}) as onboarding_tasks,
+        -- Asset issues (not_returned or lost)
+        (SELECT COUNT(*)
+         FROM ${assetDailyStates} ads
+         INNER JOIN ${users} agents ON ads.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND ads.date = ${today}
+         AND (ads.current_state = 'not_returned' OR ads.current_state = 'lost')) as asset_issues,
+        -- Attendance exceptions (absent or late today)
+        (SELECT COUNT(DISTINCT a.user_id)
+         FROM ${attendance} a
+         INNER JOIN ${users} agents ON a.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND DATE(a.date) = ${today}
+         AND (a.status = 'absent' OR a.status = 'late')) as attendance_exceptions
       FROM ${users} leaders
       LEFT JOIN ${userDepartmentAssignments} uda ON uda.user_id = leaders.id
       LEFT JOIN ${divisions} div ON uda.division_id = div.id
@@ -1983,9 +2076,238 @@ export class DatabaseStorage implements IStorage {
           lateToday,
           avgAttendanceRate,
           performanceScore
+        },
+        operations: {
+          pendingTransfers: Number(row.pending_transfers || 0),
+          pendingTerminations: Number(row.pending_terminations || 0),
+          onboardingTasks: Number(row.onboarding_tasks || 0),
+          assetIssues: Number(row.asset_issues || 0),
+          attendanceExceptions: Number(row.attendance_exceptions || 0)
         }
       } as TeamLeaderSummary;
     });
+  }
+
+  // Team Leader-scoped operations data with pagination
+  async getPendingTransfersForTeamLeader(leaderId: string, page: number = 1, limit: number = 10): Promise<{
+    data: Transfer[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const offset = (page - 1) * limit;
+    
+    // Get total count of pending transfers for agents under this leader
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM ${transfers} t
+      INNER JOIN ${users} u ON t.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND t.status = 'pending'
+    `);
+    const total = Number((countResult.rows[0] as any)?.total || 0);
+    
+    // Get paginated transfers
+    const transfersData = await db.execute(sql`
+      SELECT t.*
+      FROM ${transfers} t
+      INNER JOIN ${users} u ON t.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND t.status = 'pending'
+      ORDER BY t.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return {
+      data: transfersData.rows as Transfer[],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getTerminationsForTeamLeader(leaderId: string, page: number = 1, limit: number = 10): Promise<{
+    data: Termination[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const offset = (page - 1) * limit;
+    
+    // Get total count of terminations for agents under this leader
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM ${terminations} term
+      INNER JOIN ${users} u ON term.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+    `);
+    const total = Number((countResult.rows[0] as any)?.total || 0);
+    
+    // Get paginated terminations
+    const terminationsData = await db.execute(sql`
+      SELECT term.*
+      FROM ${terminations} term
+      INNER JOIN ${users} u ON term.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      ORDER BY term.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return {
+      data: terminationsData.rows as Termination[],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getAssetIssuesForTeamLeader(leaderId: string, page: number = 1, limit: number = 10): Promise<{
+    data: AssetDailyState[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const offset = (page - 1) * limit;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get total count of asset issues for agents under this leader
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM ${assetDailyStates} ads
+      INNER JOIN ${users} u ON ads.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND (ads.current_state = 'not_returned' OR ads.current_state = 'lost')
+    `);
+    const total = Number((countResult.rows[0] as any)?.total || 0);
+    
+    // Get paginated asset issues
+    const assetIssuesData = await db.execute(sql`
+      SELECT ads.*
+      FROM ${assetDailyStates} ads
+      INNER JOIN ${users} u ON ads.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND (ads.current_state = 'not_returned' OR ads.current_state = 'lost')
+      ORDER BY ads.date DESC, ads.asset_type
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return {
+      data: assetIssuesData.rows as AssetDailyState[],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getAttendanceExceptionsForTeamLeader(leaderId: string, date: string, page: number = 1, limit: number = 10): Promise<{
+    data: Attendance[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const offset = (page - 1) * limit;
+    
+    // Get total count of attendance exceptions for agents under this leader
+    const countResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT a.id) as total
+      FROM ${attendance} a
+      INNER JOIN ${users} u ON a.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND DATE(a.date) = ${date}
+      AND (a.status = 'absent' OR a.status = 'late')
+    `);
+    const total = Number((countResult.rows[0] as any)?.total || 0);
+    
+    // Get paginated attendance exceptions
+    const attendanceData = await db.execute(sql`
+      SELECT a.*
+      FROM ${attendance} a
+      INNER JOIN ${users} u ON a.user_id = u.id
+      WHERE u.reports_to = ${leaderId}
+      AND DATE(a.date) = ${date}
+      AND (a.status = 'absent' OR a.status = 'late')
+      ORDER BY a.date DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return {
+      data: attendanceData.rows as Attendance[],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getOnboardingTasksForTeamLeader(leaderId: string, page: number = 1, limit: number = 10): Promise<{
+    data: User[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const offset = (page - 1) * limit;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+    
+    // Get total count of new users for this leader
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM ${users} u
+      WHERE u.reports_to = ${leaderId}
+      AND u.role = 'agent'
+      AND u.is_active = true
+      AND u.created_at >= ${sevenDaysAgoStr}
+    `);
+    const total = Number((countResult.rows[0] as any)?.total || 0);
+    
+    // Get paginated new users
+    const usersData = await db.execute(sql`
+      SELECT u.*
+      FROM ${users} u
+      WHERE u.reports_to = ${leaderId}
+      AND u.role = 'agent'
+      AND u.is_active = true
+      AND u.created_at >= ${sevenDaysAgoStr}
+      ORDER BY u.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return {
+      data: usersData.rows as User[],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
   }
 }
 

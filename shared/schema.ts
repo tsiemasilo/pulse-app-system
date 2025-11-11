@@ -495,4 +495,11 @@ export type TeamLeaderSummary = {
     avgAttendanceRate: number; // percentage
     performanceScore: number; // percentage
   };
+  operations: {
+    pendingTransfers: number;
+    pendingTerminations: number;
+    onboardingTasks: number;
+    assetIssues: number;
+    attendanceExceptions: number;
+  };
 };
