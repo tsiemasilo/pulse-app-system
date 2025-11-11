@@ -6,9 +6,11 @@ import Navigation from "@/components/navigation";
 import { StatCard } from "@/components/dashboard-stats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Headphones, 
   Users, 
@@ -19,7 +21,8 @@ import {
   Timer, 
   Building2,
   Mail,
-  Award
+  Award,
+  LogOut
 } from "lucide-react";
 import type { User, Team, TeamLeaderSummary } from "@shared/schema";
 
@@ -41,6 +44,22 @@ export default function ContactCenterDashboard() {
     queryKey: ["/api/my-team-leaders"],
     enabled: user?.role === 'contact_center_manager' || user?.role === 'contact_center_ops_manager' || user?.role === 'admin',
   });
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      window.location.reload();
+    }
+  };
+
+  const roleDisplayMap = {
+    contact_center_ops_manager: "CC Ops Manager",
+    contact_center_manager: "CC Manager",
+    admin: "Admin"
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -67,10 +86,76 @@ export default function ContactCenterDashboard() {
   return (
     <>
       {user?.role === 'admin' && <Navigation user={user} />}
+      
+      {/* Header Bar with Logout for non-admin CC Managers */}
+      {user?.role !== 'admin' && (
+        <div className="bg-card border-b border-border shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="text-lg font-semibold text-foreground">
+                Contact Center Management
+              </div>
+              <div className="flex items-center">
+                {/* Desktop User Info & Logout */}
+                <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+                  <div className="flex flex-col items-end justify-center">
+                    <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username-cc">
+                      {`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role-cc">
+                      {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
+                    </span>
+                  </div>
+                  <div className="h-8 w-px bg-border"></div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    data-testid="button-logout-cc"
+                  >
+                    <LogOut className="h-4 w-4 mr-1.5" />
+                    <span className="text-sm">Logout</span>
+                  </Button>
+                </div>
+                
+                {/* Mobile Logout Button */}
+                <div className="sm:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="h-8 px-2"
+                    data-testid="button-logout-cc-mobile"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fade-in max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Contact Center Management</h1>
-          <p className="text-muted-foreground">Monitor operations and team performance</p>
+        {/* Welcome Hero Section */}
+        <div className="bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/20 dark:to-emerald-950/20 rounded-lg p-4 sm:p-6 border border-teal-100 dark:border-teal-800/30 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Welcome back, {user?.firstName || 'Contact Center Leader'}
+              </h2>
+              <p className="text-sm sm:text-base text-teal-600 dark:text-teal-400">
+                Here's your workforce overview for today
+              </p>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Today</p>
+              <p className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </p>
+            </div>
+          </div>
         </div>
 
       {/* CC Manager Stats */}
