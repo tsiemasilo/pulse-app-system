@@ -156,30 +156,31 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input {...field} data-testid="input-username" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Only show password field for roles that can log in */}
-            {canRoleLogin(form.watch('role') as UserRole) && (
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+            <div className="space-y-4 overflow-y-auto pr-2 max-h-[60vh]">
               <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-username" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Only show password field for roles that can log in */}
+              {canRoleLogin(form.watch('role') as UserRole) && (
+                <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
@@ -191,195 +192,102 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     <FormMessage />
                   </FormItem>
                 )}
-              />
-            )}
-
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} data-testid="input-firstname" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+                />
               )}
-            />
 
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Last Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} data-testid="input-lastname" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" {...field} data-testid="input-email" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-role">
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">System Admin</SelectItem>
-                      <SelectItem value="hr">HR Manager</SelectItem>
-                      <SelectItem value="contact_center_ops_manager">Contact Center Ops Manager</SelectItem>
-                      <SelectItem value="contact_center_manager">Contact Center Manager</SelectItem>
-                      <SelectItem value="team_leader">Team Leader</SelectItem>
-                      <SelectItem value="agent">Agent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Division Selection */}
-            <FormField
-              control={form.control}
-              name="divisionId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Division (Optional)</FormLabel>
-                  <Select 
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue("departmentId", "none");
-                      form.setValue("sectionId", "none");
-                    }} 
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-division">
-                        <SelectValue placeholder="Select a division" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {divisions.map((division) => (
-                        <SelectItem key={division.id} value={division.id}>
-                          {division.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Department Selection */}
-            <FormField
-              control={form.control}
-              name="departmentId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department (Optional)</FormLabel>
-                  <Select 
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue("sectionId", "none");
-                    }} 
-                    value={field.value}
-                    disabled={(!selectedDivisionId || selectedDivisionId === 'none') && filteredDepartments.length === 0}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-department">
-                        <SelectValue placeholder="Select a department" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {filteredDepartments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Section Selection */}
-            <FormField
-              control={form.control}
-              name="sectionId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Section (Optional)</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value}
-                    disabled={(!selectedDepartmentId || selectedDepartmentId === 'none') && filteredSections.length === 0}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-section">
-                        <SelectValue placeholder="Select a section" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {filteredSections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Team Leader Selection - Only show for agents */}
-            {form.watch('role') === 'agent' && (
               <FormField
                 control={form.control}
-                name="teamLeaderId"
+                name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Assign to Team Leader (Optional)</FormLabel>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-firstname" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-lastname" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} data-testid="input-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-team-leader">
-                          <SelectValue placeholder="Select a team leader" />
+                        <SelectTrigger data-testid="select-role">
+                          <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">No Team Leader</SelectItem>
-                        {teamLeaders.map((leader) => (
-                          <SelectItem key={leader.id} value={leader.id}>
-                            {leader.firstName} {leader.lastName}
+                        <SelectItem value="admin">System Admin</SelectItem>
+                        <SelectItem value="hr">HR Manager</SelectItem>
+                        <SelectItem value="contact_center_ops_manager">Contact Center Ops Manager</SelectItem>
+                        <SelectItem value="contact_center_manager">Contact Center Manager</SelectItem>
+                        <SelectItem value="team_leader">Team Leader</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Division Selection */}
+              <FormField
+                control={form.control}
+                name="divisionId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Division (Optional)</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue("departmentId", "none");
+                        form.setValue("sectionId", "none");
+                      }} 
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-division">
+                          <SelectValue placeholder="Select a division" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {divisions.map((division) => (
+                          <SelectItem key={division.id} value={division.id}>
+                            {division.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -388,9 +296,103 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   </FormItem>
                 )}
               />
-            )}
 
-            <div className="flex justify-end space-x-2 pt-4">
+              {/* Department Selection */}
+              <FormField
+                control={form.control}
+                name="departmentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department (Optional)</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue("sectionId", "none");
+                      }} 
+                      value={field.value}
+                      disabled={(!selectedDivisionId || selectedDivisionId === 'none') && filteredDepartments.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-department">
+                          <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {filteredDepartments.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Section Selection */}
+              <FormField
+                control={form.control}
+                name="sectionId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Section (Optional)</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={(!selectedDepartmentId || selectedDepartmentId === 'none') && filteredSections.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-section">
+                          <SelectValue placeholder="Select a section" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {filteredSections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Team Leader Selection - Only show for agents */}
+              {form.watch('role') === 'agent' && (
+                <FormField
+                  control={form.control}
+                  name="teamLeaderId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign to Team Leader (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-team-leader">
+                            <SelectValue placeholder="Select a team leader" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Team Leader</SelectItem>
+                          {teamLeaders.map((leader) => (
+                            <SelectItem key={leader.id} value={leader.id}>
+                              {leader.firstName} {leader.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4 border-t mt-4">
               <Button 
                 type="button" 
                 variant="outline" 
