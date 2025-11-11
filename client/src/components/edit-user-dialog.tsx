@@ -270,7 +270,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]" data-testid="dialog-edit-user">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-user">
         <DialogHeader>
           <DialogTitle data-testid="title-edit-user">Edit User: {user.firstName} {user.lastName}</DialogTitle>
         </DialogHeader>
