@@ -237,6 +237,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get team leaders reporting to the current CC Manager with detailed statistics
+  app.get('/api/my-team-leaders', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.role || !['contact_center_manager', 'contact_center_ops_manager', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden - Manager role required" });
+      }
+      
+      const teamLeaderSummaries = await storage.getTeamLeaderSummariesForManager(user.id);
+      res.json(teamLeaderSummaries);
+    } catch (error) {
+      console.error("Error fetching team leader summaries:", error);
+      res.status(500).json({ message: "Failed to fetch team leader summaries" });
+    }
+  });
+
   // Department management
   app.get('/api/departments', isAuthenticated, async (req: any, res) => {
     try {

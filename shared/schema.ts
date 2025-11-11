@@ -471,3 +471,28 @@ export type OrganizationalPosition = typeof organizationalPositions.$inferSelect
 export type InsertOrganizationalPosition = z.infer<typeof insertOrganizationalPositionSchema>;
 export type UserPosition = typeof userPositions.$inferSelect;
 export type InsertUserPosition = z.infer<typeof insertUserPositionSchema>;
+
+// Team Leader Summary for CC Manager Dashboard
+export type TeamLeaderSummary = {
+  id: string;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  profileImageUrl: string | null;
+  divisionId: string | null;
+  divisionName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  sectionId: string | null;
+  sectionName: string | null;
+  stats: {
+    totalAgents: number;
+    activeAgents: number;
+    presentToday: number;
+    absentToday: number;
+    lateToday: number;
+    avgAttendanceRate: number; // percentage
+    performanceScore: number; // percentage
+  };
+};

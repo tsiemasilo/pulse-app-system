@@ -57,6 +57,7 @@ import {
   type AssetDetails,
   type InsertAssetDetails,
   type UserRole,
+  type TeamLeaderSummary,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, gte, lte, sql } from "drizzle-orm";
@@ -215,6 +216,9 @@ export interface IStorage {
       reason: string;
     }>;
   }>;
+  
+  // Team Leader summaries for CC Manager dashboard
+  getTeamLeaderSummariesForManager(managerId: string): Promise<TeamLeaderSummary[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1871,6 +1875,116 @@ export class DatabaseStorage implements IStorage {
         message: "Agent asset records reset successfully",
         assetTypesReset: assetTypesArray
       };
+    });
+  }
+
+  // Team Leader summaries for CC Manager dashboard
+  async getTeamLeaderSummariesForManager(managerId: string): Promise<TeamLeaderSummary[]> {
+    // Get today's date in SQL format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Fetch team leaders with their organizational hierarchy and aggregated stats
+    const query = sql`
+      SELECT 
+        leaders.id,
+        leaders.username,
+        leaders.first_name,
+        leaders.last_name,
+        leaders.email,
+        leaders.profile_image_url,
+        uda.division_id,
+        div.name as division_name,
+        uda.department_id,
+        dept.name as department_name,
+        uda.section_id,
+        sect.name as section_name,
+        -- Count all agents reporting to this leader
+        (SELECT COUNT(*) 
+         FROM ${users} agents 
+         WHERE agents.reports_to = leaders.id 
+         AND agents.role = 'agent' 
+         AND agents.is_active = true) as total_agents,
+        -- Count active agents
+        (SELECT COUNT(*) 
+         FROM ${users} agents 
+         WHERE agents.reports_to = leaders.id 
+         AND agents.role = 'agent' 
+         AND agents.is_active = true) as active_agents,
+        -- Count present today
+        (SELECT COUNT(DISTINCT a.user_id)
+         FROM ${attendance} a
+         INNER JOIN ${users} agents ON a.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND DATE(a.date) = ${today}
+         AND a.status = 'present') as present_today,
+        -- Count absent today
+        (SELECT COUNT(DISTINCT a.user_id)
+         FROM ${attendance} a
+         INNER JOIN ${users} agents ON a.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND DATE(a.date) = ${today}
+         AND a.status = 'absent') as absent_today,
+        -- Count late today
+        (SELECT COUNT(DISTINCT a.user_id)
+         FROM ${attendance} a
+         INNER JOIN ${users} agents ON a.user_id = agents.id
+         WHERE agents.reports_to = leaders.id
+         AND agents.role = 'agent'
+         AND DATE(a.date) = ${today}
+         AND a.status = 'late') as late_today
+      FROM ${users} leaders
+      LEFT JOIN ${userDepartmentAssignments} uda ON uda.user_id = leaders.id
+      LEFT JOIN ${divisions} div ON uda.division_id = div.id
+      LEFT JOIN ${departments} dept ON uda.department_id = dept.id
+      LEFT JOIN ${sections} sect ON uda.section_id = sect.id
+      WHERE leaders.reports_to = ${managerId}
+      AND leaders.role = 'team_leader'
+      AND leaders.is_active = true
+      ORDER BY leaders.first_name, leaders.last_name
+    `;
+    
+    const results = await db.execute(query);
+    
+    // Map results to TeamLeaderSummary type and calculate derived metrics
+    return (results.rows as any[]).map(row => {
+      const totalAgents = Number(row.total_agents || 0);
+      const presentToday = Number(row.present_today || 0);
+      const lateToday = Number(row.late_today || 0);
+      
+      // Calculate average attendance rate (present + late / total agents * 100)
+      let avgAttendanceRate = 0;
+      if (totalAgents > 0) {
+        avgAttendanceRate = Math.round(((presentToday + lateToday) / totalAgents) * 100);
+      }
+      
+      // Use attendance rate as performance score placeholder
+      const performanceScore = avgAttendanceRate;
+      
+      return {
+        id: row.id,
+        username: row.username,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: row.email,
+        profileImageUrl: row.profile_image_url,
+        divisionId: row.division_id,
+        divisionName: row.division_name,
+        departmentId: row.department_id,
+        departmentName: row.department_name,
+        sectionId: row.section_id,
+        sectionName: row.section_name,
+        stats: {
+          totalAgents,
+          activeAgents: Number(row.active_agents || 0),
+          presentToday,
+          absentToday: Number(row.absent_today || 0),
+          lateToday,
+          avgAttendanceRate,
+          performanceScore
+        }
+      } as TeamLeaderSummary;
     });
   }
 }
