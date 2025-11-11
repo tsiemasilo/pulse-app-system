@@ -92,6 +92,14 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const [showPasswordConfirmDialog, setShowPasswordConfirmDialog] = useState(false);
   const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showBulkConfirmDialog, setShowBulkConfirmDialog] = useState(false);
+  const [isBulkConfirming, setIsBulkConfirming] = useState(false);
+  const [pendingBulkConfirm, setPendingBulkConfirm] = useState<{
+    userId: string;
+    agentName: string;
+    assetTypes: AssetType[];
+    mode: 'book_in' | 'book_out';
+  } | null>(null);
 
   // Pending action states
   const [pendingBookIn, setPendingBookIn] = useState<{
@@ -502,6 +510,34 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
     return false;
   };
 
+  // Get eligible assets for book in (collection confirmation)
+  const getEligibleBookInAssets = (userId: string): AssetType[] => {
+    return ASSET_TYPES
+      .map(asset => asset.id)
+      .filter(assetType => {
+        const state = getAssetState(userId, assetType);
+        const isDisabled = isAssetDisabled(userId, assetType);
+        
+        // Asset is eligible if it's not disabled and doesn't have a final state
+        if (isDisabled) return false;
+        
+        // Only include assets that are in ready_for_collection state
+        return state?.currentState === 'ready_for_collection';
+      });
+  };
+
+  // Get eligible assets for book out (return confirmation)
+  const getEligibleBookOutAssets = (userId: string): AssetType[] => {
+    return ASSET_TYPES
+      .map(asset => asset.id)
+      .filter(assetType => {
+        const state = getAssetState(userId, assetType);
+        
+        // Asset is eligible only if it's in 'collected' state
+        return state?.currentState === 'collected';
+      });
+  };
+
   // Event handlers
   const handleBookInClick = (userId: string, assetType: AssetType, status: 'collected' | 'not_collected') => {
     const agentName = getAgentName(userId);
@@ -580,6 +616,122 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
   const handleViewReason = (reason: string) => {
     setViewReason(reason);
     setShowViewReasonDialog(true);
+  };
+
+  // Bulk confirm handlers
+  const handleBulkBookInClick = (userId: string) => {
+    const eligibleAssets = getEligibleBookInAssets(userId);
+    
+    if (eligibleAssets.length === 0) {
+      toast({
+        title: "No Eligible Assets",
+        description: "There are no assets available to confirm for this agent.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const agentName = getAgentName(userId);
+    setPendingBulkConfirm({
+      userId,
+      agentName,
+      assetTypes: eligibleAssets,
+      mode: 'book_in',
+    });
+    setShowBulkConfirmDialog(true);
+  };
+
+  const handleBulkBookOutClick = (userId: string) => {
+    const eligibleAssets = getEligibleBookOutAssets(userId);
+    
+    if (eligibleAssets.length === 0) {
+      toast({
+        title: "No Eligible Assets",
+        description: "There are no collected assets to book in for this agent.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const agentName = getAgentName(userId);
+    setPendingBulkConfirm({
+      userId,
+      agentName,
+      assetTypes: eligibleAssets,
+      mode: 'book_out',
+    });
+    setShowBulkConfirmDialog(true);
+  };
+
+  const confirmBulkAction = async () => {
+    if (!pendingBulkConfirm) return;
+    
+    const { userId, assetTypes, mode } = pendingBulkConfirm;
+    const currentDate = getCurrentDate();
+    
+    setIsBulkConfirming(true);
+    
+    let successCount = 0;
+    let failedAssets: string[] = [];
+    
+    try {
+      // Process assets sequentially to avoid React Query's single-flight constraint
+      for (const assetType of assetTypes) {
+        try {
+          if (mode === 'book_in') {
+            await bookInMutation.mutateAsync({
+              userId,
+              assetType,
+              date: currentDate,
+              status: 'collected',
+            });
+          } else {
+            await bookOutMutation.mutateAsync({
+              userId,
+              assetType,
+              date: currentDate,
+              status: 'returned',
+            });
+          }
+          successCount++;
+        } catch (error) {
+          // Get asset name for better error reporting
+          const assetName = ASSET_TYPES.find(a => a.id === assetType)?.name || assetType;
+          failedAssets.push(assetName);
+        }
+      }
+      
+      setShowBulkConfirmDialog(false);
+      setPendingBulkConfirm(null);
+      
+      // Show appropriate toast based on results
+      if (failedAssets.length === 0) {
+        toast({
+          title: "Assets Confirmed",
+          description: `Successfully confirmed ${successCount} asset${successCount > 1 ? 's' : ''} for ${pendingBulkConfirm.agentName}.`,
+        });
+      } else if (successCount === 0) {
+        toast({
+          title: "Confirmation Failed",
+          description: `Failed to confirm all assets: ${failedAssets.join(', ')}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Partial Success",
+          description: `Confirmed ${successCount} asset${successCount > 1 ? 's' : ''}. Failed: ${failedAssets.join(', ')}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Confirmation Failed",
+        description: error.message || "Failed to confirm assets. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkConfirming(false);
+    }
   };
 
   // Reset agent mutation
@@ -819,18 +971,31 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             );
                           })}
                           <td className="px-6 py-4 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUserId(agent.id);
-                                setAuditLogDialogOpen(true);
-                              }}
-                              data-testid={`button-audit-log-${agent.id}`}
-                              title="View Audit Log"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUserId(agent.id);
+                                  setAuditLogDialogOpen(true);
+                                }}
+                                data-testid={`button-audit-log-${agent.id}`}
+                                title="View Audit Log"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleBulkBookInClick(agent.id)}
+                                disabled={!isViewingToday() || getEligibleBookInAssets(agent.id).length === 0}
+                                data-testid={`button-confirm-all-book-in-${agent.id}`}
+                                title="Confirm All Assets"
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Confirm All
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -955,18 +1120,31 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
                             );
                           })}
                           <td className="px-6 py-4 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUserId(agent.id);
-                                setAuditLogDialogOpen(true);
-                              }}
-                              data-testid={`button-audit-log-bookout-${agent.id}`}
-                              title="View Audit Log"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUserId(agent.id);
+                                  setAuditLogDialogOpen(true);
+                                }}
+                                data-testid={`button-audit-log-bookout-${agent.id}`}
+                                title="View Audit Log"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleBulkBookOutClick(agent.id)}
+                                disabled={!isViewingToday() || getEligibleBookOutAssets(agent.id).length === 0}
+                                data-testid={`button-confirm-all-book-out-${agent.id}`}
+                                title="Confirm All Assets"
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Confirm All
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1427,6 +1605,79 @@ export default function AssetManagement({ userId, showActions = false }: AssetMa
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Confirm Dialog */}
+      <AlertDialog open={showBulkConfirmDialog} onOpenChange={setShowBulkConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm All Assets</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingBulkConfirm && (
+                <>
+                  {pendingBulkConfirm.mode === 'book_in' ? (
+                    <>
+                      Are you sure you want to mark all {pendingBulkConfirm.assetTypes.length} eligible asset{pendingBulkConfirm.assetTypes.length > 1 ? 's' : ''} for{' '}
+                      <strong>{pendingBulkConfirm.agentName}</strong> as <strong>collected</strong>?
+                      <div className="mt-3 p-3 bg-muted rounded-md">
+                        <p className="text-sm font-medium mb-2">Assets to confirm:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {pendingBulkConfirm.assetTypes.map(assetType => {
+                            const asset = ASSET_TYPES.find(a => a.id === assetType);
+                            return asset ? (
+                              <Badge key={assetType} variant="secondary">
+                                {asset.name}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-sm text-green-600">
+                        ✓ All listed assets will be marked as collected from team leader
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      Are you sure you want to mark all {pendingBulkConfirm.assetTypes.length} collected asset{pendingBulkConfirm.assetTypes.length > 1 ? 's' : ''} for{' '}
+                      <strong>{pendingBulkConfirm.agentName}</strong> as <strong>returned</strong>?
+                      <div className="mt-3 p-3 bg-muted rounded-md">
+                        <p className="text-sm font-medium mb-2">Assets to confirm:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {pendingBulkConfirm.assetTypes.map(assetType => {
+                            const asset = ASSET_TYPES.find(a => a.id === assetType);
+                            return asset ? (
+                              <Badge key={assetType} variant="secondary">
+                                {asset.name}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-sm text-green-600">
+                        ✓ All listed assets will be marked as returned to team leader
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              disabled={isBulkConfirming}
+              data-testid="button-cancel-bulk-confirm"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmBulkAction}
+              disabled={isBulkConfirming}
+              data-testid="button-confirm-bulk-action"
+            >
+              {isBulkConfirming ? "Confirming..." : "Confirm All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
