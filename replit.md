@@ -11,6 +11,8 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The system utilizes React with TypeScript, Wouter for routing, and TanStack Query for state management. The UI is built with `shadcn/ui` based on Radix UI and styled using Tailwind CSS, ensuring a consistent and intuitive experience with a mobile-first responsive design. Key elements include unified navigation styling, consistent color schemes, smooth animations, and standardized test IDs across components. The Organogram uses GoJS for interactive organizational charts with professional styling, theme management, and drag-to-reorganize functionality.
 
+**Navigation Consistency (November 2025)**: Both Team Leader and Contact Center Manager dashboards now feature identical navigation styling and structure. This includes custom sidebar implementations (replacing Shadcn Sidebar), matching header layouts with notification/logout buttons, unified search functionality, and consistent mobile menu overlays. The "Leader Details" section has been removed from the CC Manager dashboard to streamline the interface.
+
 ### Technical Implementations
 The frontend uses Vite for building and React Hook Form with Zod for form handling and validation. The backend is an Express.js application with TypeScript, utilizing Drizzle ORM for PostgreSQL interactions. Authentication is managed via Replit's OpenID Connect (OIDC) and Passport.js, with session management using Express sessions stored in PostgreSQL. The API follows a RESTful design, incorporating route protection, centralized error handling, and Zod schema validation.
 
