@@ -664,10 +664,12 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden"
-                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden p-2 transition-all duration-200"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle menu"
+                data-testid="button-mobile-menu-toggle"
               >
-                <Menu className="h-5 w-5" />
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
@@ -710,12 +712,12 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
 
                 <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
                   <div className="flex flex-col items-end justify-center">
-                    <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-header-username">
+                    <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
                       {teamLeader?.firstName && teamLeader?.lastName 
                         ? `${teamLeader.firstName} ${teamLeader.lastName}` 
                         : teamLeader?.username || 'User'}
                     </span>
-                    <span className="text-xs text-muted-foreground leading-tight" data-testid="text-header-role">
+                    <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role">
                       Team Leader
                     </span>
                   </div>

@@ -43,7 +43,7 @@ export default function Navigation({ user }: NavigationProps) {
   ];
 
   return (
-    <nav className="bg-card border-b border-border shadow-sm">
+    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4 sm:space-x-6">
@@ -67,7 +67,7 @@ export default function Navigation({ user }: NavigationProps) {
                       variant={isActive ? "default" : "ghost"}
                       size="sm"
                       onClick={() => navigate(button.path)}
-                      className="flex items-center space-x-1"
+                      className="flex items-center space-x-1 transition-all duration-200"
                       data-testid={button.testId}
                     >
                       <Icon className="h-4 w-4" />
@@ -135,7 +135,7 @@ export default function Navigation({ user }: NavigationProps) {
       
       {/* Mobile menu */}
       {user?.role === 'admin' && mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-card">
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="px-4 py-3 space-y-1">
             {adminRoleButtons.map((button) => {
               const Icon = button.icon;
@@ -149,7 +149,7 @@ export default function Navigation({ user }: NavigationProps) {
                     navigate(button.path);
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full justify-start space-x-2"
+                  className="w-full justify-start space-x-2 transition-all duration-200"
                   data-testid={`${button.testId}-mobile`}
                 >
                   <Icon className="h-4 w-4" />
@@ -157,12 +157,12 @@ export default function Navigation({ user }: NavigationProps) {
                 </Button>
               );
             })}
-            <div className="pt-2 border-t border-border mt-2">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 mt-2">
               <div className="px-3 py-2">
-                <p className="text-sm font-medium">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   {roleDisplayMap[user?.role as keyof typeof roleDisplayMap] || user?.role}
                 </p>
               </div>
