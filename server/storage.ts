@@ -60,7 +60,7 @@ import {
   type TeamLeaderSummary,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, or, desc, gte, lte, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for local auth)
@@ -2411,7 +2411,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(*) as count,
         DATE(date) as attendance_date
       FROM ${attendance}
-      WHERE user_id = ANY(${agentIds})
+      WHERE user_id IN (${sql.join(agentIds.map(id => sql`${id}`), sql`, `)})
       AND DATE(date) >= ${start}
       AND DATE(date) <= ${end}
       GROUP BY status, DATE(date)
@@ -2459,7 +2459,7 @@ export class DatabaseStorage implements IStorage {
         current_state,
         COUNT(*) as count
       FROM ${assetDailyStates}
-      WHERE user_id = ANY(${agentIds})
+      WHERE user_id IN (${sql.join(agentIds.map(id => sql`${id}`), sql`, `)})
       AND date >= ${start}
       AND date <= ${end}
       GROUP BY current_state
@@ -2488,7 +2488,7 @@ export class DatabaseStorage implements IStorage {
         status,
         COUNT(*) as count
       FROM ${transfers}
-      WHERE user_id = ANY(${agentIds})
+      WHERE user_id IN (${sql.join(agentIds.map(id => sql`${id}`), sql`, `)})
       AND created_at >= ${start}
       AND created_at <= ${end}
       GROUP BY status
@@ -2511,13 +2511,13 @@ export class DatabaseStorage implements IStorage {
 
     const terminationsResult = agentIds.length > 0 ? await db.execute(sql`
       SELECT 
-        type,
+        status_type as type,
         COUNT(*) as count
       FROM ${terminations}
-      WHERE user_id = ANY(${agentIds})
+      WHERE user_id IN (${sql.join(agentIds.map(id => sql`${id}`), sql`, `)})
       AND created_at >= ${start}
       AND created_at <= ${end}
-      GROUP BY type
+      GROUP BY status_type
     `) : { rows: [] };
 
     const terminationsByType: Record<string, number> = {};
