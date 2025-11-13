@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatCard } from "@/components/dashboard-stats";
 import {
   Sidebar,
   SidebarContent,
@@ -59,7 +60,8 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  UserCheck
 } from "lucide-react";
 import type { User } from "@shared/schema";
 
@@ -362,12 +364,12 @@ export default function ContactCenterDashboard() {
         </Sidebar>
 
         <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div>
-                <h1 className="text-xl font-bold">Team Performance & Analytics</h1>
-                <p className="text-xs text-muted-foreground">
+                <h1 className="text-xl sm:text-2xl font-bold">Team Performance & Analytics</h1>
+                <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">
                   {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'} Dashboard
                 </p>
               </div>
@@ -402,6 +404,26 @@ export default function ContactCenterDashboard() {
 
           <main className="flex-1 overflow-auto">
             <div className="container mx-auto p-6 space-y-6">
+              {/* Welcome Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2" data-testid="text-welcome-greeting">
+                      Welcome back, {user.firstName || 'Manager'}
+                    </h2>
+                    <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">
+                      Monitor your team leaders' performance and analytics
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Today</p>
+                    <p className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white" data-testid="text-current-date">
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -489,127 +511,48 @@ export default function ContactCenterDashboard() {
                 </Card>
               ) : (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="hover-elevate">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-green-500/10">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold" data-testid="text-attendance-rate">
-                          {analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span>{analytics.attendance?.present || 0} present</span>
-                          </div>
-                          <span>/</span>
-                          <span>{analytics.attendance?.total || 0} total</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Late: {analytics.attendance?.late || 0}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Absent: {analytics.attendance?.absent || 0}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover-elevate">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Asset Compliance</CardTitle>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-500/10">
-                          <Package className="h-4 w-4 text-blue-600 dark:text-blue-500" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold" data-testid="text-asset-compliance">
-                          {analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <div className="h-2 w-2 rounded-full bg-blue-500" />
-                            <span>{analytics.assets?.returned || 0} returned</span>
-                          </div>
-                          <span>/</span>
-                          <span>{analytics.assets?.issued || 0} issued</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Unreturned: {analytics.assets?.unreturned || 0}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Lost: {analytics.assets?.lost || 0}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover-elevate">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Transfers</CardTitle>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-500/10">
-                          <ArrowRightLeft className="h-4 w-4 text-purple-600 dark:text-purple-500" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold" data-testid="text-transfers-total">
-                          {analytics.transfers?.total || 0}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                            <span>{analytics.transfers?.pending || 0} pending</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            Approved: {analytics.transfers?.approved || 0}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            Completed: {analytics.transfers?.completed || 0}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover-elevate">
-                      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Team Status</CardTitle>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-500/10">
-                          <Users className="h-4 w-4 text-orange-600 dark:text-orange-500" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold" data-testid="text-team-members">
-                          {analytics.teamMembers?.active || 0}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                            <span>Active members</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            Total: {analytics.teamMembers?.total || 0}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            <UserX className="h-3 w-3 mr-1" />
-                            Exits: {analytics.terminations?.total || 0}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {/* KPI Stats Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    <StatCard
+                      title="Attendance Rate"
+                      value={`${analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%`}
+                      icon={UserCheck}
+                      cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                      textColor="text-green-600 dark:text-green-400"
+                      iconBgColor="bg-green-100 dark:bg-green-900/50"
+                      iconColor="text-green-600 dark:text-green-400"
+                      testId="text-attendance-rate"
+                    />
+                    <StatCard
+                      title="Asset Compliance"
+                      value={`${analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%`}
+                      icon={Package}
+                      cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                      textColor="text-blue-600 dark:text-blue-400"
+                      iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                      iconColor="text-blue-600 dark:text-blue-400"
+                      testId="text-asset-compliance"
+                    />
+                    <StatCard
+                      title="Total Transfers"
+                      value={analytics.transfers?.total || 0}
+                      icon={ArrowRightLeft}
+                      cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
+                      textColor="text-purple-600 dark:text-purple-400"
+                      iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+                      iconColor="text-purple-600 dark:text-purple-400"
+                      testId="text-transfers-total"
+                    />
+                    <StatCard
+                      title="Active Members"
+                      value={analytics.teamMembers?.active || 0}
+                      icon={Users}
+                      cardColor="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800/30"
+                      textColor="text-orange-600 dark:text-orange-400"
+                      iconBgColor="bg-orange-100 dark:bg-orange-900/50"
+                      iconColor="text-orange-600 dark:text-orange-400"
+                      testId="text-team-members"
+                    />
                   </div>
 
                   <Tabs defaultValue="attendance" className="space-y-4">
