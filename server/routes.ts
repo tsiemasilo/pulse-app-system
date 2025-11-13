@@ -1617,6 +1617,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get analytics for a specific team leader (for CC managers)
+  app.get('/api/managers/analytics/:teamLeaderId', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { teamLeaderId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      // Only allow CC managers and admins to view analytics
+      if (user?.role !== 'admin' && 
+          user?.role !== 'contact_center_ops_manager' && 
+          user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Verify the team leader belongs to this manager (unless admin)
+      if (user?.role !== 'admin') {
+        const teamLeaders = await storage.getTeamLeadersByManager(user.id);
+        const hasAccess = teamLeaders.some(tl => tl.id === teamLeaderId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Forbidden - team leader not under your management" });
+        }
+      }
+      
+      const analytics = await storage.getTeamLeaderAnalytics(
+        teamLeaderId,
+        startDate as string | undefined,
+        endDate as string | undefined
+      );
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching team leader analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   // Transfer management routes (HR only)
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {

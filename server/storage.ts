@@ -271,6 +271,41 @@ export interface IStorage {
       totalPages: number;
     };
   }>;
+
+  // Team Leader Analytics for CC Manager
+  getTeamLeaderAnalytics(teamLeaderId: string, startDate?: string, endDate?: string): Promise<{
+    attendance: {
+      present: number;
+      absent: number;
+      late: number;
+      total: number;
+      presentPercentage: number;
+      absentPercentage: number;
+      latePercentage: number;
+      trend: Array<{ date: string; present: number; absent: number; late: number }>;
+    };
+    assets: {
+      issued: number;
+      returned: number;
+      unreturned: number;
+      lost: number;
+      complianceRate: number;
+    };
+    transfers: {
+      pending: number;
+      approved: number;
+      completed: number;
+      total: number;
+    };
+    terminations: {
+      total: number;
+      byType: Record<string, number>;
+    };
+    teamMembers: {
+      total: number;
+      active: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2320,6 +2355,212 @@ export class DatabaseStorage implements IStorage {
         page,
         limit,
         totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getTeamLeaderAnalytics(teamLeaderId: string, startDate?: string, endDate?: string): Promise<{
+    attendance: {
+      present: number;
+      absent: number;
+      late: number;
+      total: number;
+      presentPercentage: number;
+      absentPercentage: number;
+      latePercentage: number;
+      trend: Array<{ date: string; present: number; absent: number; late: number }>;
+    };
+    assets: {
+      issued: number;
+      returned: number;
+      unreturned: number;
+      lost: number;
+      complianceRate: number;
+    };
+    transfers: {
+      pending: number;
+      approved: number;
+      completed: number;
+      total: number;
+    };
+    terminations: {
+      total: number;
+      byType: Record<string, number>;
+    };
+    teamMembers: {
+      total: number;
+      active: number;
+    };
+  }> {
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const end = endDate || new Date().toISOString().split('T')[0];
+
+    const agentsResult = await db.execute(sql`
+      SELECT id, is_active
+      FROM ${users}
+      WHERE reports_to = ${teamLeaderId}
+      AND role = 'agent'
+    `);
+    const agents = agentsResult.rows as any[];
+    const agentIds = agents.map(a => a.id);
+    const activeAgentIds = agents.filter(a => a.is_active).map(a => a.id);
+
+    const attendanceResult = agentIds.length > 0 ? await db.execute(sql`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        DATE(date) as attendance_date
+      FROM ${attendance}
+      WHERE user_id = ANY(${agentIds})
+      AND DATE(date) >= ${start}
+      AND DATE(date) <= ${end}
+      GROUP BY status, DATE(date)
+      ORDER BY DATE(date)
+    `) : { rows: [] };
+
+    let presentCount = 0;
+    let absentCount = 0;
+    let lateCount = 0;
+    const trendMap: Record<string, { present: number; absent: number; late: number }> = {};
+
+    for (const row of attendanceResult.rows as any[]) {
+      const status = row.status;
+      const count = Number(row.count);
+      const date = row.attendance_date;
+
+      if (!trendMap[date]) {
+        trendMap[date] = { present: 0, absent: 0, late: 0 };
+      }
+
+      if (status === 'present') {
+        presentCount += count;
+        trendMap[date].present += count;
+      } else if (status === 'absent') {
+        absentCount += count;
+        trendMap[date].absent += count;
+      } else if (status === 'late') {
+        lateCount += count;
+        trendMap[date].late += count;
+      }
+    }
+
+    const totalAttendance = presentCount + absentCount + lateCount;
+    const presentPercentage = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
+    const absentPercentage = totalAttendance > 0 ? Math.round((absentCount / totalAttendance) * 100) : 0;
+    const latePercentage = totalAttendance > 0 ? Math.round((lateCount / totalAttendance) * 100) : 0;
+
+    const trend = Object.entries(trendMap).map(([date, values]) => ({
+      date,
+      ...values
+    }));
+
+    const assetStatesResult = agentIds.length > 0 ? await db.execute(sql`
+      SELECT 
+        current_state,
+        COUNT(*) as count
+      FROM ${assetDailyStates}
+      WHERE user_id = ANY(${agentIds})
+      AND date >= ${start}
+      AND date <= ${end}
+      GROUP BY current_state
+    `) : { rows: [] };
+
+    let issued = 0;
+    let returned = 0;
+    let unreturned = 0;
+    let lost = 0;
+
+    for (const row of assetStatesResult.rows as any[]) {
+      const state = row.current_state;
+      const count = Number(row.count);
+
+      if (state === 'booked_out') issued += count;
+      else if (state === 'returned') returned += count;
+      else if (state === 'not_returned') unreturned += count;
+      else if (state === 'lost') lost += count;
+    }
+
+    const totalAssets = issued + returned + unreturned + lost;
+    const complianceRate = totalAssets > 0 ? Math.round(((returned + issued) / totalAssets) * 100) : 100;
+
+    const transfersResult = agentIds.length > 0 ? await db.execute(sql`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM ${transfers}
+      WHERE user_id = ANY(${agentIds})
+      AND created_at >= ${start}
+      AND created_at <= ${end}
+      GROUP BY status
+    `) : { rows: [] };
+
+    let pendingTransfers = 0;
+    let approvedTransfers = 0;
+    let completedTransfers = 0;
+
+    for (const row of transfersResult.rows as any[]) {
+      const status = row.status;
+      const count = Number(row.count);
+
+      if (status === 'pending') pendingTransfers += count;
+      else if (status === 'approved') approvedTransfers += count;
+      else if (status === 'completed') completedTransfers += count;
+    }
+
+    const totalTransfers = pendingTransfers + approvedTransfers + completedTransfers;
+
+    const terminationsResult = agentIds.length > 0 ? await db.execute(sql`
+      SELECT 
+        type,
+        COUNT(*) as count
+      FROM ${terminations}
+      WHERE user_id = ANY(${agentIds})
+      AND created_at >= ${start}
+      AND created_at <= ${end}
+      GROUP BY type
+    `) : { rows: [] };
+
+    const terminationsByType: Record<string, number> = {};
+    let totalTerminations = 0;
+
+    for (const row of terminationsResult.rows as any[]) {
+      const type = row.type || 'unknown';
+      const count = Number(row.count);
+      terminationsByType[type] = count;
+      totalTerminations += count;
+    }
+
+    return {
+      attendance: {
+        present: presentCount,
+        absent: absentCount,
+        late: lateCount,
+        total: totalAttendance,
+        presentPercentage,
+        absentPercentage,
+        latePercentage,
+        trend
+      },
+      assets: {
+        issued,
+        returned,
+        unreturned,
+        lost,
+        complianceRate
+      },
+      transfers: {
+        pending: pendingTransfers,
+        approved: approvedTransfers,
+        completed: completedTransfers,
+        total: totalTransfers
+      },
+      terminations: {
+        total: totalTerminations,
+        byType: terminationsByType
+      },
+      teamMembers: {
+        total: agents.length,
+        active: activeAgentIds.length
       }
     };
   }
