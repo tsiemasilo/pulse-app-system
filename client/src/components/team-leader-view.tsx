@@ -708,22 +708,57 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
                   </span>
                 </Button>
 
-                <div className="hidden sm:flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <UserIcon className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid="text-header-username">
+                <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+                  <div className="flex flex-col items-end justify-center">
+                    <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-header-username">
                       {teamLeader?.firstName && teamLeader?.lastName 
                         ? `${teamLeader.firstName} ${teamLeader.lastName}` 
                         : teamLeader?.username || 'User'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="text-header-role">
+                    </span>
+                    <span className="text-xs text-muted-foreground leading-tight" data-testid="text-header-role">
                       Team Leader
-                    </p>
+                    </span>
                   </div>
+                  <div className="h-8 w-px bg-border"></div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await apiRequest("POST", "/api/logout");
+                        window.location.reload();
+                      } catch (error) {
+                        console.error("Logout failed:", error);
+                        window.location.reload();
+                      }
+                    }}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="h-4 w-4 mr-1.5" />
+                    <span className="text-sm">Logout</span>
+                  </Button>
+                </div>
+
+                {/* Mobile logout button */}
+                <div className="sm:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await apiRequest("POST", "/api/logout");
+                        window.location.reload();
+                      } catch (error) {
+                        console.error("Logout failed:", error);
+                        window.location.reload();
+                      }
+                    }}
+                    className="p-2"
+                    data-testid="button-logout-mobile"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             )}
