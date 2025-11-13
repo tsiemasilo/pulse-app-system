@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/dashboard-stats";
 import {
   Sidebar,
@@ -61,8 +60,10 @@ import {
   XCircle,
   Clock,
   AlertCircle,
-  UserCheck
+  UserCheck,
+  Bell
 } from "lucide-react";
+import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import type { User } from "@shared/schema";
 
 interface Analytics {
@@ -100,6 +101,7 @@ interface Analytics {
 }
 
 type DatePreset = 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+type ActiveSection = 'attendance' | 'assets' | 'operations';
 
 export default function ContactCenterDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -107,6 +109,7 @@ export default function ContactCenterDashboard() {
   const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<DatePreset>('last30');
+  const [activeSection, setActiveSection] = useState<ActiveSection>('attendance');
   
   const today = new Date();
   const [startDate, setStartDate] = useState<string>(() => {
@@ -114,6 +117,11 @@ export default function ContactCenterDashboard() {
     return date.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState<string>(today.toISOString().split('T')[0]);
+
+  // Scroll to top when section changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeSection]);
 
   const handleLogout = async () => {
     try {
@@ -292,25 +300,588 @@ export default function ContactCenterDashboard() {
     { name: 'Completed', value: analytics.transfers.completed || 0, color: '#10b981' }
   ] : [];
 
+  // Navigation sections
+  const sidebarSections = [
+    {
+      title: 'ATTENDANCE',
+      icon: Clock,
+      key: 'attendance' as ActiveSection,
+    },
+    {
+      title: 'ASSETS',
+      icon: Package,
+      key: 'assets' as ActiveSection,
+    },
+    {
+      title: 'OPERATIONS',
+      icon: Activity,
+      key: 'operations' as ActiveSection,
+    },
+  ];
+
+  // Get dynamic header title and subtitle
+  const getHeaderTitle = () => {
+    switch (activeSection) {
+      case 'attendance':
+        return 'Attendance Management';
+      case 'assets':
+        return 'Asset Management';
+      case 'operations':
+        return 'Operations Management';
+      default:
+        return 'Team Analytics';
+    }
+  };
+
+  const getHeaderSubtitle = () => {
+    switch (activeSection) {
+      case 'attendance':
+        return 'Monitor team attendance and presence';
+      case 'assets':
+        return 'Track asset allocation and compliance';
+      case 'operations':
+        return 'Oversee transfers and operations';
+      default:
+        return 'Team Performance & Analytics';
+    }
+  };
+
+  // Render main content based on active section
+  const renderMainContent = () => {
+    if (!selectedTeamLeaderId) {
+      return (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">Select a team leader to view analytics</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (isLoadingAnalytics) {
+      return (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
+              <p className="text-muted-foreground">Loading analytics...</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!analytics) {
+      return (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">No analytics data available</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    switch (activeSection) {
+      case 'attendance':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attendance Trend</CardTitle>
+                  <CardDescription>Daily attendance over selected period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {attendanceChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={attendanceChartData}>
+                        <defs>
+                          <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorLate" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{ fontSize: 12 }}
+                          className="text-muted-foreground"
+                        />
+                        <YAxis className="text-muted-foreground" />
+                        <Tooltip />
+                        <Legend />
+                        <Area 
+                          type="monotone" 
+                          dataKey="present" 
+                          stroke="#10b981" 
+                          fillOpacity={1}
+                          fill="url(#colorPresent)"
+                          name="Present" 
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="late" 
+                          stroke="#f59e0b" 
+                          fillOpacity={1}
+                          fill="url(#colorLate)"
+                          name="Late" 
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="absent" 
+                          stroke="#ef4444" 
+                          fillOpacity={1}
+                          fill="url(#colorAbsent)"
+                          name="Absent" 
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <p className="text-muted-foreground">No attendance data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attendance Distribution</CardTitle>
+                  <CardDescription>Breakdown by status</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {attendanceDistributionData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={attendanceDistributionData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {attendanceDistributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <p className="text-muted-foreground">No attendance data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Attendance Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Count</TableHead>
+                      <TableHead className="text-right">Percentage</TableHead>
+                      <TableHead className="text-right">Of Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded-full bg-green-500" />
+                          <span className="font-medium">Present</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-bold" data-testid="text-attendance-present">
+                        {analytics.attendance?.present || 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
+                          {analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {analytics.attendance?.total && analytics.attendance.total > 0 
+                          ? ((analytics.attendance.present / analytics.attendance.total) * 100).toFixed(1)
+                          : '0'}%
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                          <span className="font-medium">Late</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-bold" data-testid="text-attendance-late">
+                        {analytics.attendance?.late || 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950">
+                          {analytics.attendance?.latePercentage?.toFixed(1) || '0.0'}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {analytics.attendance?.total && analytics.attendance.total > 0 
+                          ? ((analytics.attendance.late / analytics.attendance.total) * 100).toFixed(1)
+                          : '0'}%
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded-full bg-red-500" />
+                          <span className="font-medium">Absent</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-bold" data-testid="text-attendance-absent">
+                        {analytics.attendance?.absent || 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="bg-red-50 dark:bg-red-950">
+                          {analytics.attendance?.absentPercentage?.toFixed(1) || '0.0'}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {analytics.attendance?.total && analytics.attendance.total > 0 
+                          ? ((analytics.attendance.absent / analytics.attendance.total) * 100).toFixed(1)
+                          : '0'}%
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'assets':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Status Distribution</CardTitle>
+                  <CardDescription>Current asset allocation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {assetStatusData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={assetStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {assetStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <p className="text-muted-foreground">No asset data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Compliance Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-500/10">
+                          <Package className="h-5 w-5 text-blue-600 dark:text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Assets Issued</p>
+                          <p className="text-xs text-muted-foreground">Total distributed</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.assets?.issued || 0}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-500/10">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Assets Returned</p>
+                          <p className="text-xs text-muted-foreground">Successfully returned</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.assets?.returned || 0}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-yellow-500/10">
+                          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Unreturned Assets</p>
+                          <p className="text-xs text-muted-foreground">Still with agents</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.assets?.unreturned || 0}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10">
+                          <XCircle className="h-5 w-5 text-red-600 dark:text-red-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Lost Assets</p>
+                          <p className="text-xs text-muted-foreground">Reported as lost</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.assets?.lost || 0}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+
+      case 'operations':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transfer Status</CardTitle>
+                  <CardDescription>Current transfer pipeline</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {transfersData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={transfersData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" className="text-muted-foreground" />
+                        <YAxis dataKey="name" type="category" className="text-muted-foreground" />
+                        <Tooltip />
+                        <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                          {transfersData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <p className="text-muted-foreground">No transfer data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Operations Summary</CardTitle>
+                  <CardDescription>Key operational metrics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-500/10">
+                          <ArrowRightLeft className="h-5 w-5 text-purple-600 dark:text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Total Transfers</p>
+                          <p className="text-xs text-muted-foreground">All transfer requests</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.transfers?.total || 0}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500/10">
+                          <Users className="h-5 w-5 text-orange-600 dark:text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Active Team Members</p>
+                          <p className="text-xs text-muted-foreground">Currently active</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">{analytics.teamMembers?.active || 0}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-500/10">
+                          <UserX className="h-5 w-5 text-gray-600 dark:text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Terminations</p>
+                          <p className="text-xs text-muted-foreground">Period exits</p>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold" data-testid="text-terminations-total">{analytics.terminations?.total || 0}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transfer Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Count</TableHead>
+                        <TableHead className="text-right">Percentage</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                            <span className="font-medium">Pending</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {analytics.transfers?.pending || 0}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950">
+                            {analytics.transfers?.total && analytics.transfers.total > 0 
+                              ? ((analytics.transfers.pending / analytics.transfers.total) * 100).toFixed(1)
+                              : '0'}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-blue-500" />
+                            <span className="font-medium">Approved</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {analytics.transfers?.approved || 0}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950">
+                            {analytics.transfers?.total && analytics.transfers.total > 0 
+                              ? ((analytics.transfers.approved / analytics.transfers.total) * 100).toFixed(1)
+                              : '0'}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-green-500" />
+                            <span className="font-medium">Completed</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {analytics.transfers?.completed || 0}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
+                            {analytics.transfers?.total && analytics.transfers.total > 0 
+                              ? ((analytics.transfers.completed / analytics.transfers.total) * 100).toFixed(1)
+                              : '0'}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {analytics.terminations?.byType && Object.keys(analytics.terminations.byType).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Termination Reasons</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Reason</TableHead>
+                          <TableHead className="text-right">Count</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(analytics.terminations.byType).map(([type, count]) => (
+                          <TableRow key={type}>
+                            <TableCell className="font-medium capitalize">
+                              {type.replace(/_/g, ' ')}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">{count}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full">
         <Sidebar>
-          <SidebarHeader className="border-b">
-            <div className="flex items-center gap-3 p-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary">
-                <BarChart3 className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold">Manager Dashboard</h2>
-                <p className="text-xs text-muted-foreground">Team Analytics</p>
-              </div>
-            </div>
+          <SidebarHeader className="h-[88px] flex items-center justify-center p-4 border-b">
+            <img src={alteramLogo} alt="Alteram Logo" className="h-12" />
           </SidebarHeader>
 
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel>Team Leaders</SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="px-2 pb-2">
                   <div className="relative">
@@ -324,31 +895,43 @@ export default function ContactCenterDashboard() {
                     />
                   </div>
                 </div>
-                <SidebarMenu>
-                  {filteredTeamLeaders.map((leader) => (
-                    <SidebarMenuItem key={leader.id}>
-                      <SidebarMenuButton
-                        isActive={selectedTeamLeaderId === leader.id}
-                        onClick={() => setSelectedTeamLeaderId(leader.id)}
-                        data-testid={`button-leader-${leader.id}`}
-                      >
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {leader.firstName?.[0] || ''}{leader.lastName?.[0] || ''}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">{leader.firstName} {leader.lastName}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {sidebarSections.map((section) => (
+              <SidebarGroup key={section.key}>
+                <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem key={section.key}>
+                      <SidebarMenuButton
+                        isActive={activeSection === section.key}
+                        onClick={() => setActiveSection(section.key)}
+                        data-testid={`tab-${section.key}`}
+                      >
+                        <section.icon className="h-4 w-4" />
+                        <span>{section.title.charAt(0) + section.title.slice(1).toLowerCase()}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
 
             {selectedTeamLeader && (
               <SidebarGroup>
                 <SidebarGroupLabel>Leader Details</SidebarGroupLabel>
-                <SidebarGroupContent className="px-2 space-y-2 text-sm">
+                <SidebarGroupContent className="px-2 space-y-3">
+                  <div className="flex items-center gap-3 p-2">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                        {selectedTeamLeader.firstName?.[0] || ''}{selectedTeamLeader.lastName?.[0] || ''}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{selectedTeamLeader.firstName} {selectedTeamLeader.lastName}</p>
+                    </div>
+                  </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted-foreground">Email</span>
                     <span className="font-medium truncate text-xs">{selectedTeamLeader.email || 'N/A'}</span>
@@ -364,46 +947,47 @@ export default function ContactCenterDashboard() {
         </Sidebar>
 
         <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold">Team Performance & Analytics</h1>
-                <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">
-                  {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'} Dashboard
-                </p>
-              </div>
+          <header className="sticky top-0 z-50 flex h-[60px] items-center gap-4 px-4 sm:px-6 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden" />
+            
+            <div className="flex-1">
+              <h1 className="text-lg sm:text-xl font-bold">{getHeaderTitle()}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                {getHeaderSubtitle()}
+              </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    {user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block text-right">
-                  <p className="text-sm font-medium">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'}
-                  </p>
-                </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative hidden sm:flex"
+              data-testid="button-notifications"
+            >
+              <Bell className="h-5 w-5" />
+              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                3
+              </Badge>
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'}
+                </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                data-testid="button-logout"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
             </div>
           </header>
 
           <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-6 space-y-6">
+            <div className="container mx-auto p-4 sm:p-6 space-y-6">
               {/* Welcome Header */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -424,6 +1008,28 @@ export default function ContactCenterDashboard() {
                 </div>
               </div>
 
+              {/* Team Leader Selection */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Select Team Leader</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Select value={selectedTeamLeaderId || undefined} onValueChange={setSelectedTeamLeaderId}>
+                    <SelectTrigger data-testid="select-team-leader">
+                      <SelectValue placeholder="Choose a team leader" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredTeamLeaders.map((leader) => (
+                        <SelectItem key={leader.id} value={leader.id}>
+                          {leader.firstName} {leader.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              {/* Date Range */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -482,567 +1088,54 @@ export default function ContactCenterDashboard() {
                 </CardContent>
               </Card>
 
-              {!selectedTeamLeaderId ? (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-2">
-                      <Users className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <p className="text-muted-foreground">Select a team leader to view analytics</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : isLoadingAnalytics ? (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-2">
-                      <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
-                      <p className="text-muted-foreground">Loading analytics...</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : !analytics ? (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-2">
-                      <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <p className="text-muted-foreground">No analytics data available</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-6">
-                  {/* KPI Stats Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                    <StatCard
-                      title="Attendance Rate"
-                      value={`${analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%`}
-                      icon={UserCheck}
-                      cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
-                      textColor="text-green-600 dark:text-green-400"
-                      iconBgColor="bg-green-100 dark:bg-green-900/50"
-                      iconColor="text-green-600 dark:text-green-400"
-                      testId="text-attendance-rate"
-                    />
-                    <StatCard
-                      title="Asset Compliance"
-                      value={`${analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%`}
-                      icon={Package}
-                      cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
-                      textColor="text-blue-600 dark:text-blue-400"
-                      iconBgColor="bg-blue-100 dark:bg-blue-900/50"
-                      iconColor="text-blue-600 dark:text-blue-400"
-                      testId="text-asset-compliance"
-                    />
-                    <StatCard
-                      title="Total Transfers"
-                      value={analytics.transfers?.total || 0}
-                      icon={ArrowRightLeft}
-                      cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
-                      textColor="text-purple-600 dark:text-purple-400"
-                      iconBgColor="bg-purple-100 dark:bg-purple-900/50"
-                      iconColor="text-purple-600 dark:text-purple-400"
-                      testId="text-transfers-total"
-                    />
-                    <StatCard
-                      title="Active Members"
-                      value={analytics.teamMembers?.active || 0}
-                      icon={Users}
-                      cardColor="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800/30"
-                      textColor="text-orange-600 dark:text-orange-400"
-                      iconBgColor="bg-orange-100 dark:bg-orange-900/50"
-                      iconColor="text-orange-600 dark:text-orange-400"
-                      testId="text-team-members"
-                    />
-                  </div>
-
-                  <Tabs defaultValue="attendance" className="space-y-4">
-                    <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-                      <TabsTrigger value="attendance" data-testid="tab-attendance">
-                        <Users className="h-4 w-4 mr-2" />
-                        Attendance
-                      </TabsTrigger>
-                      <TabsTrigger value="assets" data-testid="tab-assets">
-                        <Package className="h-4 w-4 mr-2" />
-                        Assets
-                      </TabsTrigger>
-                      <TabsTrigger value="operations" data-testid="tab-operations">
-                        <Activity className="h-4 w-4 mr-2" />
-                        Operations
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="attendance" className="space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Attendance Trend</CardTitle>
-                            <CardDescription>Daily attendance over selected period</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {attendanceChartData.length > 0 ? (
-                              <ResponsiveContainer width="100%" height={300}>
-                                <AreaChart data={attendanceChartData}>
-                                  <defs>
-                                    <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorLate" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                                    </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                  <XAxis 
-                                    dataKey="date" 
-                                    tick={{ fontSize: 12 }}
-                                    className="text-muted-foreground"
-                                  />
-                                  <YAxis className="text-muted-foreground" />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Area 
-                                    type="monotone" 
-                                    dataKey="present" 
-                                    stroke="#10b981" 
-                                    fillOpacity={1}
-                                    fill="url(#colorPresent)"
-                                    name="Present" 
-                                  />
-                                  <Area 
-                                    type="monotone" 
-                                    dataKey="late" 
-                                    stroke="#f59e0b" 
-                                    fillOpacity={1}
-                                    fill="url(#colorLate)"
-                                    name="Late" 
-                                  />
-                                  <Area 
-                                    type="monotone" 
-                                    dataKey="absent" 
-                                    stroke="#ef4444" 
-                                    fillOpacity={1}
-                                    fill="url(#colorAbsent)"
-                                    name="Absent" 
-                                  />
-                                </AreaChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <div className="flex items-center justify-center h-[300px]">
-                                <p className="text-muted-foreground">No attendance data available</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Attendance Distribution</CardTitle>
-                            <CardDescription>Breakdown by status</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {attendanceDistributionData.length > 0 ? (
-                              <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                  <Pie
-                                    data={attendanceDistributionData}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                  >
-                                    {attendanceDistributionData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                  </Pie>
-                                  <Tooltip />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <div className="flex items-center justify-center h-[300px]">
-                                <p className="text-muted-foreground">No attendance data available</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Detailed Attendance Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Count</TableHead>
-                                <TableHead className="text-right">Percentage</TableHead>
-                                <TableHead className="text-right">Of Total</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              <TableRow>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-3 w-3 rounded-full bg-green-500" />
-                                    <span className="font-medium">Present</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-bold" data-testid="text-attendance-present">
-                                  {analytics.attendance?.present || 0}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
-                                    {analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                  {analytics.attendance?.total && analytics.attendance.total > 0 
-                                    ? ((analytics.attendance.present / analytics.attendance.total) * 100).toFixed(1)
-                                    : '0'}%
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                                    <span className="font-medium">Late</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-bold" data-testid="text-attendance-late">
-                                  {analytics.attendance?.late || 0}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950">
-                                    {analytics.attendance?.latePercentage?.toFixed(1) || '0.0'}%
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                  {analytics.attendance?.total && analytics.attendance.total > 0 
-                                    ? ((analytics.attendance.late / analytics.attendance.total) * 100).toFixed(1)
-                                    : '0'}%
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-3 w-3 rounded-full bg-red-500" />
-                                    <span className="font-medium">Absent</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-bold" data-testid="text-attendance-absent">
-                                  {analytics.attendance?.absent || 0}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="outline" className="bg-red-50 dark:bg-red-950">
-                                    {analytics.attendance?.absentPercentage?.toFixed(1) || '0.0'}%
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                  {analytics.attendance?.total && analytics.attendance.total > 0 
-                                    ? ((analytics.attendance.absent / analytics.attendance.total) * 100).toFixed(1)
-                                    : '0'}%
-                                </TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="assets" className="space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Asset Status Distribution</CardTitle>
-                            <CardDescription>Current asset allocation</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {assetStatusData.length > 0 ? (
-                              <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                  <Pie
-                                    data={assetStatusData}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                  >
-                                    {assetStatusData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                  </Pie>
-                                  <Tooltip />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <div className="flex items-center justify-center h-[300px]">
-                                <p className="text-muted-foreground">No asset data available</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Asset Compliance Details</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-500/10">
-                                    <Package className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Assets Issued</p>
-                                    <p className="text-xs text-muted-foreground">Total distributed</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.assets?.issued || 0}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-500/10">
-                                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Assets Returned</p>
-                                    <p className="text-xs text-muted-foreground">Successfully returned</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.assets?.returned || 0}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-yellow-500/10">
-                                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Unreturned Assets</p>
-                                    <p className="text-xs text-muted-foreground">Still with agents</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.assets?.unreturned || 0}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10">
-                                    <XCircle className="h-5 w-5 text-red-600 dark:text-red-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Lost Assets</p>
-                                    <p className="text-xs text-muted-foreground">Reported as lost</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.assets?.lost || 0}</div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="operations" className="space-y-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Transfer Status</CardTitle>
-                            <CardDescription>Current transfer pipeline</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {transfersData.length > 0 ? (
-                              <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={transfersData} layout="vertical">
-                                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                  <XAxis type="number" className="text-muted-foreground" />
-                                  <YAxis dataKey="name" type="category" className="text-muted-foreground" />
-                                  <Tooltip />
-                                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                                    {transfersData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                  </Bar>
-                                </BarChart>
-                              </ResponsiveContainer>
-                            ) : (
-                              <div className="flex items-center justify-center h-[300px]">
-                                <p className="text-muted-foreground">No transfer data available</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Team Operations Summary</CardTitle>
-                            <CardDescription>Key operational metrics</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-500/10">
-                                    <ArrowRightLeft className="h-5 w-5 text-purple-600 dark:text-purple-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Total Transfers</p>
-                                    <p className="text-xs text-muted-foreground">All transfer requests</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.transfers?.total || 0}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500/10">
-                                    <Users className="h-5 w-5 text-orange-600 dark:text-orange-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Active Team Members</p>
-                                    <p className="text-xs text-muted-foreground">Currently active</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold">{analytics.teamMembers?.active || 0}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-500/10">
-                                    <UserX className="h-5 w-5 text-gray-600 dark:text-gray-500" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium">Terminations</p>
-                                    <p className="text-xs text-muted-foreground">Period exits</p>
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-bold" data-testid="text-terminations-total">{analytics.terminations?.total || 0}</div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Transfer Breakdown</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead className="text-right">Count</TableHead>
-                                  <TableHead className="text-right">Percentage</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                <TableRow>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                                      <span className="font-medium">Pending</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right font-bold">
-                                    {analytics.transfers?.pending || 0}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950">
-                                      {analytics.transfers?.total && analytics.transfers.total > 0 
-                                        ? ((analytics.transfers.pending / analytics.transfers.total) * 100).toFixed(1)
-                                        : '0'}%
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-3 w-3 rounded-full bg-blue-500" />
-                                      <span className="font-medium">Approved</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right font-bold">
-                                    {analytics.transfers?.approved || 0}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950">
-                                      {analytics.transfers?.total && analytics.transfers.total > 0 
-                                        ? ((analytics.transfers.approved / analytics.transfers.total) * 100).toFixed(1)
-                                        : '0'}%
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-3 w-3 rounded-full bg-green-500" />
-                                      <span className="font-medium">Completed</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right font-bold">
-                                    {analytics.transfers?.completed || 0}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
-                                      {analytics.transfers?.total && analytics.transfers.total > 0 
-                                        ? ((analytics.transfers.completed / analytics.transfers.total) * 100).toFixed(1)
-                                        : '0'}%
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              </TableBody>
-                            </Table>
-                          </CardContent>
-                        </Card>
-
-                        {analytics.terminations?.byType && Object.keys(analytics.terminations.byType).length > 0 && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Termination Reasons</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Reason</TableHead>
-                                    <TableHead className="text-right">Count</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {Object.entries(analytics.terminations.byType).map(([type, count]) => (
-                                    <TableRow key={type}>
-                                      <TableCell className="font-medium capitalize">
-                                        {type.replace(/_/g, ' ')}
-                                      </TableCell>
-                                      <TableCell className="text-right font-bold">{count}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+              {/* KPI Stats Cards */}
+              {analytics && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                  <StatCard
+                    title="Attendance Rate"
+                    value={`${analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%`}
+                    icon={UserCheck}
+                    cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                    textColor="text-green-600 dark:text-green-400"
+                    iconBgColor="bg-green-100 dark:bg-green-900/50"
+                    iconColor="text-green-600 dark:text-green-400"
+                    testId="text-attendance-rate"
+                  />
+                  <StatCard
+                    title="Asset Compliance"
+                    value={`${analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%`}
+                    icon={Package}
+                    cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                    textColor="text-blue-600 dark:text-blue-400"
+                    iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                    iconColor="text-blue-600 dark:text-blue-400"
+                    testId="text-asset-compliance"
+                  />
+                  <StatCard
+                    title="Total Transfers"
+                    value={analytics.transfers?.total || 0}
+                    icon={ArrowRightLeft}
+                    cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
+                    textColor="text-purple-600 dark:text-purple-400"
+                    iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+                    iconColor="text-purple-600 dark:text-purple-400"
+                    testId="text-transfers-total"
+                  />
+                  <StatCard
+                    title="Active Members"
+                    value={analytics.teamMembers?.active || 0}
+                    icon={Users}
+                    cardColor="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800/30"
+                    textColor="text-orange-600 dark:text-orange-400"
+                    iconBgColor="bg-orange-100 dark:bg-orange-900/50"
+                    iconColor="text-orange-600 dark:text-orange-400"
+                    testId="text-team-members"
+                  />
                 </div>
               )}
+
+              {/* Main Content Area */}
+              {renderMainContent()}
             </div>
           </main>
         </div>
