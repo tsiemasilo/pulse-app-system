@@ -11,19 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard-stats";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 import { 
   Select,
   SelectContent,
@@ -61,7 +48,10 @@ import {
   Clock,
   AlertCircle,
   UserCheck,
-  Bell
+  Bell,
+  Menu,
+  X,
+  ChevronRight
 } from "lucide-react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import type { User } from "@shared/schema";
@@ -110,6 +100,7 @@ export default function ContactCenterDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<DatePreset>('last30');
   const [activeSection, setActiveSection] = useState<ActiveSection>('attendance');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const today = new Date();
   const [startDate, setStartDate] = useState<string>(() => {
@@ -873,121 +864,195 @@ export default function ContactCenterDashboard() {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full">
-        <Sidebar>
-          <SidebarHeader className="h-[88px] flex items-center justify-center p-4 border-b">
-            <img src={alteramLogo} alt="Alteram Logo" className="h-12" />
-          </SidebarHeader>
-
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <div className="px-2 pb-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-8 pl-9 bg-background"
-                      data-testid="input-search-leaders"
-                    />
-                  </div>
-                </div>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {sidebarSections.map((section) => (
-              <SidebarGroup key={section.key}>
-                <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    <SidebarMenuItem key={section.key}>
-                      <SidebarMenuButton
-                        isActive={activeSection === section.key}
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar - Desktop */}
+      <div className="hidden lg:flex w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex-col h-screen sticky top-0">
+        <div className="h-[88px] px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
+          <img 
+            src={alteramLogo} 
+            alt="Alteram Solutions" 
+            className="h-12 w-auto max-w-full object-contain"
+          />
+        </div>
+        
+        <div className="p-4 flex-1 flex flex-col">
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input 
+              placeholder="Search anything.." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+              data-testid="input-search-leaders"
+            />
+          </div>
+          
+          <nav className="space-y-6 flex-1">
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                ANALYTICS
+              </h3>
+              <ul className="space-y-1">
+                {sidebarSections.map((section) => {
+                  const Icon = section.icon;
+                  const isActive = activeSection === section.key;
+                  return (
+                    <li key={section.key}>
+                      <button
                         onClick={() => setActiveSection(section.key)}
+                        className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                          isActive 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                        }`}
                         data-testid={`tab-${section.key}`}
                       >
-                        <section.icon className="h-4 w-4" />
-                        <span>{section.title.charAt(0) + section.title.slice(1).toLowerCase()}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
-
-            {selectedTeamLeader && (
-              <SidebarGroup>
-                <SidebarGroupLabel>Leader Details</SidebarGroupLabel>
-                <SidebarGroupContent className="px-2 space-y-3">
-                  <div className="flex items-center gap-3 p-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                        {selectedTeamLeader.firstName?.[0] || ''}{selectedTeamLeader.lastName?.[0] || ''}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{selectedTeamLeader.firstName} {selectedTeamLeader.lastName}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">Email</span>
-                    <span className="font-medium truncate text-xs">{selectedTeamLeader.email || 'N/A'}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">Username</span>
-                    <span className="font-medium text-xs">{selectedTeamLeader.username}</span>
-                  </div>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-          </SidebarContent>
-        </Sidebar>
-
-        <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-50 flex h-[60px] items-center gap-4 px-4 sm:px-6 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="md:hidden" />
-            
-            <div className="flex-1">
-              <h1 className="text-lg sm:text-xl font-bold">{getHeaderTitle()}</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                {getHeaderSubtitle()}
-              </p>
+                        <Icon className={`mr-3 h-5 w-5 ${
+                          isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                        }`} />
+                        {section.title.charAt(0) + section.title.slice(1).toLowerCase()}
+                        {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
+          </nav>
+        </div>
+      </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative hidden sm:flex"
-              data-testid="button-notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                3
-              </Badge>
-            </Button>
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="h-[60px] px-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <img src={alteramLogo} alt="Alteram Solutions" className="h-8 w-auto" />
+              <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-4 overflow-y-auto h-[calc(100vh-60px)]">
+              <nav className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                    ANALYTICS
+                  </h3>
+                  <ul className="space-y-1">
+                    {sidebarSections.map((section) => {
+                      const Icon = section.icon;
+                      const isActive = activeSection === section.key;
+                      return (
+                        <li key={section.key}>
+                          <button
+                            onClick={() => {
+                              setActiveSection(section.key);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                              isActive 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
+                            {section.title.charAt(0) + section.title.slice(1).toLowerCase()}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lg:hidden p-2 transition-all duration-200"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle menu"
+                data-testid="button-mobile-menu-toggle"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {getHeaderTitle()}
+                </h1>
+                <p className="text-xs sm:text-base text-gray-600 dark:text-gray-400 hidden sm:block">
+                  {getHeaderSubtitle()}
                 </p>
               </div>
             </div>
-          </header>
+            
+            {/* Right side */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative hidden sm:flex"
+                data-testid="button-notifications"
+              >
+                <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  3
+                </span>
+              </Button>
 
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-4 sm:p-6 space-y-6">
+              <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+                <div className="flex flex-col items-end justify-center">
+                  <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
+                    {user.firstName && user.lastName 
+                      ? `${user.firstName} ${user.lastName}` 
+                      : user.username || 'User'}
+                  </span>
+                  <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role">
+                    {user.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-border"></div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="h-4 w-4 mr-1.5" />
+                  <span className="text-sm">Logout</span>
+                </Button>
+              </div>
+
+              {/* Mobile logout button */}
+              <div className="sm:hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="p-2"
+                  data-testid="button-logout-mobile"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
+          <div className="fade-in">
               {/* Welcome Header */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1134,12 +1199,11 @@ export default function ContactCenterDashboard() {
                 </div>
               )}
 
-              {/* Main Content Area */}
-              {renderMainContent()}
-            </div>
-          </main>
-        </div>
+            {/* Main Content Area */}
+            {renderMainContent()}
+          </div>
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
