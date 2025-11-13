@@ -123,6 +123,7 @@ export interface IStorage {
   removeTeamMember(teamId: string, userId: string): Promise<any>;
   getUserTeams(userId: string): Promise<Team[]>;
   reassignAgentToTeamLeader(agentId: string, newTeamLeaderId: string): Promise<any>;
+  getTeamLeadersByManager(managerId: string): Promise<User[]>;
   
   // Transfer management
   getAllTransfers(): Promise<Transfer[]>;
@@ -909,6 +910,19 @@ export class DatabaseStorage implements IStorage {
 
     // Add agent to the team
     return await this.addTeamMember(team[0].id, agentId);
+  }
+
+  async getTeamLeadersByManager(managerId: string): Promise<User[]> {
+    // Get all users with role 'team_leader' who report to this manager
+    return await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.role, 'team_leader'),
+          eq(users.reportsTo, managerId)
+        )
+      );
   }
 
   // Transfer management

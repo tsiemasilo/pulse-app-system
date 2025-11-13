@@ -1591,6 +1591,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get team leaders assigned to a specific manager (for CC managers)
+  app.get('/api/managers/:managerId/team-leaders', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { managerId } = req.params;
+      
+      // Only allow CC managers to view their own team leaders, or admin to view anyone's
+      if (user?.role !== 'admin' && 
+          user?.role !== 'contact_center_ops_manager' && 
+          user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Non-admin users can only view their own team leaders
+      if (user?.role !== 'admin' && user?.id !== managerId) {
+        return res.status(403).json({ message: "Forbidden - can only view your own team leaders" });
+      }
+      
+      const teamLeaders = await storage.getTeamLeadersByManager(managerId);
+      res.json(teamLeaders);
+    } catch (error) {
+      console.error("Error fetching team leaders for manager:", error);
+      res.status(500).json({ message: "Failed to fetch team leaders" });
+    }
+  });
+
   // Transfer management routes (HR only)
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
