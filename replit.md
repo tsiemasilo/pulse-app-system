@@ -49,6 +49,23 @@ Preferred communication style: Simple, everyday language.
         - **Historical Date Support**: When filtering to previous dates, the system displays the most recent asset state for each agent/asset combination up to that date. If no exact records exist for the selected date, the API automatically retrieves the last known state before that date. This ensures badges display correctly for historical dates while maintaining data accuracy.
         - **Read-Only Historical Mode**: When viewing dates in the past, Book Out and Book In action buttons are automatically disabled to prevent modifications to historical data. Only current date records can be edited.
     - **Team Leader Functionality**: Data filtering ensures team leaders only view data for their assigned agents. Includes advanced charts for attendance trends, asset usage, and team performance, with export functionality. Multi-team support for team leaders in attendance management.
+    - **Contact Center Manager Dashboard**: Redesigned modern reporting dashboard with comprehensive analytics and team performance monitoring. Features include:
+        - **Sidebar Navigation**: Uses Shadcn Sidebar primitives for consistent navigation with team leader selection
+        - **Team Leader Search**: Real-time search functionality to quickly find and filter team leaders
+        - **Date Range Filters**: Quick presets (Last 7/30 days, This/Last month) and custom date range selection
+        - **Enhanced KPI Cards**: Four key performance indicators with colored icons, badges, and visual indicators:
+          - Attendance Rate: Shows present percentage, total attendance, late and absent counts
+          - Asset Compliance: Displays compliance rate, issued/returned counts, unreturned and lost assets
+          - Transfers: Total transfers with pending, approved, and completed breakdown
+          - Team Status: Active team members, total count, and termination statistics
+        - **Tabbed Analytics Interface**: Three organized sections for different report types:
+          - **Attendance Tab**: Area charts with gradients showing daily trends, pie chart for distribution, detailed breakdown table
+          - **Assets Tab**: Bar charts for status overview, metric cards with icons, comprehensive details table
+          - **Operations Tab**: Transfer status bar charts, team operations summary, termination reasons breakdown
+        - **Advanced Charts**: Area charts, pie charts, and bar charts with proper legends, tooltips, and responsive design
+        - **Null-Safe Implementation**: Comprehensive null guards prevent crashes when analytics data is missing
+        - **Responsive Design**: Adapts to mobile, tablet, and desktop screen sizes with collapsible sidebar
+        - **Modern UI**: Clean, professional interface with proper spacing, color-coded badges, and visual hierarchy
     - **Transfer Management**: Team-based agent transfer system with unified interface for managing both team transfers and department assignments. Features include:
         - **Unified Table View**: Single table displays both team transfers and department assignments together, eliminating the need to switch between separate views
         - **Type Filtering**: Filter by type (All, Team Transfers, Department Assignments) with clear badge indicators for easy identification
