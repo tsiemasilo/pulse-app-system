@@ -1657,7 +1657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'hr' && user?.role !== 'admin' && user?.role !== 'team_leader') {
+      if (!user?.role || !['admin', 'hr', 'team_leader', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
       
@@ -1812,8 +1812,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transfers/:id/complete', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can complete transfers" });
+      if (!user?.role || !['admin', 'contact_center_manager', 'contact_center_ops_manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Only admins and managers can complete transfers" });
       }
 
       const transferId = req.params.id;

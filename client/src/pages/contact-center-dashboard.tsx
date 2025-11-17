@@ -54,7 +54,9 @@ import {
   ChevronRight
 } from "lucide-react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
-import type { User } from "@shared/schema";
+import type { User, Transfer } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
 
 interface Analytics {
   attendance: {
@@ -91,7 +93,7 @@ interface Analytics {
 }
 
 type DatePreset = 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
-type ActiveSection = 'attendance' | 'assets' | 'operations';
+type ActiveSection = 'attendance' | 'assets' | 'operations' | 'approvals';
 
 export default function ContactCenterDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -181,6 +183,79 @@ export default function ContactCenterDashboard() {
       return await response.json() as Analytics;
     },
     enabled: !!selectedTeamLeaderId,
+  });
+
+  const { data: transfers = [], isLoading: isLoadingTransfers } = useQuery<Transfer[]>({
+    queryKey: ["/api/transfers"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/transfers");
+      return await response.json() as Transfer[];
+    },
+  });
+
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: activeSection === 'approvals',
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      return await apiRequest("PATCH", `/api/transfers/${transferId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      toast({
+        title: "Success",
+        description: "Transfer approved successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to approve transfer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      return await apiRequest("PATCH", `/api/transfers/${transferId}/reject`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      toast({
+        title: "Success",
+        description: "Transfer rejected successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject transfer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async (transferId: string) => {
+      return await apiRequest("POST", `/api/transfers/${transferId}/complete`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transfers"] });
+      toast({
+        title: "Success",
+        description: "Transfer completed successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete transfer",
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -308,6 +383,11 @@ export default function ContactCenterDashboard() {
       icon: Activity,
       key: 'operations' as ActiveSection,
     },
+    {
+      title: 'APPROVALS',
+      icon: CheckCircle2,
+      key: 'approvals' as ActiveSection,
+    },
   ];
 
   // Get dynamic header title and subtitle
@@ -319,6 +399,8 @@ export default function ContactCenterDashboard() {
         return 'Asset Management';
       case 'operations':
         return 'Operations Management';
+      case 'approvals':
+        return 'Transfer Approvals';
       default:
         return 'Team Analytics';
     }
@@ -332,6 +414,8 @@ export default function ContactCenterDashboard() {
         return 'Track asset allocation and compliance';
       case 'operations':
         return 'Oversee transfers and operations';
+      case 'approvals':
+        return 'Review and manage transfer requests';
       default:
         return 'Team Performance & Analytics';
     }
@@ -855,6 +939,168 @@ export default function ContactCenterDashboard() {
                 </Card>
               )}
             </div>
+          </div>
+        );
+
+      case 'approvals':
+        const getUserName = (userId: string) => {
+          const user = allUsers.find(u => u.id === userId);
+          return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+        };
+
+        const getDepartmentName = (deptId: string | null) => {
+          if (!deptId) return 'N/A';
+          return deptId;
+        };
+
+        const getStatusBadgeVariant = (status: string) => {
+          switch (status) {
+            case 'pending':
+              return 'default';
+            case 'approved':
+              return 'default';
+            case 'rejected':
+              return 'destructive';
+            case 'completed':
+              return 'default';
+            default:
+              return 'default';
+          }
+        };
+
+        const getStatusColor = (status: string) => {
+          switch (status) {
+            case 'pending':
+              return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400';
+            case 'approved':
+              return 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400';
+            case 'rejected':
+              return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400';
+            case 'completed':
+              return 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400';
+            default:
+              return '';
+          }
+        };
+
+        return (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transfer Requests</CardTitle>
+                <CardDescription>Review and manage transfer requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingTransfers ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
+                      <p className="text-muted-foreground">Loading transfers...</p>
+                    </div>
+                  </div>
+                ) : transfers.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <ArrowRightLeft className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">No transfer requests found</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Agent Name</TableHead>
+                          <TableHead>From Team/Dept</TableHead>
+                          <TableHead>To Team/Dept</TableHead>
+                          <TableHead>Transfer Type</TableHead>
+                          <TableHead>Start Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Requested By</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transfers.map((transfer) => (
+                          <TableRow key={transfer.id}>
+                            <TableCell className="font-medium">
+                              {getUserName(transfer.userId)}
+                            </TableCell>
+                            <TableCell>
+                              {getDepartmentName(transfer.fromDepartmentId)}
+                            </TableCell>
+                            <TableCell>
+                              {getDepartmentName(transfer.toDepartmentId)}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {transfer.transferType}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(transfer.startDate).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={getStatusBadgeVariant(transfer.status)}
+                                className={getStatusColor(transfer.status)}
+                                data-testid={`badge-status-${transfer.id}`}
+                              >
+                                {transfer.status.charAt(0).toUpperCase() + transfer.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {getUserName(transfer.requestedBy)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {transfer.status === 'pending' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => approveMutation.mutate(transfer.id)}
+                                      disabled={approveMutation.isPending}
+                                      data-testid={`button-approve-${transfer.id}`}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => rejectMutation.mutate(transfer.id)}
+                                      disabled={rejectMutation.isPending}
+                                      data-testid={`button-reject-${transfer.id}`}
+                                    >
+                                      <XCircle className="h-4 w-4 mr-1" />
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+                                {transfer.status === 'approved' && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => completeMutation.mutate(transfer.id)}
+                                    disabled={completeMutation.isPending}
+                                    data-testid={`button-complete-${transfer.id}`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Complete
+                                  </Button>
+                                )}
+                                {(transfer.status === 'rejected' || transfer.status === 'completed') && (
+                                  <span className="text-sm text-muted-foreground">No actions</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
 
