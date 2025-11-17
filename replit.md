@@ -13,6 +13,8 @@ The system utilizes React with TypeScript, Wouter for routing, and TanStack Quer
 
 **Navigation Consistency (November 2025)**: Both Team Leader and Contact Center Manager dashboards now feature identical navigation styling and structure. This includes custom sidebar implementations (replacing Shadcn Sidebar), matching header layouts with notification/logout buttons, unified search functionality, and consistent mobile menu overlays. The "Leader Details" section has been removed from the CC Manager dashboard to streamline the interface.
 
+**Date Controls Update (November 2025)**: The CC Manager dashboard now uses button-based date controls matching the Team Leader Reports page style. The layout has been reorganized to place the Team Leader Selection card above the date range controls. Date preset buttons (Last 7 Days, Last 30 Days, This Month, Last Month) now use active visual states (default vs outline variants) to indicate the current selection, with custom date range inputs positioned on the right side for flexibility.
+
 ### Technical Implementations
 The frontend uses Vite for building and React Hook Form with Zod for form handling and validation. The backend is an Express.js application with TypeScript, utilizing Drizzle ORM for PostgreSQL interactions. Authentication is managed via Replit's OpenID Connect (OIDC) and Passport.js, with session management using Express sessions stored in PostgreSQL. The API follows a RESTful design, incorporating route protection, centralized error handling, and Zod schema validation.
 
