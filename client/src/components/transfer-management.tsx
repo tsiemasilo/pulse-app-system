@@ -78,6 +78,10 @@ export default function TransferManagement() {
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [pendingTransferData, setPendingTransferData] = useState<any>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+  const [showChangeDepartment, setShowChangeDepartment] = useState(false);
+  const [newDivisionId, setNewDivisionId] = useState<string>("");
+  const [newDepartmentId, setNewDepartmentId] = useState<string>("");
+  const [newSectionId, setNewSectionId] = useState<string>("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -302,6 +306,16 @@ export default function TransferManagement() {
     if (!selectedAddDepartmentId) return [];
     return sections.filter(s => s.departmentId === selectedAddDepartmentId);
   }, [selectedAddDepartmentId, sections]);
+
+  const newFilteredDepartments = useMemo(() => {
+    if (!newDivisionId) return [];
+    return departments.filter(d => d.divisionId === newDivisionId);
+  }, [newDivisionId, departments]);
+
+  const newFilteredSections = useMemo(() => {
+    if (!newDepartmentId) return [];
+    return sections.filter(s => s.departmentId === newDepartmentId);
+  }, [newDepartmentId, sections]);
 
   const selectedUserAssignment = useMemo(() => {
     if (!selectedRemoveUserId) return null;
@@ -532,7 +546,7 @@ export default function TransferManagement() {
   };
   
   const handleTransferWithNewDepartment = () => {
-    if (!pendingTransferData || !selectedDepartmentId) {
+    if (!pendingTransferData || !newDepartmentId) {
       toast({
         title: "Error",
         description: "Please select a department",
@@ -543,7 +557,7 @@ export default function TransferManagement() {
     
     transferMutation.mutate({
       ...pendingTransferData,
-      newDepartmentId: selectedDepartmentId,
+      newDepartmentId: newDepartmentId,
     });
   };
 
@@ -1302,9 +1316,13 @@ export default function TransferManagement() {
         setShowDepartmentDialog(false);
         setPendingTransferData(null);
         setSelectedDepartmentId("");
+        setShowChangeDepartment(false);
+        setNewDivisionId("");
+        setNewDepartmentId("");
+        setNewSectionId("");
       }
     }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Department Transfer Confirmation</DialogTitle>
           <DialogDescription>
@@ -1329,15 +1347,119 @@ export default function TransferManagement() {
             </div>
           )}
           
-          <div className="space-y-3">
-            <Button
-              onClick={() => handleDepartmentConfirmation(true)}
-              className="w-full"
-              data-testid="button-keep-department"
-            >
-              Keep Same Department
-            </Button>
-          </div>
+          {!showChangeDepartment ? (
+            <div className="space-y-3">
+              <Button
+                onClick={() => handleDepartmentConfirmation(true)}
+                className="w-full"
+                data-testid="button-keep-department"
+              >
+                Keep Same Department
+              </Button>
+              <Button
+                onClick={() => setShowChangeDepartment(true)}
+                variant="outline"
+                className="w-full"
+                data-testid="button-change-department"
+              >
+                Change Department
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Division</label>
+                  <Select 
+                    onValueChange={(value) => {
+                      setNewDivisionId(value);
+                      setNewDepartmentId("");
+                      setNewSectionId("");
+                    }} 
+                    value={newDivisionId}
+                  >
+                    <SelectTrigger data-testid="select-new-division">
+                      <SelectValue placeholder="Select division" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {divisions.map((division) => (
+                        <SelectItem key={division.id} value={division.id}>
+                          {division.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Department</label>
+                  <Select 
+                    onValueChange={(value) => {
+                      setNewDepartmentId(value);
+                      setNewSectionId("");
+                    }} 
+                    value={newDepartmentId}
+                    disabled={!newDivisionId}
+                  >
+                    <SelectTrigger data-testid="select-new-department">
+                      <SelectValue placeholder={newDivisionId ? "Select department" : "Select division first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {newFilteredDepartments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Section (Optional)</label>
+                  <Select 
+                    onValueChange={setNewSectionId} 
+                    value={newSectionId}
+                    disabled={!newDepartmentId}
+                  >
+                    <SelectTrigger data-testid="select-new-section">
+                      <SelectValue placeholder={newDepartmentId ? "Select section" : "Select department first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {newFilteredSections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          {section.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setShowChangeDepartment(false);
+                    setNewDivisionId("");
+                    setNewDepartmentId("");
+                    setNewSectionId("");
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="button-back-to-options"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleTransferWithNewDepartment}
+                  disabled={!newDepartmentId || transferMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-confirm-new-department"
+                >
+                  {transferMutation.isPending ? "Creating..." : "Confirm Transfer"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button
@@ -1346,6 +1468,10 @@ export default function TransferManagement() {
               setShowDepartmentDialog(false);
               setPendingTransferData(null);
               setSelectedDepartmentId("");
+              setShowChangeDepartment(false);
+              setNewDivisionId("");
+              setNewDepartmentId("");
+              setNewSectionId("");
             }}
             data-testid="button-cancel-department-dialog"
           >
