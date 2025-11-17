@@ -198,6 +198,16 @@ export default function ContactCenterDashboard() {
     enabled: activeSection === 'approvals',
   });
 
+  const { data: departments = [] } = useQuery<any[]>({
+    queryKey: ["/api/departments"],
+    enabled: activeSection === 'approvals',
+  });
+
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
+    enabled: activeSection === 'approvals',
+  });
+
   const approveMutation = useMutation({
     mutationFn: async (transferId: string) => {
       return await apiRequest("PATCH", `/api/transfers/${transferId}/approve`);
@@ -948,9 +958,36 @@ export default function ContactCenterDashboard() {
           return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
         };
 
-        const getDepartmentName = (deptId: string | null) => {
-          if (!deptId) return 'N/A';
-          return deptId;
+        const getTeamName = (teamId: string | null | undefined) => {
+          if (!teamId) return null;
+          const team = teams.find(t => t.id === teamId);
+          return team?.name || teamId;
+        };
+
+        const getDepartmentName = (deptId: string | null | undefined) => {
+          if (!deptId) return null;
+          const department = departments.find(d => d.id === deptId);
+          return department?.name || deptId;
+        };
+
+        const getFromTeamDept = (transfer: Transfer) => {
+          const teamName = getTeamName(transfer.fromTeamId);
+          const deptName = getDepartmentName(transfer.fromDepartmentId);
+          
+          if (teamName && deptName) return `${teamName} (${deptName})`;
+          if (teamName) return teamName;
+          if (deptName) return deptName;
+          return 'N/A';
+        };
+
+        const getToTeamDept = (transfer: Transfer) => {
+          const teamName = getTeamName(transfer.toTeamId);
+          const deptName = getDepartmentName(transfer.toDepartmentId);
+          
+          if (teamName && deptName) return `${teamName} (${deptName})`;
+          if (teamName) return teamName;
+          if (deptName) return deptName;
+          return 'N/A';
         };
 
         const getStatusBadgeVariant = (status: string) => {
@@ -1027,10 +1064,10 @@ export default function ContactCenterDashboard() {
                               {getUserName(transfer.userId)}
                             </TableCell>
                             <TableCell>
-                              {getDepartmentName(transfer.fromDepartmentId)}
+                              {getFromTeamDept(transfer)}
                             </TableCell>
                             <TableCell>
-                              {getDepartmentName(transfer.toDepartmentId)}
+                              {getToTeamDept(transfer)}
                             </TableCell>
                             <TableCell className="capitalize">
                               {transfer.transferType}
