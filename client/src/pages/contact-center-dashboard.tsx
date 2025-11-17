@@ -1375,64 +1375,68 @@ export default function ContactCenterDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Date Range */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Date Range
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="preset">Quick Select</Label>
-                      <Select value={datePreset} onValueChange={(value) => handleDatePresetChange(value as DatePreset)}>
-                        <SelectTrigger id="preset" data-testid="select-date-preset">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="last7">Last 7 Days</SelectItem>
-                          <SelectItem value="last30">Last 30 Days</SelectItem>
-                          <SelectItem value="thisMonth">This Month</SelectItem>
-                          <SelectItem value="lastMonth">Last Month</SelectItem>
-                          <SelectItem value="custom">Custom Range</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="start-date">Start Date</Label>
-                      <Input
-                        id="start-date"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => {
-                          setStartDate(e.target.value);
-                          setDatePreset('custom');
-                        }}
-                        disabled={datePreset !== 'custom'}
-                        data-testid="input-start-date"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="end-date">End Date</Label>
-                      <Input
-                        id="end-date"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => {
-                          setEndDate(e.target.value);
-                          setDatePreset('custom');
-                        }}
-                        disabled={datePreset !== 'custom'}
-                        data-testid="input-end-date"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Date Range Controls */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Button 
+                  variant={datePreset === 'last7' ? 'default' : 'outline'} 
+                  onClick={() => handleDatePresetChange('last7')}
+                  data-testid="button-date-last7"
+                  className="flex-shrink-0"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Last 7 Days
+                </Button>
+                <Button 
+                  variant={datePreset === 'last30' ? 'default' : 'outline'} 
+                  onClick={() => handleDatePresetChange('last30')}
+                  data-testid="button-date-last30"
+                  className="flex-shrink-0"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Last 30 Days
+                </Button>
+                <Button 
+                  variant={datePreset === 'thisMonth' ? 'default' : 'outline'} 
+                  onClick={() => handleDatePresetChange('thisMonth')}
+                  data-testid="button-date-this-month"
+                  className="flex-shrink-0"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  This Month
+                </Button>
+                <Button 
+                  variant={datePreset === 'lastMonth' ? 'default' : 'outline'} 
+                  onClick={() => handleDatePresetChange('lastMonth')}
+                  data-testid="button-date-last-month"
+                  className="flex-shrink-0"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Last Month
+                </Button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    className="w-auto"
+                    data-testid="input-start-date"
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    className="w-auto"
+                    data-testid="input-end-date"
+                  />
+                </div>
+              </div>
 
               {/* KPI Stats Cards */}
               {analytics && (
