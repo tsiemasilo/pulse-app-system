@@ -200,12 +200,10 @@ export default function ContactCenterDashboard() {
 
   const { data: departments = [] } = useQuery<any[]>({
     queryKey: ["/api/departments"],
-    enabled: activeSection === 'approvals',
   });
 
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
-    enabled: activeSection === 'approvals',
   });
 
   const approveMutation = useMutation({
@@ -960,21 +958,21 @@ export default function ContactCenterDashboard() {
 
         const getTeamName = (teamId: string | null | undefined) => {
           if (!teamId) return null;
-          const team = teams.find(t => t.id === teamId);
-          return team?.name || teamId;
+          const team = teams.find((t: any) => t.id === teamId);
+          return team?.name || 'Unknown Team';
         };
 
         const getDepartmentName = (deptId: string | null | undefined) => {
           if (!deptId) return null;
-          const department = departments.find(d => d.id === deptId);
-          return department?.name || deptId;
+          const department = departments.find((d: any) => d.id === deptId);
+          return department?.name || 'Unknown Department';
         };
 
         const getFromTeamDept = (transfer: Transfer) => {
           const teamName = getTeamName(transfer.fromTeamId);
           const deptName = getDepartmentName(transfer.fromDepartmentId);
           
-          if (teamName && deptName) return `${teamName} (${deptName})`;
+          if (teamName && deptName) return `${teamName} / ${deptName}`;
           if (teamName) return teamName;
           if (deptName) return deptName;
           return 'N/A';
@@ -984,7 +982,7 @@ export default function ContactCenterDashboard() {
           const teamName = getTeamName(transfer.toTeamId);
           const deptName = getDepartmentName(transfer.toDepartmentId);
           
-          if (teamName && deptName) return `${teamName} (${deptName})`;
+          if (teamName && deptName) return `${teamName} / ${deptName}`;
           if (teamName) return teamName;
           if (deptName) return deptName;
           return 'N/A';
