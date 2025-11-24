@@ -793,19 +793,19 @@ export default function DepartmentManagement() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" data-testid={`badge-division-unassigned-${user.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`text-division-unassigned-${user.id}`}>
                               Not Assigned
-                            </Badge>
+                            </span>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" data-testid={`badge-department-unassigned-${user.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`text-department-unassigned-${user.id}`}>
                               Not Assigned
-                            </Badge>
+                            </span>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" data-testid={`badge-section-unassigned-${user.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`text-section-unassigned-${user.id}`}>
                               Not Assigned
-                            </Badge>
+                            </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -858,9 +858,9 @@ export default function DepartmentManagement() {
                                 {divisionName}
                               </div>
                             ) : (
-                              <Badge variant="secondary" data-testid={`badge-division-unassigned-${assignment.id}`}>
+                              <span className="text-sm text-muted-foreground" data-testid={`text-division-unassigned-${assignment.id}`}>
                                 Not Assigned
-                              </Badge>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -870,9 +870,9 @@ export default function DepartmentManagement() {
                                 {departmentName}
                               </div>
                             ) : (
-                              <Badge variant="secondary" data-testid={`badge-department-unassigned-${assignment.id}`}>
+                              <span className="text-sm text-muted-foreground" data-testid={`text-department-unassigned-${assignment.id}`}>
                                 Not Assigned
-                              </Badge>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -882,9 +882,9 @@ export default function DepartmentManagement() {
                                 {sectionName}
                               </div>
                             ) : (
-                              <Badge variant="secondary" data-testid={`badge-section-unassigned-${assignment.id}`}>
+                              <span className="text-sm text-muted-foreground" data-testid={`text-section-unassigned-${assignment.id}`}>
                                 Not Assigned
-                              </Badge>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -943,9 +943,9 @@ export default function DepartmentManagement() {
                               {divisionName}
                             </div>
                           ) : (
-                            <Badge variant="secondary" data-testid={`badge-division-unassigned-${user.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`text-division-unassigned-${user.id}`}>
                               Not Assigned
-                            </Badge>
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -955,9 +955,9 @@ export default function DepartmentManagement() {
                               {departmentName}
                             </div>
                           ) : (
-                            <Badge variant="secondary" data-testid={`badge-department-unassigned-${user.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`text-department-unassigned-${user.id}`}>
                               Not Assigned
-                            </Badge>
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -974,13 +974,13 @@ export default function DepartmentManagement() {
                                   {sectionName}
                                 </div>
                               ) : (
-                                <Badge 
+                                <span 
                                   key={assignment.id}
-                                  variant="secondary" 
-                                  data-testid={`badge-section-unassigned-${assignment.id}`}
+                                  className="text-sm text-muted-foreground"
+                                  data-testid={`text-section-unassigned-${assignment.id}`}
                                 >
                                   Not Assigned
-                                </Badge>
+                                </span>
                               );
                             })}
                           </div>
