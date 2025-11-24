@@ -445,23 +445,6 @@ export default function DepartmentManagement() {
   const getSectionName = (sectionId: string | null) => 
     sectionId ? sections.find(s => s.id === sectionId)?.name || "Unknown" : null;
 
-  // Get role badge color
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      case 'contact_center_manager':
-      case 'contact_center_ops_manager':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
-      case 'team_leader':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-      case 'hr':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-    }
-  };
-
   const getRoleLabel = (role: string) => {
     const roleMap: Record<string, string> = {
       admin: 'Admin',
@@ -805,9 +788,9 @@ export default function DepartmentManagement() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getRoleBadgeColor(user.role)} data-testid={`badge-role-${user.id}`}>
+                            <span className="text-sm" data-testid={`text-role-${user.id}`}>
                               {getRoleLabel(user.role)}
-                            </Badge>
+                            </span>
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary" data-testid={`badge-division-unassigned-${user.id}`}>
@@ -864,9 +847,9 @@ export default function DepartmentManagement() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getRoleBadgeColor(user.role)} data-testid={`badge-role-${user.id}`}>
+                            <span className="text-sm" data-testid={`text-role-${user.id}`}>
                               {getRoleLabel(user.role)}
-                            </Badge>
+                            </span>
                           </TableCell>
                           <TableCell>
                             {divisionName ? (
@@ -894,9 +877,10 @@ export default function DepartmentManagement() {
                           </TableCell>
                           <TableCell>
                             {sectionName ? (
-                              <Badge variant="outline" data-testid={`badge-section-${assignment.id}`}>
+                              <div className="flex items-center gap-2" data-testid={`text-section-${assignment.id}`}>
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
                                 {sectionName}
-                              </Badge>
+                              </div>
                             ) : (
                               <Badge variant="secondary" data-testid={`badge-section-unassigned-${assignment.id}`}>
                                 Not Assigned
@@ -948,9 +932,9 @@ export default function DepartmentManagement() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getRoleBadgeColor(user.role)} data-testid={`badge-role-${user.id}`}>
+                          <span className="text-sm" data-testid={`text-role-${user.id}`}>
                             {getRoleLabel(user.role)}
-                          </Badge>
+                          </span>
                         </TableCell>
                         <TableCell>
                           {divisionName ? (
@@ -977,17 +961,18 @@ export default function DepartmentManagement() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-2">
                             {userAssignments.map((assignment) => {
                               const sectionName = getSectionName(assignment.sectionId);
                               return sectionName ? (
-                                <Badge 
-                                  key={assignment.id} 
-                                  variant="outline"
-                                  data-testid={`badge-section-${assignment.id}`}
+                                <div 
+                                  key={assignment.id}
+                                  className="flex items-center gap-2"
+                                  data-testid={`text-section-${assignment.id}`}
                                 >
+                                  <MapPin className="h-4 w-4 text-muted-foreground" />
                                   {sectionName}
-                                </Badge>
+                                </div>
                               ) : (
                                 <Badge 
                                   key={assignment.id}
