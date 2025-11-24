@@ -453,10 +453,22 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
                           </p>
                         </div>
                         {(() => {
-                          const assignment = userDepartmentAssignments.find(a => a.userId === selectedAgent.id);
+                          const assignments = userDepartmentAssignments.filter(a => a.userId === selectedAgent.id);
+                          const assignment = assignments[0]; // Use first assignment for division/department
                           const division = assignment?.divisionId ? divisions.find(d => d.id === assignment.divisionId) : null;
                           const department = assignment?.departmentId ? departments.find(d => d.id === assignment.departmentId) : null;
-                          const section = assignment?.sectionId ? sections.find(s => s.id === assignment.sectionId) : null;
+                          
+                          // Get all sections for this user
+                          const sectionNames = assignments.length > 0
+                            ? assignments
+                                .map(a => {
+                                  const sec = sections.find(s => s.id === a.sectionId);
+                                  return sec?.name;
+                                })
+                                .filter(Boolean)
+                                .join(', ')
+                            : null;
+                          
                           const manager = selectedAgent.reportsTo ? userLookupMap.get(selectedAgent.reportsTo) : null;
 
                           return (
@@ -474,9 +486,9 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-blue-800 dark:text-blue-900 uppercase font-bold">Section</p>
+                                <p className="text-[10px] text-blue-800 dark:text-blue-900 uppercase font-bold">Section{assignments.length > 1 ? 's' : ''}</p>
                                 <p className="text-[11px] font-semibold text-gray-900 dark:text-gray-950 truncate" data-testid="text-agent-section">
-                                  {section?.name || 'Not assigned'}
+                                  {sectionNames || 'Not assigned'}
                                 </p>
                               </div>
                               <div>

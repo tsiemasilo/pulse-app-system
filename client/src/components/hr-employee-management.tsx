@@ -89,10 +89,43 @@ export default function HREmployeeManagement() {
   };
 
   const getDepartmentInfo = (userId: string) => {
-    // First check the new user_department_assignments table
-    const assignment = userDepartmentAssignments.find(a => a.userId === userId);
+    // Get all assignments for this user
+    const userAssignments = userDepartmentAssignments.filter(a => a.userId === userId);
     
-    if (assignment) {
+    if (userAssignments.length > 0) {
+      // If user has multiple assignments, show all sections
+      if (userAssignments.length > 1) {
+        const sectionNames = userAssignments
+          .map(assignment => {
+            const section = sections.find(s => s.id === assignment.sectionId);
+            return section?.name;
+          })
+          .filter(Boolean)
+          .join(', ');
+        
+        // Get division and department from first assignment (assuming same division/dept)
+        const firstAssignment = userAssignments[0];
+        const parts: string[] = [];
+        
+        if (firstAssignment.divisionId) {
+          const division = divisions.find(d => d.id === firstAssignment.divisionId);
+          if (division) parts.push(division.name);
+        }
+        
+        if (firstAssignment.departmentId) {
+          const department = departments.find(d => d.id === firstAssignment.departmentId);
+          if (department) parts.push(department.name);
+        }
+        
+        if (sectionNames) {
+          parts.push(sectionNames);
+        }
+        
+        return parts.length > 0 ? parts.join(' → ') : 'No Department';
+      }
+      
+      // Single assignment
+      const assignment = userAssignments[0];
       const parts: string[] = [];
       
       if (assignment.divisionId) {
