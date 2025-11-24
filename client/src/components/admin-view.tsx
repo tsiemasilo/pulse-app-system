@@ -11,6 +11,7 @@ import OnboardingManagement from "@/components/onboarding-management";
 import HREmployeeManagement from "@/components/hr-employee-management";
 import DepartmentManagement from "@/components/department-management";
 import TeamLeaderView from "@/components/team-leader-view";
+import GoJSOrganogram from "@/components/organogram/gojs-organogram";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -614,18 +615,66 @@ export default function AdminView({ currentUser }: AdminViewProps) {
         return <DepartmentManagement />;
 
       case 'organogram':
+        const handleViewDetails = (userId: string) => {
+          const userData = allUsers.find(u => u.id === userId);
+          if (userData) {
+            toast({
+              title: "View Details",
+              description: `Viewing details for ${userData.firstName} ${userData.lastName}`,
+            });
+          }
+        };
+
+        const handleAddEmployee = (parentUserId: string) => {
+          const parentUser = allUsers.find(u => u.id === parentUserId);
+          if (parentUser) {
+            toast({
+              title: "Add Employee",
+              description: `Adding employee under ${parentUser.firstName} ${parentUser.lastName}`,
+            });
+          }
+        };
+
+        const handleRemoveFromChart = (userId: string) => {
+          const userData = allUsers.find(u => u.id === userId);
+          if (userData) {
+            toast({
+              title: "Remove from Chart",
+              description: `Removing ${userData.firstName} ${userData.lastName} from chart`,
+              variant: "destructive",
+            });
+          }
+        };
+
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
-            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg p-4 sm:p-6 border border-orange-100 dark:border-orange-800/30">
+          <div className="flex flex-col h-full animate-in fade-in-50 duration-500">
+            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg p-4 sm:p-6 border border-orange-100 dark:border-orange-800/30 mb-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Organizational Structure
               </h2>
               <p className="text-sm sm:text-base text-orange-600 dark:text-orange-400">View and manage organizational hierarchy</p>
             </div>
             
-            <Card className="p-6">
-              <p className="text-muted-foreground">Organogram visualization will be displayed here.</p>
-            </Card>
+            <div className="flex-1 overflow-hidden">
+              {allUsers.filter(u => u.isActive).length === 0 ? (
+                <Card className="p-12 text-center">
+                  <CardContent>
+                    <Network className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No organizational structure defined yet.</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Users need to have reporting relationships configured in the User Access Management.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <GoJSOrganogram 
+                  users={allUsers}
+                  onViewDetails={handleViewDetails}
+                  onAddEmployee={handleAddEmployee}
+                  onRemoveFromChart={handleRemoveFromChart}
+                />
+              )}
+            </div>
           </div>
         );
 
