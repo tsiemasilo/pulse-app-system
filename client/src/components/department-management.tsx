@@ -24,13 +24,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Building2, Layers, MapPin, Users, Plus, Trash2, Edit2, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import type { User, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
+import type { 
+  User, 
+  Division, 
+  Department, 
+  Section, 
+  UserDepartmentAssignment,
+  InsertUserDepartmentAssignment 
+} from "@shared/schema";
 
-interface SectionSelection {
-  id: string;
-  divisionId: string;
-  departmentId: string;
-  sectionId: string;
+// Type for section selections in the form (extends the insert type with a temp ID for UI management)
+interface SectionSelection extends Omit<InsertUserDepartmentAssignment, 'userId' | 'assignedBy'> {
+  tempId: string; // Temporary ID for UI management
+  existingId?: string; // ID if this is an existing assignment
 }
 
 export default function DepartmentManagement() {
@@ -41,12 +47,12 @@ export default function DepartmentManagement() {
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editingAssignmentId, setEditingAssignmentId] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedAssignmentDivision, setSelectedAssignmentDivision] = useState<string>("");
   const [selectedAssignmentDepartment, setSelectedAssignmentDepartment] = useState<string>("");
   const [selectedAssignmentSection, setSelectedAssignmentSection] = useState<string>("");
   const [sectionSelections, setSectionSelections] = useState<SectionSelection[]>([]);
+  const [sectionsToDelete, setSectionsToDelete] = useState<string[]>([]); // Track sections to delete in edit mode
 
   // Fetch data
   const { data: users = [] } = useQuery<User[]>({
@@ -69,72 +75,148 @@ export default function DepartmentManagement() {
     queryKey: ["/api/user-department-assignments"],
   });
 
-  // Create assignment mutation (now supports multiple sections)
+  // Create assignment mutation (supports multiple sections with proper error handling)
   const createAssignment = useMutation({
     mutationFn: async (data: SectionSelection[]) => {
-      // Create multiple assignments (one for each section)
-      const promises = data.map(section => 
-        apiRequest("POST", "/api/user-department-assignments", {
-          userId: selectedUser,
-          divisionId: section.divisionId,
-          departmentId: section.departmentId,
-          sectionId: section.sectionId,
-        }).then(res => res.json())
-      );
-      return await Promise.all(promises);
+      const results: Array<{ success: boolean; data?: any; error?: string; section?: SectionSelection }> = [];
+      
+      // Create assignments sequentially to track successes and failures
+      for (const section of data) {
+        try {
+          const response = await apiRequest("POST", "/api/user-department-assignments", {
+            userId: selectedUser,
+            divisionId: section.divisionId,
+            departmentId: section.departmentId,
+            sectionId: section.sectionId,
+          });
+          const result = await response.json();
+          results.push({ success: true, data: result, section });
+        } catch (error: any) {
+          results.push({ 
+            success: false, 
+            error: error.message || "Unknown error", 
+            section 
+          });
+        }
+      }
+      
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
-      toast({
-        title: "Assignment Created",
-        description: `User has been assigned to ${sectionSelections.length} section${sectionSelections.length !== 1 ? 's' : ''} successfully.`,
-      });
-      setAssignmentDialogOpen(false);
-      resetAssignmentForm();
+      
+      const successes = results.filter(r => r.success);
+      const failures = results.filter(r => !r.success);
+      
+      if (failures.length === 0) {
+        toast({
+          title: "Assignments Created",
+          description: `Successfully assigned user to ${successes.length} section${successes.length !== 1 ? 's' : ''}.`,
+        });
+        setAssignmentDialogOpen(false);
+        resetAssignmentForm();
+      } else if (successes.length === 0) {
+        toast({
+          title: "Assignment Failed",
+          description: `Failed to create all ${failures.length} assignment${failures.length !== 1 ? 's' : ''}. Please try again.`,
+          variant: "destructive",
+        });
+      } else {
+        // Partial success
+        toast({
+          title: "Partial Success",
+          description: `Created ${successes.length} assignment${successes.length !== 1 ? 's' : ''}, but ${failures.length} failed. Please review and retry failed assignments.`,
+          variant: "destructive",
+        });
+        // Remove successful sections from the form
+        setSectionSelections(prev => 
+          prev.filter(selection => 
+            failures.some(f => f.section?.tempId === selection.tempId)
+          )
+        );
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create assignment",
+        description: error.message || "Failed to create assignments",
         variant: "destructive",
       });
     },
   });
 
-  // Update assignment mutation
-  const updateAssignment = useMutation({
-    mutationFn: async (data: {
-      assignmentId: string;
-      divisionId: string;
-      departmentId: string;
-      sectionId: string;
+  // Bulk update mutation for edit mode
+  const bulkUpdateAssignments = useMutation({
+    mutationFn: async (data: { 
+      toDelete: string[], 
+      toCreate: SectionSelection[] 
     }) => {
-      const response = await apiRequest("PATCH", `/api/user-department-assignments/${data.assignmentId}`, {
-        divisionId: data.divisionId,
-        departmentId: data.departmentId,
-        sectionId: data.sectionId,
-      });
-      return await response.json();
+      const results: Array<{ success: boolean; type: 'delete' | 'create'; error?: string }> = [];
+      
+      // Delete assignments
+      for (const assignmentId of data.toDelete) {
+        try {
+          await apiRequest("DELETE", `/api/user-department-assignments/${assignmentId}`);
+          results.push({ success: true, type: 'delete' });
+        } catch (error: any) {
+          results.push({ success: false, type: 'delete', error: error.message });
+        }
+      }
+      
+      // Create new assignments
+      for (const section of data.toCreate) {
+        try {
+          const response = await apiRequest("POST", "/api/user-department-assignments", {
+            userId: selectedUser,
+            divisionId: section.divisionId,
+            departmentId: section.departmentId,
+            sectionId: section.sectionId,
+          });
+          await response.json();
+          results.push({ success: true, type: 'create' });
+        } catch (error: any) {
+          results.push({ success: false, type: 'create', error: error.message });
+        }
+      }
+      
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
-      toast({
-        title: "Assignment Updated",
-        description: "User assignment has been updated successfully.",
-      });
-      setAssignmentDialogOpen(false);
-      resetAssignmentForm();
+      
+      const failures = results.filter(r => !r.success);
+      
+      if (failures.length === 0) {
+        toast({
+          title: "Assignments Updated",
+          description: "Successfully updated user assignments.",
+        });
+        setAssignmentDialogOpen(false);
+        resetAssignmentForm();
+      } else {
+        const deleteFailures = failures.filter(f => f.type === 'delete').length;
+        const createFailures = failures.filter(f => f.type === 'create').length;
+        
+        toast({
+          title: "Update Partially Failed",
+          description: `Some operations failed: ${deleteFailures} deletion${deleteFailures !== 1 ? 's' : ''}, ${createFailures} creation${createFailures !== 1 ? 's' : ''}. Please review and retry.`,
+          variant: "destructive",
+        });
+        
+        // Reset sectionsToDelete to avoid retrying stale deletions on next attempt
+        setSectionsToDelete([]);
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update assignment",
+        description: error.message || "Failed to update assignments",
         variant: "destructive",
       });
     },
   });
 
-  // Delete assignment mutation
+  // Delete single assignment mutation
   const deleteAssignment = useMutation({
     mutationFn: async (assignmentId: string) => {
       await apiRequest("DELETE", `/api/user-department-assignments/${assignmentId}`);
@@ -161,8 +243,8 @@ export default function DepartmentManagement() {
     setSelectedAssignmentDepartment("");
     setSelectedAssignmentSection("");
     setSectionSelections([]);
+    setSectionsToDelete([]);
     setEditMode(false);
-    setEditingAssignmentId("");
   };
 
   const handleAddSection = () => {
@@ -192,7 +274,7 @@ export default function DepartmentManagement() {
     setSectionSelections([
       ...sectionSelections,
       {
-        id: crypto.randomUUID(),
+        tempId: crypto.randomUUID(),
         divisionId: selectedAssignmentDivision,
         departmentId: selectedAssignmentDepartment,
         sectionId: selectedAssignmentSection,
@@ -205,8 +287,13 @@ export default function DepartmentManagement() {
     setSelectedAssignmentSection("");
   };
 
-  const handleRemoveSection = (id: string) => {
-    setSectionSelections(sectionSelections.filter(s => s.id !== id));
+  const handleRemoveSection = (tempId: string, existingId?: string) => {
+    setSectionSelections(sectionSelections.filter(s => s.tempId !== tempId));
+    
+    // If this was an existing assignment, mark it for deletion
+    if (existingId && editMode) {
+      setSectionsToDelete([...sectionsToDelete, existingId]);
+    }
   };
 
   const handleCreateAssignment = () => {
@@ -231,31 +318,52 @@ export default function DepartmentManagement() {
     createAssignment.mutate(sectionSelections);
   };
 
-  const handleEditAssignment = (assignment: UserDepartmentAssignment) => {
+  const handleEditUser = (userId: string) => {
+    // Get all assignments for this user
+    const userAssignments = assignments.filter(a => a.userId === userId);
+    
+    if (userAssignments.length === 0) {
+      toast({
+        title: "No Assignments",
+        description: "This user has no assignments to edit. Create a new assignment instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setEditMode(true);
-    setEditingAssignmentId(assignment.id);
-    setSelectedUser(assignment.userId);
-    setSelectedAssignmentDivision(assignment.divisionId || "");
-    setSelectedAssignmentDepartment(assignment.departmentId || "");
-    setSelectedAssignmentSection(assignment.sectionId || "");
+    setSelectedUser(userId);
+    
+    // Prepopulate ALL existing sections for this user
+    const existingSections: SectionSelection[] = userAssignments.map(assignment => ({
+      tempId: crypto.randomUUID(),
+      existingId: assignment.id,
+      divisionId: assignment.divisionId || "",
+      departmentId: assignment.departmentId || "",
+      sectionId: assignment.sectionId || "",
+    }));
+    
+    setSectionSelections(existingSections);
+    setSectionsToDelete([]);
     setAssignmentDialogOpen(true);
   };
 
-  const handleUpdateAssignment = () => {
-    if (!selectedAssignmentDivision || !selectedAssignmentDepartment || !selectedAssignmentSection) {
+  const handleUpdateAssignments = () => {
+    if (sectionSelections.length === 0 && sectionsToDelete.length === 0) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all fields",
+        title: "No Changes",
+        description: "No changes to save",
         variant: "destructive",
       });
       return;
     }
 
-    updateAssignment.mutate({
-      assignmentId: editingAssignmentId,
-      divisionId: selectedAssignmentDivision,
-      departmentId: selectedAssignmentDepartment,
-      sectionId: selectedAssignmentSection,
+    // Separate new assignments from existing ones
+    const newSections = sectionSelections.filter(s => !s.existingId);
+    
+    bulkUpdateAssignments.mutate({
+      toDelete: sectionsToDelete,
+      toCreate: newSections,
     });
   };
 
@@ -313,26 +421,29 @@ export default function DepartmentManagement() {
           section?.name?.toLowerCase().includes(searchQuery.toLowerCase());
       });
 
-    // Role filter
+    // Role filter - compare raw enum values
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
 
-    // Division filter
+    // Division filter - include unassigned users when "all" is selected
     const matchesDivision = selectedDivision === "all" || 
-      userAssignments.some(a => a.divisionId === selectedDivision) ||
-      (userAssignments.length === 0 && selectedDivision === "all");
+      userAssignments.some(a => a.divisionId === selectedDivision);
 
-    // Department filter
+    // Department filter - include unassigned users when "all" is selected
     const matchesDepartment = selectedDepartment === "all" || 
-      userAssignments.some(a => a.departmentId === selectedDepartment) ||
-      (userAssignments.length === 0 && selectedDepartment === "all");
+      userAssignments.some(a => a.departmentId === selectedDepartment);
 
     return matchesSearch && matchesRole && matchesDivision && matchesDepartment;
   });
 
   // Get user details
-  const getDivisionName = (divisionId: string | null) => divisionId ? divisions.find(d => d.id === divisionId)?.name || "Unknown" : "Not Assigned";
-  const getDepartmentName = (departmentId: string | null) => departmentId ? departments.find(d => d.id === departmentId)?.name || "Unknown" : "Not Assigned";
-  const getSectionName = (sectionId: string | null) => sectionId ? sections.find(s => s.id === sectionId)?.name || "Unknown" : "Not Assigned";
+  const getDivisionName = (divisionId: string | null) => 
+    divisionId ? divisions.find(d => d.id === divisionId)?.name || "Unknown" : null;
+  
+  const getDepartmentName = (departmentId: string | null) => 
+    departmentId ? departments.find(d => d.id === departmentId)?.name || "Unknown" : null;
+  
+  const getSectionName = (sectionId: string | null) => 
+    sectionId ? sections.find(s => s.id === sectionId)?.name || "Unknown" : null;
 
   // Get role badge color
   const getRoleBadgeColor = (role: string) => {
@@ -389,9 +500,9 @@ export default function DepartmentManagement() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editMode ? "Edit" : "Create"} Department Assignment</DialogTitle>
+                <DialogTitle>{editMode ? "Edit" : "Create"} Department Assignment{editMode ? "s" : ""}</DialogTitle>
                 <DialogDescription>
-                  {editMode ? "Update the" : "Assign a user to"} division, department, and section{editMode ? "" : "(s)"}
+                  {editMode ? "Modify user's sections - add new ones or remove existing ones" : "Assign a user to one or more sections"}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
@@ -411,123 +522,131 @@ export default function DepartmentManagement() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="division">Division</Label>
-                  <Select value={selectedAssignmentDivision} onValueChange={(value) => {
-                    setSelectedAssignmentDivision(value);
-                    setSelectedAssignmentDepartment("");
-                    setSelectedAssignmentSection("");
-                  }}>
-                    <SelectTrigger id="division" data-testid="select-division">
-                      <SelectValue placeholder="Select a division" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {divisions.map((division) => (
-                        <SelectItem key={division.id} value={division.id}>
-                          {division.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select 
-                    value={selectedAssignmentDepartment} 
-                    onValueChange={(value) => {
-                      setSelectedAssignmentDepartment(value);
-                      setSelectedAssignmentSection("");
-                    }}
-                    disabled={!selectedAssignmentDivision}
-                  >
-                    <SelectTrigger id="department" data-testid="select-department">
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredDepartmentsForAssignment.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="section">Section</Label>
-                  <Select 
-                    value={selectedAssignmentSection} 
-                    onValueChange={setSelectedAssignmentSection}
-                    disabled={!selectedAssignmentDepartment}
-                  >
-                    <SelectTrigger id="section" data-testid="select-section">
-                      <SelectValue placeholder="Select a section" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredSectionsForAssignment.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {!editMode && (
-                  <>
-                    <Button 
-                      type="button"
-                      variant="outline" 
-                      onClick={handleAddSection}
-                      className="w-full"
-                      data-testid="button-add-section"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Section
-                    </Button>
-
-                    {sectionSelections.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Added Sections ({sectionSelections.length})</Label>
-                        <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
-                          {sectionSelections.map((selection) => {
-                            const division = divisions.find(d => d.id === selection.divisionId);
-                            const department = departments.find(d => d.id === selection.departmentId);
-                            const section = sections.find(s => s.id === selection.sectionId);
-                            
-                            return (
-                              <div 
-                                key={selection.id}
-                                className="flex items-center justify-between p-2 bg-muted rounded-md"
-                                data-testid={`section-selection-${selection.id}`}
-                              >
-                                <div className="flex flex-col text-sm">
-                                  <span className="font-medium">{section?.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {division?.name} → {department?.name}
-                                  </span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveSection(selection.id)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                  data-testid={`button-remove-section-${selection.id}`}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                {/* Existing sections list */}
+                {sectionSelections.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>
+                      {editMode ? "Current Sections" : "Added Sections"} ({sectionSelections.length})
+                    </Label>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                      {sectionSelections.map((selection) => {
+                        const division = divisions.find(d => d.id === selection.divisionId);
+                        const department = departments.find(d => d.id === selection.departmentId);
+                        const section = sections.find(s => s.id === selection.sectionId);
+                        
+                        return (
+                          <div 
+                            key={selection.tempId}
+                            className="flex items-center justify-between gap-2 p-2 bg-muted rounded-md"
+                            data-testid={`section-item-${selection.tempId}`}
+                          >
+                            <div className="flex flex-wrap items-center gap-1">
+                              <Badge variant="outline" data-testid={`badge-section-${selection.tempId}`}>
+                                {section?.name || "Unknown"}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {division?.name} → {department?.name}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveSection(selection.tempId, selection.existingId)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
+                              data-testid={`button-remove-section-${selection.tempId}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-4">
+                {/* Add new section form */}
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-sm font-semibold">
+                    {editMode ? "Add New Section" : "Select Section"}
+                  </Label>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="division">Division</Label>
+                    <Select value={selectedAssignmentDivision} onValueChange={(value) => {
+                      setSelectedAssignmentDivision(value);
+                      setSelectedAssignmentDepartment("");
+                      setSelectedAssignmentSection("");
+                    }}>
+                      <SelectTrigger id="division" data-testid="select-division">
+                        <SelectValue placeholder="Select a division" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {divisions.map((division) => (
+                          <SelectItem key={division.id} value={division.id}>
+                            {division.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Select 
+                      value={selectedAssignmentDepartment} 
+                      onValueChange={(value) => {
+                        setSelectedAssignmentDepartment(value);
+                        setSelectedAssignmentSection("");
+                      }}
+                      disabled={!selectedAssignmentDivision}
+                    >
+                      <SelectTrigger id="department" data-testid="select-department">
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredDepartmentsForAssignment.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="section">Section</Label>
+                    <Select 
+                      value={selectedAssignmentSection} 
+                      onValueChange={setSelectedAssignmentSection}
+                      disabled={!selectedAssignmentDepartment}
+                    >
+                      <SelectTrigger id="section" data-testid="select-section">
+                        <SelectValue placeholder="Select a section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredSectionsForAssignment.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={handleAddSection}
+                    className="w-full"
+                    data-testid="button-add-section"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Section
+                  </Button>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
                   <Button 
                     variant="outline" 
                     onClick={() => {
@@ -539,12 +658,12 @@ export default function DepartmentManagement() {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={editMode ? handleUpdateAssignment : handleCreateAssignment}
-                    disabled={editMode ? updateAssignment.isPending : createAssignment.isPending}
+                    onClick={editMode ? handleUpdateAssignments : handleCreateAssignment}
+                    disabled={editMode ? bulkUpdateAssignments.isPending : createAssignment.isPending}
                     data-testid="button-save-assignment"
                   >
                     {editMode 
-                      ? (updateAssignment.isPending ? "Updating..." : "Update Assignment")
+                      ? (bulkUpdateAssignments.isPending ? "Updating..." : "Save Changes")
                       : (createAssignment.isPending ? "Creating..." : "Create Assignment")
                     }
                   </Button>
@@ -677,10 +796,10 @@ export default function DepartmentManagement() {
                         <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">
+                              <span className="font-medium" data-testid={`text-name-${user.id}`}>
                                 {user.firstName} {user.lastName}
                               </span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
                                 {user.email}
                               </span>
                             </div>
@@ -691,16 +810,35 @@ export default function DepartmentManagement() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className="text-muted-foreground text-sm">Not Assigned</span>
+                            <Badge variant="secondary" data-testid={`badge-division-unassigned-${user.id}`}>
+                              Not Assigned
+                            </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className="text-muted-foreground text-sm">Not Assigned</span>
+                            <Badge variant="secondary" data-testid={`badge-department-unassigned-${user.id}`}>
+                              Not Assigned
+                            </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className="text-muted-foreground text-sm">Not Assigned</span>
+                            <Badge variant="secondary" data-testid={`badge-section-unassigned-${user.id}`}>
+                              Not Assigned
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-muted-foreground text-sm">-</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user.id);
+                                setEditMode(false);
+                                setAssignmentDialogOpen(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              data-testid={`button-assign-${user.id}`}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Assign
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -709,14 +847,18 @@ export default function DepartmentManagement() {
                     // For users with one assignment
                     if (userAssignments.length === 1) {
                       const assignment = userAssignments[0];
+                      const divisionName = getDivisionName(assignment.divisionId);
+                      const departmentName = getDepartmentName(assignment.departmentId);
+                      const sectionName = getSectionName(assignment.sectionId);
+                      
                       return (
                         <TableRow key={`${user.id}-${assignment.id}`} data-testid={`row-user-${user.id}`}>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">
+                              <span className="font-medium" data-testid={`text-name-${user.id}`}>
                                 {user.firstName} {user.lastName}
                               </span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
                                 {user.email}
                               </span>
                             </div>
@@ -727,30 +869,48 @@ export default function DepartmentManagement() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              {getDivisionName(assignment.divisionId)}
-                            </div>
+                            {divisionName ? (
+                              <div className="flex items-center gap-2" data-testid={`text-division-${assignment.id}`}>
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                {divisionName}
+                              </div>
+                            ) : (
+                              <Badge variant="secondary" data-testid={`badge-division-unassigned-${assignment.id}`}>
+                                Not Assigned
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Layers className="h-4 w-4 text-muted-foreground" />
-                              {getDepartmentName(assignment.departmentId)}
-                            </div>
+                            {departmentName ? (
+                              <div className="flex items-center gap-2" data-testid={`text-department-${assignment.id}`}>
+                                <Layers className="h-4 w-4 text-muted-foreground" />
+                                {departmentName}
+                              </div>
+                            ) : (
+                              <Badge variant="secondary" data-testid={`badge-department-unassigned-${assignment.id}`}>
+                                Not Assigned
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" data-testid={`badge-section-${assignment.id}`}>
-                              {getSectionName(assignment.sectionId)}
-                            </Badge>
+                            {sectionName ? (
+                              <Badge variant="outline" data-testid={`badge-section-${assignment.id}`}>
+                                {sectionName}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" data-testid={`badge-section-unassigned-${assignment.id}`}>
+                                Not Assigned
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEditAssignment(assignment)}
+                                onClick={() => handleEditUser(user.id)}
                                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                data-testid={`button-edit-${assignment.id}`}
+                                data-testid={`button-edit-user-${user.id}`}
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
@@ -770,16 +930,19 @@ export default function DepartmentManagement() {
                       );
                     }
 
-                    // For users with multiple assignments, show first assignment with all sections as badges
+                    // For users with multiple assignments
                     const firstAssignment = userAssignments[0];
+                    const divisionName = getDivisionName(firstAssignment.divisionId);
+                    const departmentName = getDepartmentName(firstAssignment.departmentId);
+                    
                     return (
                       <TableRow key={`${user.id}-multiple`} data-testid={`row-user-${user.id}`}>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium">
+                            <span className="font-medium" data-testid={`text-name-${user.id}`}>
                               {user.firstName} {user.lastName}
                             </span>
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
                               {user.email}
                             </span>
                           </div>
@@ -790,56 +953,64 @@ export default function DepartmentManagement() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            {getDivisionName(firstAssignment.divisionId)}
-                          </div>
+                          {divisionName ? (
+                            <div className="flex items-center gap-2" data-testid={`text-division-${user.id}`}>
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              {divisionName}
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" data-testid={`badge-division-unassigned-${user.id}`}>
+                              Not Assigned
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Layers className="h-4 w-4 text-muted-foreground" />
-                            {getDepartmentName(firstAssignment.departmentId)}
-                          </div>
+                          {departmentName ? (
+                            <div className="flex items-center gap-2" data-testid={`text-department-${user.id}`}>
+                              <Layers className="h-4 w-4 text-muted-foreground" />
+                              {departmentName}
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" data-testid={`badge-department-unassigned-${user.id}`}>
+                              Not Assigned
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {userAssignments.map((assignment) => (
-                              <Badge 
-                                key={assignment.id} 
-                                variant="outline"
-                                data-testid={`badge-section-${assignment.id}`}
-                              >
-                                {getSectionName(assignment.sectionId)}
-                              </Badge>
-                            ))}
+                            {userAssignments.map((assignment) => {
+                              const sectionName = getSectionName(assignment.sectionId);
+                              return sectionName ? (
+                                <Badge 
+                                  key={assignment.id} 
+                                  variant="outline"
+                                  data-testid={`badge-section-${assignment.id}`}
+                                >
+                                  {sectionName}
+                                </Badge>
+                              ) : (
+                                <Badge 
+                                  key={assignment.id}
+                                  variant="secondary" 
+                                  data-testid={`badge-section-unassigned-${assignment.id}`}
+                                >
+                                  Not Assigned
+                                </Badge>
+                              );
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-col gap-1">
-                            {userAssignments.map((assignment) => (
-                              <div key={assignment.id} className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditAssignment(assignment)}
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                  data-testid={`button-edit-${assignment.id}`}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteAssignment.mutate(assignment.id)}
-                                  disabled={deleteAssignment.isPending}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                  data-testid={`button-delete-${assignment.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditUser(user.id)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            data-testid={`button-edit-user-${user.id}`}
+                          >
+                            <Edit2 className="h-4 w-4 mr-1" />
+                            Edit All
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
