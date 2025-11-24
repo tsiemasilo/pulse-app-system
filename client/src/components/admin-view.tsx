@@ -647,15 +647,15 @@ export default function AdminView({ currentUser }: AdminViewProps) {
         };
 
         return (
-          <div className="flex flex-col h-full animate-in fade-in-50 duration-500">
-            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg p-4 sm:p-6 border border-orange-100 dark:border-orange-800/30 mb-6">
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg p-4 sm:p-6 border border-orange-100 dark:border-orange-800/30">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Organizational Structure
               </h2>
               <p className="text-sm sm:text-base text-orange-600 dark:text-orange-400">View and manage organizational hierarchy</p>
             </div>
             
-            <div className="flex-1 overflow-hidden">
+            <div className="h-[700px] rounded-lg border bg-card overflow-hidden">
               {allUsers.filter(u => u.isActive).length === 0 ? (
                 <Card className="p-12 text-center">
                   <CardContent>
