@@ -16,6 +16,10 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 36237
+externalPort = 3001
+
+[[ports]]
 localPort = 43171
 externalPort = 3000
 
@@ -69,3 +73,9 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0"]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+DATABASE_URL = "postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+NETLIFY_DATABASE_URL = "postgresql://neondb_owner:npg_BlEt5Fb7AiTI@ep-young-truth-aesambe6-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
