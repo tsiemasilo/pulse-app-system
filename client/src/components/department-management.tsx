@@ -22,8 +22,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Building2, Layers, MapPin, Users, Plus, Trash2, Edit2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { 
   User, 
   Division, 
@@ -55,6 +66,9 @@ export default function DepartmentManagement() {
   const [sectionsToDelete, setSectionsToDelete] = useState<string[]>([]); // Track sections to delete in edit mode
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assignmentsToDelete, setAssignmentsToDelete] = useState<UserDepartmentAssignment[]>([]);
+  const [selectedAssignmentsForDeletion, setSelectedAssignmentsForDeletion] = useState<string[]>([]);
 
   // Fetch data
   const { data: users = [] } = useQuery<User[]>({
@@ -239,6 +253,48 @@ export default function DepartmentManagement() {
     },
   });
 
+  // Bulk delete assignments mutation
+  const bulkDeleteAssignments = useMutation({
+    mutationFn: async (assignmentIds: string[]) => {
+      const results = [];
+      for (const id of assignmentIds) {
+        try {
+          await apiRequest("DELETE", `/api/user-department-assignments/${id}`);
+          results.push({ success: true, id });
+        } catch (error: any) {
+          results.push({ success: false, id, error: error.message });
+        }
+      }
+      return results;
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
+      const failures = results.filter(r => !r.success);
+      if (failures.length === 0) {
+        toast({
+          title: "Assignments Removed",
+          description: `Successfully removed ${results.length} assignment${results.length !== 1 ? 's' : ''}.`,
+        });
+      } else {
+        toast({
+          title: "Partial Deletion",
+          description: `Removed ${results.length - failures.length} assignment${results.length - failures.length !== 1 ? 's' : ''}, ${failures.length} failed.`,
+          variant: "destructive",
+        });
+      }
+      setDeleteDialogOpen(false);
+      setAssignmentsToDelete([]);
+      setSelectedAssignmentsForDeletion([]);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove assignments",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetAssignmentForm = () => {
     setSelectedUser("");
     setSelectedAssignmentDivision("");
@@ -247,6 +303,49 @@ export default function DepartmentManagement() {
     setSectionSelections([]);
     setSectionsToDelete([]);
     setEditMode(false);
+  };
+
+  const handleOpenDeleteDialog = (userId: string) => {
+    const userAssignments = assignments.filter(a => a.userId === userId);
+    if (userAssignments.length === 0) {
+      toast({
+        title: "No Assignments",
+        description: "This user has no assignments to delete.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAssignmentsToDelete(userAssignments);
+    setSelectedAssignmentsForDeletion(userAssignments.map(a => a.id));
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedAssignmentsForDeletion.length === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select at least one assignment to delete.",
+        variant: "destructive",
+      });
+      return;
+    }
+    bulkDeleteAssignments.mutate(selectedAssignmentsForDeletion);
+  };
+
+  const toggleAssignmentSelection = (assignmentId: string) => {
+    setSelectedAssignmentsForDeletion(prev =>
+      prev.includes(assignmentId)
+        ? prev.filter(id => id !== assignmentId)
+        : [...prev, assignmentId]
+    );
+  };
+
+  const selectAllAssignments = () => {
+    setSelectedAssignmentsForDeletion(assignmentsToDelete.map(a => a.id));
+  };
+
+  const deselectAllAssignments = () => {
+    setSelectedAssignmentsForDeletion([]);
   };
 
   const handleAddSection = () => {
@@ -290,11 +389,11 @@ export default function DepartmentManagement() {
   };
 
   const handleRemoveSection = (tempId: string, existingId?: string) => {
-    setSectionSelections(sectionSelections.filter(s => s.tempId !== tempId));
+    setSectionSelections(prev => prev.filter(s => s.tempId !== tempId));
     
     // If this was an existing assignment, mark it for deletion
     if (existingId && editMode) {
-      setSectionsToDelete([...sectionsToDelete, existingId]);
+      setSectionsToDelete(prev => [...prev, existingId]);
     }
   };
 
@@ -308,13 +407,25 @@ export default function DepartmentManagement() {
       return;
     }
 
+    // If no sections in list but user has selected division/department/section, add it automatically
     if (sectionSelections.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please add at least one section",
-        variant: "destructive",
-      });
-      return;
+      if (selectedAssignmentDivision && selectedAssignmentDepartment && selectedAssignmentSection) {
+        const newSection: SectionSelection = {
+          tempId: crypto.randomUUID(),
+          divisionId: selectedAssignmentDivision,
+          departmentId: selectedAssignmentDepartment,
+          sectionId: selectedAssignmentSection,
+        };
+        createAssignment.mutate([newSection]);
+        return;
+      } else {
+        toast({
+          title: "Missing Information",
+          description: "Please select division, department, and section",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     createAssignment.mutate(sectionSelections);
@@ -351,6 +462,7 @@ export default function DepartmentManagement() {
   };
 
   const handleUpdateAssignments = () => {
+    // Allow saving even if all sections are removed (deletion only)
     if (sectionSelections.length === 0 && sectionsToDelete.length === 0) {
       toast({
         title: "No Changes",
@@ -363,6 +475,7 @@ export default function DepartmentManagement() {
     // Separate new assignments from existing ones
     const newSections = sectionSelections.filter(s => !s.existingId);
     
+    // If user removed all sections and has nothing new to add, we're deleting all
     bulkUpdateAssignments.mutate({
       toDelete: sectionsToDelete,
       toCreate: newSections,
@@ -937,10 +1050,9 @@ export default function DepartmentManagement() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => deleteAssignment.mutate(assignment.id)}
-                                disabled={deleteAssignment.isPending}
+                                onClick={() => handleOpenDeleteDialog(user.id)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                data-testid={`button-delete-${assignment.id}`}
+                                data-testid={`button-delete-${user.id}`}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1022,16 +1134,26 @@ export default function DepartmentManagement() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditUser(user.id)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            data-testid={`button-edit-user-${user.id}`}
-                          >
-                            <Edit2 className="h-4 w-4 mr-1" />
-                            Edit All
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(user.id)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              data-testid={`button-edit-user-${user.id}`}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDeleteDialog(user.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              data-testid={`button-delete-${user.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1071,6 +1193,97 @@ export default function DepartmentManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="sm:max-w-[500px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Department Assignments</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select which assignments to remove for this user. You can select individual assignments or remove all.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 my-4">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="text-sm font-medium">Assignments to delete:</span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllAssignments}
+                  data-testid="button-select-all-assignments"
+                >
+                  Select All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={deselectAllAssignments}
+                  data-testid="button-deselect-all-assignments"
+                >
+                  Deselect All
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {assignmentsToDelete.map((assignment) => {
+                const division = divisions.find(d => d.id === assignment.divisionId);
+                const department = departments.find(d => d.id === assignment.departmentId);
+                const section = sections.find(s => s.id === assignment.sectionId);
+                const isSelected = selectedAssignmentsForDeletion.includes(assignment.id);
+                
+                return (
+                  <div
+                    key={assignment.id}
+                    className="flex items-center gap-3 p-3 border rounded-md hover-elevate cursor-pointer"
+                    onClick={() => toggleAssignmentSelection(assignment.id)}
+                    data-testid={`delete-assignment-item-${assignment.id}`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleAssignmentSelection(assignment.id)}
+                      data-testid={`checkbox-assignment-${assignment.id}`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" data-testid={`badge-section-${assignment.id}`}>
+                          {section?.name || "Unknown"}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {division?.name} → {department?.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              {selectedAssignmentsForDeletion.length} of {assignmentsToDelete.length} assignment{assignmentsToDelete.length !== 1 ? 's' : ''} selected
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={bulkDeleteAssignments.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              data-testid="button-confirm-delete"
+            >
+              {bulkDeleteAssignments.isPending ? "Deleting..." : "Delete Selected"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
