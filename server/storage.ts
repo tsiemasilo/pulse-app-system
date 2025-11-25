@@ -95,6 +95,7 @@ export interface IStorage {
   getUserDepartmentAssignment(userId: string): Promise<UserDepartmentAssignment | undefined>;
   assignUserToDepartment(assignment: InsertUserDepartmentAssignment): Promise<UserDepartmentAssignment>;
   removeUserDepartmentAssignment(userId: string): Promise<void>;
+  removeUserDepartmentAssignmentById(assignmentId: string): Promise<void>;
   
   // Asset management
   getAllAssets(): Promise<Asset[]>;
@@ -548,6 +549,10 @@ export class DatabaseStorage implements IStorage {
 
   async removeUserDepartmentAssignment(userId: string): Promise<void> {
     await db.delete(userDepartmentAssignments).where(eq(userDepartmentAssignments.userId, userId));
+  }
+
+  async removeUserDepartmentAssignmentById(assignmentId: string): Promise<void> {
+    await db.delete(userDepartmentAssignments).where(eq(userDepartmentAssignments.id, assignmentId));
   }
 
   // Asset management

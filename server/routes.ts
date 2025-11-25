@@ -374,14 +374,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/user-department-assignments/:userId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/user-department-assignments/:id', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       if (user?.role !== 'admin' && user?.role !== 'hr' && user?.role !== 'team_leader') {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      await storage.removeUserDepartmentAssignment(req.params.userId);
+      await storage.removeUserDepartmentAssignmentById(req.params.id);
       res.json({ message: "User department assignment removed successfully" });
     } catch (error) {
       console.error("Error removing user department assignment:", error);
