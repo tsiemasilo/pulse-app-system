@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Layers, MapPin, Users, Plus, Trash2, Edit2, Search, X } from "lucide-react";
+import { Building2, Layers, MapPin, Users, Plus, Trash2, Edit2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { 
   User, 
@@ -53,6 +53,8 @@ export default function DepartmentManagement() {
   const [selectedAssignmentSection, setSelectedAssignmentSection] = useState<string>("");
   const [sectionSelections, setSectionSelections] = useState<SectionSelection[]>([]);
   const [sectionsToDelete, setSectionsToDelete] = useState<string[]>([]); // Track sections to delete in edit mode
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
 
   // Fetch data
   const { data: users = [] } = useQuery<User[]>({
@@ -457,6 +459,37 @@ export default function DepartmentManagement() {
     return roleMap[role] || role;
   };
 
+  // Pagination logic - clamp page synchronously to handle data mutations
+  const totalPages = Math.ceil(filteredUserRows.length / recordsPerPage);
+  const safePage = Math.max(1, Math.min(currentPage, Math.max(totalPages, 1)));
+  const startIndex = (safePage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedUserRows = filteredUserRows.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    if (safePage < totalPages) {
+      setCurrentPage(safePage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (safePage > 1) {
+      setCurrentPage(safePage - 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedRole, selectedDivision, selectedDepartment]);
+
+  // Sync currentPage state with safePage when they diverge (after data mutations)
+  useEffect(() => {
+    if (currentPage !== safePage) {
+      setCurrentPage(safePage);
+    }
+  }, [safePage, currentPage]);
+
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
       {/* Header */}
@@ -748,7 +781,10 @@ export default function DepartmentManagement() {
         <CardHeader>
           <CardTitle className="text-lg">Employee Assignments</CardTitle>
           <CardDescription>
-            {filteredUserRows.length} employee{filteredUserRows.length !== 1 ? 's' : ''} found
+            {filteredUserRows.length > 0 
+              ? `Showing ${Math.min(startIndex + 1, filteredUserRows.length)} to ${Math.min(endIndex, filteredUserRows.length)} of ${filteredUserRows.length} employee${filteredUserRows.length !== 1 ? 's' : ''}`
+              : 'No employees found'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -765,14 +801,14 @@ export default function DepartmentManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUserRows.length === 0 ? (
+                {paginatedUserRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No employees found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUserRows.map(({ user, assignments: userAssignments }) => {
+                  paginatedUserRows.map(({ user, assignments: userAssignments }) => {
                     // For users with no assignments
                     if (userAssignments.length === 0) {
                       return (
@@ -1003,6 +1039,35 @@ export default function DepartmentManagement() {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between border-t pt-4 mt-4">
+            <div className="text-sm text-muted-foreground">
+              Page {safePage} of {totalPages || 1}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={safePage === 1}
+                data-testid="button-previous-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={safePage >= totalPages || totalPages === 0}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
