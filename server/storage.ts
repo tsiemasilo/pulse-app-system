@@ -799,27 +799,32 @@ export class DatabaseStorage implements IStorage {
         // Determine appropriate status
         let statusToUse: any = 'at work';
         
-        // Check for recent termination status
+        // Define termination statuses that should persist
+        const terminationStatuses = ['AWOL', 'suspended', 'resignation', 'terminated'];
+        
+        // Check for recent termination status using inArray for reliable matching
         const recentTerminations = await db
           .select()
           .from(attendance)
           .where(and(
             eq(attendance.userId, agent.id),
-            sql`(${attendance.status} = 'AWOL' OR ${attendance.status} = 'suspended' OR ${attendance.status} = 'resignation' OR ${attendance.status} = 'terminated')`
+            inArray(attendance.status, terminationStatuses)
           ))
           .orderBy(desc(attendance.date))
           .limit(1);
         
         if (recentTerminations.length > 0) {
+          // Preserve termination status - these should persist until manually changed
           statusToUse = recentTerminations[0].status;
+          console.log(`Preserving termination status for agent ${agent.id}: ${statusToUse}`);
         } else {
-          // Check for remote work persistence
+          // Check for remote work persistence using inArray
           const recentWorkingDay = await db
             .select()
             .from(attendance)
             .where(and(
               eq(attendance.userId, agent.id),
-              sql`(${attendance.status} = 'at work' OR ${attendance.status} = 'at work (remote)')`
+              inArray(attendance.status, ['at work', 'at work (remote)'])
             ))
             .orderBy(desc(attendance.date))
             .limit(1);
