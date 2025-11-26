@@ -130,7 +130,7 @@ export interface IStorage {
   getAllTransfers(): Promise<Transfer[]>;
   getTransfersByRequester(requesterId: string): Promise<Transfer[]>;
   getTransfersForTeamLeader(teamLeaderId: string): Promise<Transfer[]>;
-  createTransfer(transfer: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer>;
+  createTransfer(transfer: InsertTransfer & { newDepartmentId?: string; newDivisionId?: string; newSectionId?: string }): Promise<Transfer>;
   updateTransferStatus(transferId: string, status: string, approvedBy?: string): Promise<Transfer>;
   completeTransfer(transferId: string): Promise<void>;
   deleteTransfer(transferId: string): Promise<void>;
@@ -1025,8 +1025,8 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string }): Promise<Transfer> {
-    const { newDepartmentId, ...transferValues } = transferData;
+  async createTransfer(transferData: InsertTransfer & { newDepartmentId?: string; newDivisionId?: string; newSectionId?: string }): Promise<Transfer> {
+    const { newDepartmentId, newDivisionId, newSectionId, ...transferValues } = transferData;
     
     const toDepartmentId = newDepartmentId || transferValues.toDepartmentId;
     
@@ -1048,6 +1048,41 @@ export class DatabaseStorage implements IStorage {
     };
     
     const [transfer] = await db.insert(transfers).values(transferDataWithDept).returning();
+    
+    // If department hierarchy is specified, update or create the user's department assignment
+    if (newDivisionId || newDepartmentId || newSectionId) {
+      const userId = transferData.userId;
+      
+      // Check if user already has a department assignment
+      const [existingAssignment] = await db
+        .select()
+        .from(userDepartmentAssignments)
+        .where(eq(userDepartmentAssignments.userId, userId))
+        .limit(1);
+      
+      if (existingAssignment) {
+        // Update the existing assignment with the new department hierarchy
+        await db
+          .update(userDepartmentAssignments)
+          .set({
+            divisionId: newDivisionId || existingAssignment.divisionId,
+            departmentId: newDepartmentId || existingAssignment.departmentId,
+            sectionId: newSectionId || existingAssignment.sectionId,
+            assignedAt: new Date(),
+            assignedBy: transferData.requestedBy,
+          })
+          .where(eq(userDepartmentAssignments.id, existingAssignment.id));
+      } else {
+        // Create a new department assignment for the user
+        await db.insert(userDepartmentAssignments).values({
+          userId,
+          divisionId: newDivisionId || null,
+          departmentId: newDepartmentId || null,
+          sectionId: newSectionId || null,
+          assignedBy: transferData.requestedBy,
+        });
+      }
+    }
     
     return transfer;
   }

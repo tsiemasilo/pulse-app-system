@@ -1689,13 +1689,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: z.string().nullable().transform((str) => str ? new Date(str) : null),
       });
 
-      const { newDepartmentId, ...transferBody } = req.body;
+      const { newDepartmentId, newDivisionId, newSectionId, ...transferBody } = req.body;
       const transferData = transferApiSchema.parse(transferBody);
       
-      // Pass newDepartmentId separately to createTransfer
+      // Pass department hierarchy IDs separately to createTransfer
       const transfer = await storage.createTransfer({
         ...transferData,
         newDepartmentId,
+        newDivisionId,
+        newSectionId,
       });
       
       res.json(transfer);

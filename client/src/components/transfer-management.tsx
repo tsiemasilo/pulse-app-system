@@ -407,13 +407,15 @@ export default function TransferManagement() {
   }, [teamMembers, userDepartmentAssignments]);
 
   const transferMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof transferFormSchema> & { newDepartmentId?: string }) => {
-      const { newDepartmentId, ...formData } = data;
+    mutationFn: async (data: z.infer<typeof transferFormSchema> & { newDepartmentId?: string; newDivisionId?: string; newSectionId?: string }) => {
+      const { newDepartmentId, newDivisionId, newSectionId, ...formData } = data;
       const transferData = {
         ...formData,
         startDate: new Date(formData.startDate),
         endDate: formData.endDate ? new Date(formData.endDate) : null,
         newDepartmentId,
+        newDivisionId,
+        newSectionId,
       };
       const res = await apiRequest("POST", "/api/transfers", transferData);
       return await res.json();
@@ -638,7 +640,9 @@ export default function TransferManagement() {
     
     transferMutation.mutate({
       ...pendingTransferData,
+      newDivisionId: newDivisionId,
       newDepartmentId: newDepartmentId,
+      newSectionId: newSectionId,
     });
   };
 
@@ -710,9 +714,40 @@ export default function TransferManagement() {
         startDate: transferStartDate,
         endDate: transferEndDate || undefined,
         requestedBy: user?.id || "",
+        newDivisionId: transferDivisionId,
         newDepartmentId: transferDepartmentId,
+        newSectionId: transferSectionId,
       });
     } else {
+      if (!transferSectionId) {
+        toast({
+          title: "Error",
+          description: "Please select a section",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const sectionTeamLeader = getTeamLeaderForSection(transferSectionId);
+      if (!sectionTeamLeader) {
+        toast({
+          title: "Error",
+          description: "No team leader found for the selected section. Cannot transfer.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const targetTeamId = getTeamIdForLeader(sectionTeamLeader.id);
+      if (!targetTeamId) {
+        toast({
+          title: "Error",
+          description: "The team leader for this section does not have a team assigned.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const currentTeam = leaderTeams[0];
       if (!currentTeam) {
         toast({
@@ -723,42 +758,15 @@ export default function TransferManagement() {
         return;
       }
 
-      const agent = users.find(u => u.id === selectedTransferAgent);
-      if (agent?.departmentId) {
-        setSelectedDepartmentId(agent.departmentId);
-      }
-
-      const selectedLeader = allTeamLeaders.find(tl => {
-        if (transferSectionId) {
-          const tlAssignment = userDepartmentAssignments.find(a => 
-            a.userId === tl.id && a.sectionId === transferSectionId
-          );
-          return !!tlAssignment;
-        }
-        return false;
-      });
-
-      if (selectedLeader) {
-        const targetTeamId = getTeamIdForLeader(selectedLeader.id);
-        if (targetTeamId) {
-          transferMutation.mutate({
-            userId: selectedTransferAgent,
-            fromTeamId: currentTeam.id,
-            toTeamId: targetTeamId,
-            location: transferLocation,
-            transferType: transferType,
-            startDate: transferStartDate,
-            endDate: transferEndDate || undefined,
-            requestedBy: user?.id || "",
-          });
-          return;
-        }
-      }
-
-      toast({
-        title: "Error",
-        description: "Unable to determine destination team. Please select a section with a team leader.",
-        variant: "destructive",
+      transferMutation.mutate({
+        userId: selectedTransferAgent,
+        fromTeamId: currentTeam.id,
+        toTeamId: targetTeamId,
+        location: transferLocation,
+        transferType: transferType,
+        startDate: transferStartDate,
+        endDate: transferEndDate || undefined,
+        requestedBy: user?.id || "",
       });
     }
   };
