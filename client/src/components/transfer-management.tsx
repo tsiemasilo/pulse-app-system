@@ -48,6 +48,7 @@ const departmentAssignmentFormSchema = insertUserDepartmentAssignmentSchema.omit
 const AVAILABLE_LOCATIONS = [
   { id: 'thandanani', name: 'Thandanani' },
   { id: '16th', name: '16th' },
+  { id: 'remote', name: 'Remote' },
 ];
 
 type UnifiedRecord = {
@@ -61,6 +62,8 @@ type UnifiedRecord = {
   transfer?: Transfer;
   assignment?: UserDepartmentAssignment;
 };
+
+type TransferMode = 'select' | 'keep_departments' | 'change_departments';
 
 export default function TransferManagement() {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,6 +85,16 @@ export default function TransferManagement() {
   const [newDivisionId, setNewDivisionId] = useState<string>("");
   const [newDepartmentId, setNewDepartmentId] = useState<string>("");
   const [newSectionId, setNewSectionId] = useState<string>("");
+  
+  const [transferMode, setTransferMode] = useState<TransferMode>('select');
+  const [selectedTransferAgent, setSelectedTransferAgent] = useState<string>("");
+  const [transferDivisionId, setTransferDivisionId] = useState<string>("");
+  const [transferDepartmentId, setTransferDepartmentId] = useState<string>("");
+  const [transferSectionId, setTransferSectionId] = useState<string>("");
+  const [transferType, setTransferType] = useState<string>("temporary");
+  const [transferLocation, setTransferLocation] = useState<string>("");
+  const [transferStartDate, setTransferStartDate] = useState<string>("");
+  const [transferEndDate, setTransferEndDate] = useState<string>("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -186,6 +199,72 @@ export default function TransferManagement() {
     if (!sectionId) return 'N/A';
     const section = sections.find(s => s.id === sectionId);
     return section?.name || 'Unknown';
+  };
+
+  const getAgentCurrentDepartmentInfo = (agentId: string) => {
+    const assignment = userDepartmentAssignments.find(a => a.userId === agentId);
+    if (!assignment) return null;
+    return {
+      divisionId: assignment.divisionId,
+      departmentId: assignment.departmentId,
+      sectionId: assignment.sectionId,
+      divisionName: getDivisionName(assignment.divisionId),
+      departmentName: getDepartmentName(assignment.departmentId),
+      sectionName: getSectionName(assignment.sectionId),
+    };
+  };
+
+  const getTeamLeaderForSection = (sectionId: string) => {
+    const assignmentsForSection = userDepartmentAssignments.filter(a => a.sectionId === sectionId);
+    for (const assignment of assignmentsForSection) {
+      const assignedUser = users.find(u => u.id === assignment.userId);
+      if (assignedUser && assignedUser.role === 'team_leader') {
+        return assignedUser;
+      }
+    }
+    return null;
+  };
+
+  const getUsersAssignedToDivision = (divisionId: string) => {
+    const assignments = userDepartmentAssignments.filter(a => a.divisionId === divisionId);
+    return assignments.map(a => users.find(u => u.id === a.userId)).filter(Boolean) as UserType[];
+  };
+
+  const getUsersAssignedToDepartment = (departmentId: string) => {
+    const assignments = userDepartmentAssignments.filter(a => a.departmentId === departmentId);
+    return assignments.map(a => users.find(u => u.id === a.userId)).filter(Boolean) as UserType[];
+  };
+
+  const transferFilteredDepartments = useMemo(() => {
+    if (!transferDivisionId) return [];
+    return departments.filter(d => d.divisionId === transferDivisionId);
+  }, [transferDivisionId, departments]);
+
+  const transferFilteredSections = useMemo(() => {
+    if (!transferDepartmentId) return [];
+    return sections.filter(s => s.departmentId === transferDepartmentId);
+  }, [transferDepartmentId, sections]);
+
+  const selectedAgentDeptInfo = useMemo(() => {
+    if (!selectedTransferAgent) return null;
+    return getAgentCurrentDepartmentInfo(selectedTransferAgent);
+  }, [selectedTransferAgent, userDepartmentAssignments]);
+
+  const selectedSectionTeamLeader = useMemo(() => {
+    if (!transferSectionId) return null;
+    return getTeamLeaderForSection(transferSectionId);
+  }, [transferSectionId, userDepartmentAssignments, users]);
+
+  const resetTransferForm = () => {
+    setTransferMode('select');
+    setSelectedTransferAgent('');
+    setTransferDivisionId('');
+    setTransferDepartmentId('');
+    setTransferSectionId('');
+    setTransferType('temporary');
+    setTransferLocation('');
+    setTransferStartDate('');
+    setTransferEndDate('');
   };
 
   const unifiedRecords = useMemo(() => {
@@ -345,10 +424,12 @@ export default function TransferManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/leader"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-department-assignments"] });
       setIsOpen(false);
       setShowDepartmentDialog(false);
       setPendingTransferData(null);
       setSelectedDepartmentId("");
+      resetTransferForm();
       form.reset();
       toast({
         title: "Transfer Created",
@@ -559,6 +640,127 @@ export default function TransferManagement() {
       ...pendingTransferData,
       newDepartmentId: newDepartmentId,
     });
+  };
+
+  const handleDepartmentBasedTransfer = () => {
+    if (!selectedTransferAgent) {
+      toast({
+        title: "Error",
+        description: "Please select an agent",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!transferStartDate) {
+      toast({
+        title: "Error",
+        description: "Please select a start date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (transferMode === 'change_departments') {
+      if (!transferSectionId) {
+        toast({
+          title: "Error",
+          description: "Please select a section",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const teamLeader = getTeamLeaderForSection(transferSectionId);
+      if (!teamLeader) {
+        toast({
+          title: "Error",
+          description: "No team leader found for the selected section. Please select a section with an assigned team leader.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const targetTeamId = getTeamIdForLeader(teamLeader.id);
+      if (!targetTeamId) {
+        toast({
+          title: "Error",
+          description: "The team leader doesn't have a team. Please contact administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentTeam = leaderTeams[0];
+      if (!currentTeam) {
+        toast({
+          title: "Error",
+          description: "Unable to determine current team. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      transferMutation.mutate({
+        userId: selectedTransferAgent,
+        fromTeamId: currentTeam.id,
+        toTeamId: targetTeamId,
+        location: transferLocation,
+        transferType: transferType,
+        startDate: transferStartDate,
+        endDate: transferEndDate || undefined,
+        requestedBy: user?.id || "",
+        newDepartmentId: transferDepartmentId,
+      });
+    } else {
+      const currentTeam = leaderTeams[0];
+      if (!currentTeam) {
+        toast({
+          title: "Error",
+          description: "Unable to determine current team. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const agent = users.find(u => u.id === selectedTransferAgent);
+      if (agent?.departmentId) {
+        setSelectedDepartmentId(agent.departmentId);
+      }
+
+      const selectedLeader = allTeamLeaders.find(tl => {
+        if (transferSectionId) {
+          const tlAssignment = userDepartmentAssignments.find(a => 
+            a.userId === tl.id && a.sectionId === transferSectionId
+          );
+          return !!tlAssignment;
+        }
+        return false;
+      });
+
+      if (selectedLeader) {
+        const targetTeamId = getTeamIdForLeader(selectedLeader.id);
+        if (targetTeamId) {
+          transferMutation.mutate({
+            userId: selectedTransferAgent,
+            fromTeamId: currentTeam.id,
+            toTeamId: targetTeamId,
+            location: transferLocation,
+            transferType: transferType,
+            startDate: transferStartDate,
+            endDate: transferEndDate || undefined,
+            requestedBy: user?.id || "",
+          });
+          return;
+        }
+      }
+
+      toast({
+        title: "Error",
+        description: "Unable to determine destination team. Please select a section with a team leader.",
+        variant: "destructive",
+      });
+    }
   };
 
   const onAddDepartmentSubmit = (data: z.infer<typeof departmentAssignmentFormSchema>) => {
@@ -921,180 +1123,324 @@ export default function TransferManagement() {
       </DialogContent>
     </Dialog>
 
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) resetTransferForm();
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Agent Transfer</DialogTitle>
+          <DialogTitle>
+            {transferMode === 'select' && 'Create Agent Transfer'}
+            {transferMode === 'keep_departments' && 'Transfer - Keep Same Department'}
+            {transferMode === 'change_departments' && 'Transfer - Change Department'}
+          </DialogTitle>
           <DialogDescription>
-            Transfer an agent from your team to another team leader
+            {transferMode === 'select' && 'Select the transfer mode to continue'}
+            {transferMode === 'keep_departments' && 'Transfer an agent while keeping their current department assignment'}
+            {transferMode === 'change_departments' && 'Transfer an agent to a new department and section'}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="userId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Agent to Transfer</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-transfer-user">
-                        <SelectValue placeholder="Select agent" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {teamMembers.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.firstName} {agent.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="fromTeamId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>From Team Leader</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-from-team">
-                          <SelectValue placeholder="Select current team" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {leaderTeams.map((team) => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.name} ({user?.firstName} {user?.lastName})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="toTeamId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>To Team Leader</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-to-team">
-                          <SelectValue placeholder="Select destination team" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {allTeamLeaders.map((teamLeader) => (
-                          <SelectItem key={teamLeader.id} value={teamLeader.id}>
-                            {teamLeader.firstName} {teamLeader.lastName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {transferMode === 'select' && (
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Choose how you want to handle the department assignment for this transfer:
+            </p>
+            <div className="grid gap-4">
+              <Button
+                variant="outline"
+                className="flex flex-col items-start gap-2 p-4 h-auto text-left"
+                onClick={() => setTransferMode('keep_departments')}
+                data-testid="button-mode-keep-departments"
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <Building2 className="h-4 w-4" />
+                  Keep Same Departments
+                </div>
+                <p className="text-sm text-muted-foreground font-normal">
+                  Agent keeps their current department assignment. Select a section with a team leader to transfer to.
+                </p>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex flex-col items-start gap-2 p-4 h-auto text-left"
+                onClick={() => setTransferMode('change_departments')}
+                data-testid="button-mode-change-departments"
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <Layers className="h-4 w-4" />
+                  Change Departments
+                </div>
+                <p className="text-sm text-muted-foreground font-normal">
+                  Select a new division, department, and section. The agent will be transferred to the team leader managing that section.
+                </p>
+              </Button>
             </div>
-
-            <FormField
-              control={form.control}
-              name="transferType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Transfer Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-transfer-type">
-                        <SelectValue placeholder="Select transfer type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="temporary">Temporary</SelectItem>
-                      <SelectItem value="permanent">Permanent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-location">
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {AVAILABLE_LOCATIONS.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} data-testid="input-start-date" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Date (for temporary transfers)</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} data-testid="input-end-date" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} data-testid="button-cancel-transfer">
+            <div className="flex justify-end pt-4">
+              <Button variant="ghost" onClick={() => setIsOpen(false)} data-testid="button-cancel-mode-select">
                 Cancel
               </Button>
-              <Button type="submit" disabled={transferMutation.isPending} data-testid="button-submit-transfer">
-                {transferMutation.isPending ? "Creating..." : "Create Transfer"}
-              </Button>
             </div>
-          </form>
-        </Form>
+          </div>
+        )}
+
+        {(transferMode === 'keep_departments' || transferMode === 'change_departments') && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Agent to Transfer</label>
+              <Select
+                value={selectedTransferAgent}
+                onValueChange={(value) => {
+                  setSelectedTransferAgent(value);
+                  setTransferDivisionId('');
+                  setTransferDepartmentId('');
+                  setTransferSectionId('');
+                }}
+              >
+                <SelectTrigger data-testid="select-transfer-agent">
+                  <SelectValue placeholder="Select agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.firstName} {agent.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedTransferAgent && selectedAgentDeptInfo && (
+              <div className="p-3 bg-muted rounded-lg space-y-1" data-testid="agent-current-department-info">
+                <p className="text-xs font-medium text-muted-foreground">Current Department Assignment:</p>
+                <p className="text-sm font-medium">
+                  {selectedAgentDeptInfo.divisionName} 
+                  <span className="text-muted-foreground mx-1">›</span>
+                  {selectedAgentDeptInfo.departmentName}
+                  <span className="text-muted-foreground mx-1">›</span>
+                  {selectedAgentDeptInfo.sectionName}
+                </p>
+              </div>
+            )}
+
+            {selectedTransferAgent && !selectedAgentDeptInfo && (
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg" data-testid="agent-no-department-warning">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  This agent does not have a department assignment yet.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {transferMode === 'change_departments' ? 'New Division' : 'Division'}
+              </label>
+              <Select
+                value={transferDivisionId}
+                onValueChange={(value) => {
+                  setTransferDivisionId(value);
+                  setTransferDepartmentId('');
+                  setTransferSectionId('');
+                }}
+              >
+                <SelectTrigger data-testid="select-transfer-division">
+                  <SelectValue placeholder="Select division" />
+                </SelectTrigger>
+                <SelectContent>
+                  {divisions.map((division) => {
+                    const assignedUsers = getUsersAssignedToDivision(division.id);
+                    const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                    return (
+                      <SelectItem key={division.id} value={division.id}>
+                        <div className="flex flex-col">
+                          <span>{division.name}</span>
+                          {assignedUsers.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {transferMode === 'change_departments' ? 'New Department' : 'Department'}
+              </label>
+              <Select
+                value={transferDepartmentId}
+                onValueChange={(value) => {
+                  setTransferDepartmentId(value);
+                  setTransferSectionId('');
+                }}
+                disabled={!transferDivisionId}
+              >
+                <SelectTrigger data-testid="select-transfer-department">
+                  <SelectValue placeholder={transferDivisionId ? "Select department" : "Select division first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {transferFilteredDepartments.map((department) => {
+                    const assignedUsers = getUsersAssignedToDepartment(department.id);
+                    const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                    return (
+                      <SelectItem key={department.id} value={department.id}>
+                        <div className="flex flex-col">
+                          <span>{department.name}</span>
+                          {assignedUsers.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {transferMode === 'change_departments' ? 'New Section' : 'Section'}
+              </label>
+              <Select
+                value={transferSectionId}
+                onValueChange={setTransferSectionId}
+                disabled={!transferDepartmentId}
+              >
+                <SelectTrigger data-testid="select-transfer-section">
+                  <SelectValue placeholder={transferDepartmentId ? "Select section" : "Select department first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {transferFilteredSections.map((section) => {
+                    const teamLeader = getTeamLeaderForSection(section.id);
+                    return (
+                      <SelectItem key={section.id} value={section.id}>
+                        <div className="flex flex-col">
+                          <span>{section.name}</span>
+                          {teamLeader ? (
+                            <span className="text-xs text-muted-foreground">
+                              Team Leader: {teamLeader.firstName} {teamLeader.lastName}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-destructive">No team leader assigned</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {transferSectionId && selectedSectionTeamLeader && (
+              <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg" data-testid="selected-team-leader-info">
+                <p className="text-xs font-medium text-green-800 dark:text-green-200">Agent will be transferred to:</p>
+                <p className="text-sm font-semibold text-green-900 dark:text-green-100">
+                  {selectedSectionTeamLeader.firstName} {selectedSectionTeamLeader.lastName}
+                </p>
+              </div>
+            )}
+
+            {transferSectionId && !selectedSectionTeamLeader && (
+              <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg" data-testid="no-team-leader-warning">
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  No team leader is assigned to this section. Please select a different section.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Transfer Type</label>
+              <Select value={transferType} onValueChange={setTransferType}>
+                <SelectTrigger data-testid="select-transfer-type-new">
+                  <SelectValue placeholder="Select transfer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="temporary">Temporary</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Location</label>
+              <Select value={transferLocation} onValueChange={setTransferLocation}>
+                <SelectTrigger data-testid="select-transfer-location">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABLE_LOCATIONS.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Start Date</label>
+                <Input
+                  type="date"
+                  value={transferStartDate}
+                  onChange={(e) => setTransferStartDate(e.target.value)}
+                  data-testid="input-transfer-start-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">End Date (for temporary transfers)</label>
+                <Input
+                  type="date"
+                  value={transferEndDate}
+                  onChange={(e) => setTransferEndDate(e.target.value)}
+                  data-testid="input-transfer-end-date"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setTransferMode('select')}
+                data-testid="button-back-to-mode-select"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsOpen(false);
+                    resetTransferForm();
+                  }}
+                  data-testid="button-cancel-transfer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDepartmentBasedTransfer}
+                  disabled={
+                    transferMutation.isPending ||
+                    !selectedTransferAgent ||
+                    !transferSectionId ||
+                    !selectedSectionTeamLeader ||
+                    !transferStartDate
+                  }
+                  data-testid="button-submit-transfer"
+                >
+                  {transferMutation.isPending ? "Creating..." : "Create Transfer"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
 
