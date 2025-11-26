@@ -1103,41 +1103,89 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transfers.id, transferId))
       .returning();
     
-    // If approving, immediately update agent's reportsTo and team membership
-    if (status === 'approved' && transfer.toTeamId) {
-      // Update team membership
-      await db
-        .delete(teamMembers)
-        .where(eq(teamMembers.userId, transfer.userId));
-
-      await db
-        .insert(teamMembers)
-        .values({
-          teamId: transfer.toTeamId,
-          userId: transfer.userId,
-        });
-
-      // Get the new team leader ID
-      const [destinationTeam] = await db
-        .select()
-        .from(teams)
-        .where(eq(teams.id, transfer.toTeamId));
-
-      if (destinationTeam?.leaderId) {
-        const userUpdateData: any = { 
-          reportsTo: destinationTeam.leaderId,
-          updatedAt: new Date(),
-        };
-        
-        // Update department if specified in the transfer
-        if (transfer.toDepartmentId) {
-          userUpdateData.departmentId = transfer.toDepartmentId;
-        }
-        
+    // If approving, immediately update agent's reportsTo, team membership, AND department assignments
+    if (status === 'approved') {
+      // Update team membership if toTeamId is specified
+      if (transfer.toTeamId) {
         await db
-          .update(users)
-          .set(userUpdateData)
-          .where(eq(users.id, transfer.userId));
+          .delete(teamMembers)
+          .where(eq(teamMembers.userId, transfer.userId));
+
+        await db
+          .insert(teamMembers)
+          .values({
+            teamId: transfer.toTeamId,
+            userId: transfer.userId,
+          });
+
+        // Get the new team leader ID
+        const [destinationTeam] = await db
+          .select()
+          .from(teams)
+          .where(eq(teams.id, transfer.toTeamId));
+
+        if (destinationTeam?.leaderId) {
+          const userUpdateData: any = { 
+            reportsTo: destinationTeam.leaderId,
+            updatedAt: new Date(),
+          };
+          
+          // Update department if specified in the transfer
+          if (transfer.toDepartmentId) {
+            userUpdateData.departmentId = transfer.toDepartmentId;
+          }
+          
+          await db
+            .update(users)
+            .set(userUpdateData)
+            .where(eq(users.id, transfer.userId));
+        }
+      }
+      
+      // Update user_department_assignments table if toDepartmentId is specified
+      if (transfer.toDepartmentId) {
+        // Look up the division from the department
+        const [dept] = await db
+          .select()
+          .from(departments)
+          .where(eq(departments.id, transfer.toDepartmentId))
+          .limit(1);
+        
+        const divisionId = dept?.divisionId || null;
+        
+        // Check if user already has a department assignment
+        const [existingAssignment] = await db
+          .select()
+          .from(userDepartmentAssignments)
+          .where(eq(userDepartmentAssignments.userId, transfer.userId))
+          .limit(1);
+        
+        if (existingAssignment) {
+          // Only update if department is actually changing, and preserve section if it belongs to the same department
+          const isDepartmentChanging = existingAssignment.departmentId !== transfer.toDepartmentId;
+          
+          await db
+            .update(userDepartmentAssignments)
+            .set({
+              divisionId: divisionId,
+              departmentId: transfer.toDepartmentId,
+              // Only reset section if department is changing (section may not be valid for new department)
+              // Otherwise preserve the existing section
+              sectionId: isDepartmentChanging ? null : existingAssignment.sectionId,
+              assignedAt: new Date(),
+              assignedBy: approvedBy || null,
+            })
+            .where(eq(userDepartmentAssignments.id, existingAssignment.id));
+        } else {
+          // Create a new department assignment (no section since we don't have that info)
+          await db.insert(userDepartmentAssignments).values({
+            userId: transfer.userId,
+            divisionId: divisionId,
+            departmentId: transfer.toDepartmentId,
+            sectionId: null,
+            assignedBy: approvedBy || null,
+          });
+        }
       }
     }
     
@@ -1158,41 +1206,86 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Transfer must be approved before completion");
     }
 
-    if (!transfer.toTeamId) {
-      throw new Error("Transfer must have a destination team");
-    }
-
-    await db
-      .delete(teamMembers)
-      .where(eq(teamMembers.userId, transfer.userId));
-
-    await db
-      .insert(teamMembers)
-      .values({
-        teamId: transfer.toTeamId,
-        userId: transfer.userId,
-      });
-
-    const [destinationTeam] = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, transfer.toTeamId));
-
-    if (destinationTeam?.leaderId) {
-      const updateData: any = { 
-        reportsTo: destinationTeam.leaderId,
-        updatedAt: new Date(),
-      };
-      
-      // Update department if specified in the transfer
-      if (transfer.toDepartmentId) {
-        updateData.departmentId = transfer.toDepartmentId;
-      }
-      
+    // Team assignment if toTeamId is specified
+    if (transfer.toTeamId) {
       await db
-        .update(users)
-        .set(updateData)
-        .where(eq(users.id, transfer.userId));
+        .delete(teamMembers)
+        .where(eq(teamMembers.userId, transfer.userId));
+
+      await db
+        .insert(teamMembers)
+        .values({
+          teamId: transfer.toTeamId,
+          userId: transfer.userId,
+        });
+
+      const [destinationTeam] = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, transfer.toTeamId));
+
+      if (destinationTeam?.leaderId) {
+        const updateData: any = { 
+          reportsTo: destinationTeam.leaderId,
+          updatedAt: new Date(),
+        };
+        
+        // Update department if specified in the transfer
+        if (transfer.toDepartmentId) {
+          updateData.departmentId = transfer.toDepartmentId;
+        }
+        
+        await db
+          .update(users)
+          .set(updateData)
+          .where(eq(users.id, transfer.userId));
+      }
+    }
+    
+    // Update user_department_assignments table if toDepartmentId is specified
+    if (transfer.toDepartmentId) {
+      // Look up the division from the department
+      const [dept] = await db
+        .select()
+        .from(departments)
+        .where(eq(departments.id, transfer.toDepartmentId))
+        .limit(1);
+      
+      const divisionId = dept?.divisionId || null;
+      
+      // Check if user already has a department assignment
+      const [existingAssignment] = await db
+        .select()
+        .from(userDepartmentAssignments)
+        .where(eq(userDepartmentAssignments.userId, transfer.userId))
+        .limit(1);
+      
+      if (existingAssignment) {
+        // Only update if department is actually changing, and preserve section if it belongs to the same department
+        const isDepartmentChanging = existingAssignment.departmentId !== transfer.toDepartmentId;
+        
+        await db
+          .update(userDepartmentAssignments)
+          .set({
+            divisionId: divisionId,
+            departmentId: transfer.toDepartmentId,
+            // Only reset section if department is changing (section may not be valid for new department)
+            // Otherwise preserve the existing section
+            sectionId: isDepartmentChanging ? null : existingAssignment.sectionId,
+            assignedAt: new Date(),
+            assignedBy: transfer.approvedBy || null,
+          })
+          .where(eq(userDepartmentAssignments.id, existingAssignment.id));
+      } else {
+        // Create a new department assignment (no section since we don't have that info)
+        await db.insert(userDepartmentAssignments).values({
+          userId: transfer.userId,
+          divisionId: divisionId,
+          departmentId: transfer.toDepartmentId,
+          sectionId: null,
+          assignedBy: transfer.approvedBy || null,
+        });
+      }
     }
 
     await db

@@ -767,6 +767,9 @@ export default function TransferManagement() {
         startDate: transferStartDate,
         endDate: transferEndDate || undefined,
         requestedBy: user?.id || "",
+        newDivisionId: transferDivisionId,
+        newDepartmentId: transferDepartmentId,
+        newSectionId: transferSectionId,
       });
     }
   };
