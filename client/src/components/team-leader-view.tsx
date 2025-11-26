@@ -201,22 +201,75 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
                 </div>
               </div>
               
-              {/* Reports To Section */}
-              {reportingManager && (
+              {/* Reports To and Department Assignments Section */}
+              {(reportingManager || userDepartmentAssignments.filter(a => a.userId === leaderId).length > 0) && (
                 <div className="border-t border-blue-200 dark:border-blue-700 pt-4">
-                  <div className="flex items-center gap-3">
-                    <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        Reports To
-                      </p>
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        {reportingManager.firstName} {reportingManager.lastName}
-                        <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
-                          ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
-                        </span>
-                      </p>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    {/* Reports To - Left Side */}
+                    {reportingManager && (
+                      <div className="flex items-center gap-3">
+                        <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                            Reports To
+                          </p>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            {reportingManager.firstName} {reportingManager.lastName}
+                            <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
+                              ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Department Assignments - Right Side */}
+                    {(() => {
+                      const leaderAssignments = userDepartmentAssignments.filter(a => a.userId === leaderId);
+                      if (leaderAssignments.length === 0) return null;
+                      
+                      const assignment = leaderAssignments[0];
+                      const division = assignment?.divisionId ? divisions.find(d => d.id === assignment.divisionId) : null;
+                      const department = assignment?.departmentId ? departments.find(d => d.id === assignment.departmentId) : null;
+                      const sectionNames = leaderAssignments
+                        .map(a => sections.find(s => s.id === a.sectionId)?.name)
+                        .filter(Boolean)
+                        .join(', ');
+                      
+                      return (
+                        <div className="flex items-start gap-3">
+                          <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                          <div className="flex flex-wrap gap-x-6 gap-y-2">
+                            {division && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Division</p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-leader-division">
+                                  {division.name}
+                                </p>
+                              </div>
+                            )}
+                            {department && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Department</p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-leader-department">
+                                  {department.name}
+                                </p>
+                              </div>
+                            )}
+                            {sectionNames && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                  Section{leaderAssignments.length > 1 ? 's' : ''}
+                                </p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-leader-section">
+                                  {sectionNames}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -292,23 +345,76 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
       case 'employees':
         return (
           <div className="space-y-6 animate-in fade-in-50 duration-500">
-            {/* Team Leader Reports To Section */}
-            {reportingManager && (
+            {/* Team Leader Reports To and Department Assignments Section */}
+            {(reportingManager || userDepartmentAssignments.filter(a => a.userId === leaderId).length > 0) && (
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-100 dark:border-blue-800/30">
                 <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        Team Leader Reports To
-                      </p>
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        {reportingManager.firstName} {reportingManager.lastName}
-                        <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
-                          ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
-                        </span>
-                      </p>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    {/* Reports To - Left Side */}
+                    {reportingManager && (
+                      <div className="flex items-center gap-3">
+                        <UserIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                            Team Leader Reports To
+                          </p>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            {reportingManager.firstName} {reportingManager.lastName}
+                            <span className="ml-2 text-xs font-normal text-blue-600 dark:text-blue-400">
+                              ({reportingManager.role === 'contact_center_ops_manager' ? 'CC Ops Manager' : 'CC Manager'})
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Department Assignments - Right Side */}
+                    {(() => {
+                      const leaderAssignments = userDepartmentAssignments.filter(a => a.userId === leaderId);
+                      if (leaderAssignments.length === 0) return null;
+                      
+                      const assignment = leaderAssignments[0];
+                      const division = assignment?.divisionId ? divisions.find(d => d.id === assignment.divisionId) : null;
+                      const department = assignment?.departmentId ? departments.find(d => d.id === assignment.departmentId) : null;
+                      const sectionNames = leaderAssignments
+                        .map(a => sections.find(s => s.id === a.sectionId)?.name)
+                        .filter(Boolean)
+                        .join(', ');
+                      
+                      return (
+                        <div className="flex items-start gap-3">
+                          <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                          <div className="flex flex-wrap gap-x-6 gap-y-2">
+                            {division && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Division</p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-employees-leader-division">
+                                  {division.name}
+                                </p>
+                              </div>
+                            )}
+                            {department && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Department</p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-employees-leader-department">
+                                  {department.name}
+                                </p>
+                              </div>
+                            )}
+                            {sectionNames && (
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                  Section{leaderAssignments.length > 1 ? 's' : ''}
+                                </p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-employees-leader-section">
+                                  {sectionNames}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
