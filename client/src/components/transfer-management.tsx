@@ -372,6 +372,7 @@ export default function TransferManagement() {
     },
   });
 
+  const selectedAddUserId = addDepartmentForm.watch("userId");
   const selectedAddDivisionId = addDepartmentForm.watch("divisionId");
   const selectedAddDepartmentId = addDepartmentForm.watch("departmentId");
   const selectedRemoveUserId = removeDepartmentForm.watch("userId");
@@ -400,6 +401,11 @@ export default function TransferManagement() {
     if (!selectedRemoveUserId) return null;
     return userDepartmentAssignments.find(a => a.userId === selectedRemoveUserId);
   }, [selectedRemoveUserId, userDepartmentAssignments]);
+
+  const selectedAddUserAssignment = useMemo(() => {
+    if (!selectedAddUserId) return null;
+    return userDepartmentAssignments.find(a => a.userId === selectedAddUserId);
+  }, [selectedAddUserId, userDepartmentAssignments]);
 
   const agentsWithAssignments = useMemo(() => {
     const assignedUserIds = new Set(userDepartmentAssignments.map(a => a.userId));
@@ -1489,6 +1495,33 @@ export default function TransferManagement() {
                 </FormItem>
               )}
             />
+
+            {selectedAddUserId && (
+              <div className="p-4 bg-muted rounded-lg space-y-2" data-testid="add-dept-current-assignment">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Current Assignment:
+                </h4>
+                {selectedAddUserAssignment ? (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium text-muted-foreground">Division:</span>{' '}
+                      <span data-testid="text-current-division">{divisions.find(d => d.id === selectedAddUserAssignment.divisionId)?.name || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-muted-foreground">Department:</span>{' '}
+                      <span data-testid="text-current-department">{departments.find(d => d.id === selectedAddUserAssignment.departmentId)?.name || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-muted-foreground">Section:</span>{' '}
+                      <span data-testid="text-current-section">{sections.find(s => s.id === selectedAddUserAssignment.sectionId)?.name || 'N/A'}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No current department assignment</p>
+                )}
+              </div>
+            )}
 
             <FormField
               control={addDepartmentForm.control}
