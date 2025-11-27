@@ -37,6 +37,13 @@ export class NotificationService {
     return managers;
   }
 
+  private async getManagerForTeamLeader(teamLeaderId: string): Promise<User | undefined> {
+    const teamLeader = await storage.getUser(teamLeaderId);
+    if (!teamLeader || !teamLeader.reportsTo) return undefined;
+    
+    return storage.getUser(teamLeader.reportsTo);
+  }
+
   private async getTeamLeaderForAgent(agentId: string): Promise<User | undefined> {
     const teams = await storage.getUserTeams(agentId);
     if (teams.length === 0) return undefined;
@@ -48,12 +55,55 @@ export class NotificationService {
     return undefined;
   }
 
+  private async getTeamLeaderByTeamId(teamId: string): Promise<User | undefined> {
+    const allTeams = await storage.getAllTeams();
+    const team = allTeams.find(t => t.id === teamId);
+    if (!team || !team.leaderId) return undefined;
+    
+    return storage.getUser(team.leaderId);
+  }
+
   private async getHRUsers(): Promise<User[]> {
     return storage.getUsersByRole('hr');
   }
 
   private async getAdminUsers(): Promise<User[]> {
     return storage.getUsersByRole('admin');
+  }
+
+  private getTerminationMessage(statusType: string, agentName: string, comment?: string | null): { title: string; body: string; severity: NotificationSeverity } {
+    switch (statusType) {
+      case 'AWOL':
+        return {
+          title: 'Agent AWOL Alert',
+          body: `${agentName} has been marked as Absent Without Leave (AWOL). Immediate attention required.${comment ? ` Reason: ${comment}` : ''}`,
+          severity: 'urgent'
+        };
+      case 'suspended':
+        return {
+          title: 'Agent Suspended',
+          body: `${agentName} has been placed on suspension pending investigation.${comment ? ` Reason: ${comment}` : ''}`,
+          severity: 'warning'
+        };
+      case 'resignation':
+        return {
+          title: 'Agent Resignation Notice',
+          body: `${agentName} has submitted their resignation.${comment ? ` Details: ${comment}` : ''}`,
+          severity: 'info'
+        };
+      case 'terminated':
+        return {
+          title: 'Agent Terminated',
+          body: `${agentName} has been terminated from their position.${comment ? ` Reason: ${comment}` : ''}`,
+          severity: 'warning'
+        };
+      default:
+        return {
+          title: `Agent ${statusType} Status`,
+          body: `${agentName} has been marked as ${statusType}.${comment ? ` Comment: ${comment}` : ''}`,
+          severity: 'warning'
+        };
+    }
   }
 
   async notifyTransferRequested(transfer: Transfer, requestedByUser: User): Promise<void> {
@@ -113,7 +163,10 @@ export class NotificationService {
       ? `${targetUser.firstName} ${targetUser.lastName}` 
       : targetUser.username;
 
-    if (transfer.requestedBy !== approvedByUser.id) {
+    const notifiedIds = new Set<string>();
+    notifiedIds.add(approvedByUser.id);
+
+    if (transfer.requestedBy && transfer.requestedBy !== approvedByUser.id) {
       notifications.push({
         recipientUserId: transfer.requestedBy,
         actorUserId: approvedByUser.id,
@@ -130,26 +183,60 @@ export class NotificationService {
         requiresAction: false,
         actionUrl: '/admin/hr?view=transfers'
       });
+      notifiedIds.add(transfer.requestedBy);
     }
 
-    const teamLeader = await this.getTeamLeaderForAgent(transfer.userId);
-    if (teamLeader && teamLeader.id !== approvedByUser.id && teamLeader.id !== transfer.requestedBy) {
+    let oldTeamLeader: User | undefined;
+    if (transfer.fromTeamId) {
+      oldTeamLeader = await this.getTeamLeaderByTeamId(transfer.fromTeamId);
+    }
+    if (!oldTeamLeader) {
+      oldTeamLeader = await this.getTeamLeaderForAgent(transfer.userId);
+    }
+    
+    if (oldTeamLeader && !notifiedIds.has(oldTeamLeader.id)) {
       notifications.push({
-        recipientUserId: teamLeader.id,
+        recipientUserId: oldTeamLeader.id,
         actorUserId: approvedByUser.id,
         subjectType: 'transfer',
         subjectId: transfer.id,
         severity: 'info',
-        title: 'Agent Transfer Approved',
-        body: `Your team member ${targetName} has been approved for a ${transfer.transferType} transfer.`,
+        title: 'Agent Transferred Out',
+        body: `${targetName} has been transferred out of your team. Transfer type: ${transfer.transferType}.`,
         metadata: {
           transferType: transfer.transferType,
           targetUserId: transfer.userId,
-          targetUserName: targetName
+          targetUserName: targetName,
+          direction: 'outgoing'
         },
         requiresAction: false,
         actionUrl: '/admin/team-leader'
       });
+      notifiedIds.add(oldTeamLeader.id);
+    }
+
+    if (transfer.toTeamId) {
+      const newTeamLeader = await this.getTeamLeaderByTeamId(transfer.toTeamId);
+      if (newTeamLeader && !notifiedIds.has(newTeamLeader.id)) {
+        notifications.push({
+          recipientUserId: newTeamLeader.id,
+          actorUserId: approvedByUser.id,
+          subjectType: 'transfer',
+          subjectId: transfer.id,
+          severity: 'info',
+          title: 'New Agent Assigned',
+          body: `${targetName} has been transferred to your team. Transfer type: ${transfer.transferType}.`,
+          metadata: {
+            transferType: transfer.transferType,
+            targetUserId: transfer.userId,
+            targetUserName: targetName,
+            direction: 'incoming'
+          },
+          requiresAction: false,
+          actionUrl: '/admin/team-leader'
+        });
+        notifiedIds.add(newTeamLeader.id);
+      }
     }
 
     if (notifications.length > 0) {
@@ -195,46 +282,70 @@ export class NotificationService {
       ? `${targetUser.firstName} ${targetUser.lastName}` 
       : targetUser.username;
 
-    const teamLeader = await this.getTeamLeaderForAgent(termination.userId);
-    
-    const managersToNotify = await this.getManagersForUser(termination.userId);
-    const hrUsers = await this.getHRUsers();
-    const adminUsers = await this.getAdminUsers();
-
     const recipientIds = new Set<string>();
     
-    if (teamLeader && teamLeader.id !== processedByUser.id) {
-      recipientIds.add(teamLeader.id);
+    recipientIds.add(processedByUser.id);
+    
+    if (processedByUser.role === 'team_leader') {
+      const managerOfProcessor = await this.getManagerForTeamLeader(processedByUser.id);
+      if (managerOfProcessor) {
+        recipientIds.add(managerOfProcessor.id);
+        console.log(`[NotificationService] Termination: notifying manager ${managerOfProcessor.username} of team leader ${processedByUser.username}`);
+      } else {
+        console.warn(`[NotificationService] Termination: team leader ${processedByUser.username} has no manager assigned`);
+        const allManagers = await this.getManagersForUser(termination.userId);
+        allManagers.forEach(m => recipientIds.add(m.id));
+      }
+    } else {
+      const agentTeamLeader = await this.getTeamLeaderForAgent(termination.userId);
+      if (agentTeamLeader) {
+        recipientIds.add(agentTeamLeader.id);
+        const managerForAgentTeamLeader = await this.getManagerForTeamLeader(agentTeamLeader.id);
+        if (managerForAgentTeamLeader) {
+          recipientIds.add(managerForAgentTeamLeader.id);
+        }
+      } else {
+        const allManagers = await this.getManagersForUser(termination.userId);
+        allManagers.forEach(m => recipientIds.add(m.id));
+      }
     }
-    
-    managersToNotify.forEach(m => {
-      if (m.id !== processedByUser.id) recipientIds.add(m.id);
-    });
-    
-    hrUsers.forEach(h => {
-      if (h.id !== processedByUser.id) recipientIds.add(h.id);
-    });
-    
-    adminUsers.forEach(a => {
-      if (a.id !== processedByUser.id) recipientIds.add(a.id);
-    });
 
-    const severity: NotificationSeverity = termination.statusType === 'AWOL' ? 'urgent' : 'warning';
+    const hrUsers = await this.getHRUsers();
+    const adminUsers = await this.getAdminUsers();
+    
+    hrUsers.forEach(h => recipientIds.add(h.id));
+    adminUsers.forEach(a => recipientIds.add(a.id));
+
+    const terminationMessage = this.getTerminationMessage(
+      termination.statusType, 
+      targetName, 
+      termination.comment
+    );
+
+    const processedByName = processedByUser.firstName && processedByUser.lastName
+      ? `${processedByUser.firstName} ${processedByUser.lastName}`
+      : processedByUser.username;
 
     for (const recipientId of Array.from(recipientIds)) {
+      const isProcessedBy = recipientId === processedByUser.id;
       notifications.push({
         recipientUserId: recipientId,
         actorUserId: processedByUser.id,
         subjectType: 'termination',
         subjectId: termination.id,
-        severity,
-        title: `Agent ${termination.statusType} Status`,
-        body: `${targetName} has been marked as ${termination.statusType}.${termination.comment ? ` Comment: ${termination.comment}` : ''}`,
+        severity: terminationMessage.severity,
+        title: isProcessedBy ? `${terminationMessage.title} - Confirmation` : terminationMessage.title,
+        body: isProcessedBy 
+          ? `You have recorded: ${terminationMessage.body}`
+          : `${terminationMessage.body} (Reported by: ${processedByName})`,
         metadata: {
           statusType: termination.statusType,
           targetUserId: termination.userId,
           targetUserName: targetName,
-          effectiveDate: termination.effectiveDate
+          processedByName,
+          processedByRole: processedByUser.role,
+          effectiveDate: termination.effectiveDate,
+          isConfirmation: isProcessedBy
         },
         requiresAction: false,
         actionUrl: '/admin/hr?view=terminations'
@@ -400,11 +511,13 @@ export class NotificationService {
       ? `${targetUser.firstName} ${targetUser.lastName}` 
       : targetUser.username;
 
-    const managers = await this.getManagersForUser(userId);
     const notifications: InsertNotification[] = [];
+    const notifiedIds = new Set<string>();
+    notifiedIds.add(changedByUser.id);
 
+    const managers = await this.getManagersForUser(userId);
     for (const manager of managers) {
-      if (manager.id !== changedByUser.id) {
+      if (!notifiedIds.has(manager.id)) {
         notifications.push({
           recipientUserId: manager.id,
           actorUserId: changedByUser.id,
@@ -424,12 +537,120 @@ export class NotificationService {
           requiresAction: false,
           actionUrl: '/admin/hr?view=employees'
         });
+        notifiedIds.add(manager.id);
       }
+    }
+
+    const currentTeamLeader = await this.getTeamLeaderForAgent(userId);
+    
+    if (currentTeamLeader && !notifiedIds.has(currentTeamLeader.id)) {
+      notifications.push({
+        recipientUserId: currentTeamLeader.id,
+        actorUserId: changedByUser.id,
+        subjectType: 'transfer',
+        subjectId: null,
+        severity: 'info',
+        title: 'Agent Department Changed',
+        body: `Your team member ${targetName} has been moved from ${oldDept?.name || 'No Department'} to ${newDept?.name || 'No Department'}.`,
+        metadata: {
+          targetUserId: userId,
+          targetUserName: targetName,
+          oldDepartmentId,
+          oldDepartmentName: oldDept?.name,
+          newDepartmentId,
+          newDepartmentName: newDept?.name
+        },
+        requiresAction: false,
+        actionUrl: '/admin/team-leader'
+      });
+      notifiedIds.add(currentTeamLeader.id);
     }
 
     if (notifications.length > 0) {
       await storage.createBulkNotifications(notifications);
     }
+  }
+
+  async notifyAgentAddedToTeam(
+    agentUserId: string,
+    teamId: string,
+    addedByUser: User
+  ): Promise<void> {
+    const agent = await storage.getUser(agentUserId);
+    if (!agent) {
+      console.warn(`[NotificationService] Cannot notify agent added: agent ${agentUserId} not found`);
+      return;
+    }
+
+    const teamLeader = await this.getTeamLeaderByTeamId(teamId);
+    if (!teamLeader) {
+      console.warn(`[NotificationService] Cannot notify agent added: team ${teamId} has no leader`);
+      return;
+    }
+    
+    if (teamLeader.id === addedByUser.id) return;
+
+    const agentName = agent.firstName && agent.lastName 
+      ? `${agent.firstName} ${agent.lastName}` 
+      : agent.username;
+
+    await storage.createNotification({
+      recipientUserId: teamLeader.id,
+      actorUserId: addedByUser.id,
+      subjectType: 'transfer',
+      subjectId: null,
+      severity: 'info',
+      title: 'New Agent Added to Your Team',
+      body: `${agentName} has been added to your team.`,
+      metadata: {
+        agentUserId,
+        agentName,
+        teamId
+      },
+      requiresAction: false,
+      actionUrl: '/admin/team-leader'
+    });
+  }
+
+  async notifyAgentRemovedFromTeam(
+    agentUserId: string,
+    teamId: string,
+    removedByUser: User
+  ): Promise<void> {
+    const agent = await storage.getUser(agentUserId);
+    if (!agent) {
+      console.warn(`[NotificationService] Cannot notify agent removed: agent ${agentUserId} not found`);
+      return;
+    }
+
+    const teamLeader = await this.getTeamLeaderByTeamId(teamId);
+    if (!teamLeader) {
+      console.warn(`[NotificationService] Cannot notify agent removed: team ${teamId} has no leader`);
+      return;
+    }
+    
+    if (teamLeader.id === removedByUser.id) return;
+
+    const agentName = agent.firstName && agent.lastName 
+      ? `${agent.firstName} ${agent.lastName}` 
+      : agent.username;
+
+    await storage.createNotification({
+      recipientUserId: teamLeader.id,
+      actorUserId: removedByUser.id,
+      subjectType: 'transfer',
+      subjectId: null,
+      severity: 'warning',
+      title: 'Agent Removed from Your Team',
+      body: `${agentName} has been removed from your team.`,
+      metadata: {
+        agentUserId,
+        agentName,
+        teamId
+      },
+      requiresAction: false,
+      actionUrl: '/admin/team-leader'
+    });
   }
 }
 

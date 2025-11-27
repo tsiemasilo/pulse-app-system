@@ -1539,6 +1539,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedBy: user.id,
       });
 
+      // Send notification for termination created
+      try {
+        await notificationService.notifyTerminationCreated(termination, user);
+      } catch (notificationError) {
+        console.error("Error sending termination notification:", notificationError);
+      }
+
       res.json(termination);
     } catch (error) {
       console.error("Error creating termination:", error);
@@ -1600,6 +1607,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).parse(req.body);
       
       const teamMember = await storage.addTeamMember(teamId, userId);
+      
+      // Send notification to team leader about new agent
+      try {
+        await notificationService.notifyAgentAddedToTeam(userId, teamId, user);
+      } catch (notificationError) {
+        console.error("Error sending agent added notification:", notificationError);
+      }
+      
       res.json(teamMember);
     } catch (error) {
       console.error("Error adding team member:", error);
