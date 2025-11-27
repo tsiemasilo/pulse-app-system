@@ -31,6 +31,12 @@ The frontend uses Vite for building and React Hook Form with Zod for form handli
 - **Department Hierarchy System**: Implements a three-tier organizational structure (Divisions, Departments, Sections) with cascading selection in the UI and assignment tracking.
 - **Admin Dashboard**: Features a comprehensive sidebar navigation system (using shadcn Sidebar primitives) with 6 main sections: System Admin (user management, stats), HR Management (attendance, transfers, onboarding), Contact Center (operations overview, team leaders), Team Leaders (directory with search and stats), Departments (user assignments to divisions/departments/sections), and Organogram (organizational chart). The dashboard provides role-based access control, responsive design, mobile-friendly navigation, and consistent styling across all sections. The Departments section includes full CRUD operations for managing user-department assignments with advanced search and filtering.
 - **Organogram Management**: Interactive organizational chart powered by GoJS, offering full-screen layout, light/dark theme support, professional node design, interactive buttons, enhanced tooltips, drag-to-reorganize functionality, tree-level coloring, mouse interactions, context menus, zoom/pan controls, real-time sync with user data, admin filtering, and cache invalidation.
+- **Notification System (November 2025)**: Comprehensive event-driven notification system with hierarchy-based routing. Notifications are sent to team leaders, managers, HR users, and admins based on organizational hierarchy. Key features include:
+  - **Transfer Notifications**: Alerts for transfer requests (pending approval), approvals, and rejections with severity levels and action URLs
+  - **Termination Notifications**: Alerts for termination events (AWOL marked as urgent, others as warning) to the full management hierarchy
+  - **Asset Notifications**: Urgent alerts for lost assets and warning alerts for unreturned assets
+  - **Notification Bell Component**: Real-time unread count badge with 30-second polling, dropdown panel showing recent notifications, mark as read functionality
+  - **API Routes**: GET /api/notifications (paginated), GET /api/notifications/unread-count, PATCH /api/notifications/:id/read, PATCH /api/notifications/read-all
 
 ## External Dependencies
 
