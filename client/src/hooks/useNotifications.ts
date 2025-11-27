@@ -4,7 +4,17 @@ import type { Notification } from "@shared/schema";
 
 export function useNotifications(limit = 50, offset = 0) {
   return useQuery<Notification[]>({
-    queryKey: ["/api/notifications", limit, offset],
+    queryKey: ["/api/notifications", { limit, offset }],
+    queryFn: async () => {
+      const res = await fetch(`/api/notifications?limit=${limit}&offset=${offset}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 401) return [];
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    },
     refetchInterval: 30000,
   });
 }
@@ -12,6 +22,16 @@ export function useNotifications(limit = 50, offset = 0) {
 export function useUnreadCount() {
   return useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/unread-count", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 401) return { count: 0 };
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    },
     refetchInterval: 30000,
   });
 }

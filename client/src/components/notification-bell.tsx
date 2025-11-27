@@ -165,7 +165,8 @@ export default function NotificationBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-80 p-0"
+        className="w-80 p-0 z-[100]"
+        sideOffset={8}
         data-testid="dropdown-notifications"
       >
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
