@@ -428,6 +428,34 @@ export const insertUserPositionSchema = createInsertSchema(userPositions).omit({
   assignedAt: true,
 });
 
+// Notification types for type safety
+export type NotificationSubjectType = 'transfer' | 'termination' | 'asset' | 'system';
+export type NotificationSeverity = 'info' | 'warning' | 'urgent';
+
+// Notifications table for real-time alerts
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientUserId: varchar("recipient_user_id").notNull().references(() => users.id),
+  actorUserId: varchar("actor_user_id").references(() => users.id), // who triggered the notification
+  subjectType: varchar("subject_type").$type<NotificationSubjectType>().notNull(), // transfer, termination, asset, system
+  subjectId: varchar("subject_id"), // ID of the related entity (transfer ID, termination ID, etc.)
+  severity: varchar("severity").$type<NotificationSeverity>().notNull().default('info'), // info, warning, urgent
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  metadata: jsonb("metadata"), // additional data for the notification
+  requiresAction: boolean("requires_action").notNull().default(false), // needs approval or action
+  actionUrl: text("action_url"), // URL to navigate to when clicked
+  readAt: timestamp("read_at"), // null if unread
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schema for notifications
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  readAt: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -471,6 +499,8 @@ export type OrganizationalPosition = typeof organizationalPositions.$inferSelect
 export type InsertOrganizationalPosition = z.infer<typeof insertOrganizationalPositionSchema>;
 export type UserPosition = typeof userPositions.$inferSelect;
 export type InsertUserPosition = z.infer<typeof insertUserPositionSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 // Team Leader Summary for CC Manager Dashboard
 export type TeamLeaderSummary = {
