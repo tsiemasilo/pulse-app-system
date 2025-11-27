@@ -60,12 +60,16 @@ export class NotificationService {
     const targetUser = await storage.getUser(transfer.userId);
     if (!targetUser) return;
 
+    const teamLeader = await this.getTeamLeaderForAgent(transfer.userId);
     const managers = await this.getManagersForUser(transfer.userId);
     const hrUsers = await this.getHRUsers();
+    const adminUsers = await this.getAdminUsers();
 
     const recipientIds = new Set<string>();
+    if (teamLeader) recipientIds.add(teamLeader.id);
     managers.forEach(m => recipientIds.add(m.id));
     hrUsers.forEach(h => recipientIds.add(h.id));
+    adminUsers.forEach(a => recipientIds.add(a.id));
 
     recipientIds.delete(requestedByUser.id);
 
@@ -195,6 +199,7 @@ export class NotificationService {
     
     const managersToNotify = await this.getManagersForUser(termination.userId);
     const hrUsers = await this.getHRUsers();
+    const adminUsers = await this.getAdminUsers();
 
     const recipientIds = new Set<string>();
     
@@ -208,6 +213,10 @@ export class NotificationService {
     
     hrUsers.forEach(h => {
       if (h.id !== processedByUser.id) recipientIds.add(h.id);
+    });
+    
+    adminUsers.forEach(a => {
+      if (a.id !== processedByUser.id) recipientIds.add(a.id);
     });
 
     const severity: NotificationSeverity = termination.statusType === 'AWOL' ? 'urgent' : 'warning';
@@ -249,6 +258,7 @@ export class NotificationService {
     const teamLeader = await this.getTeamLeaderForAgent(assetState.userId);
     const managers = await this.getManagersForUser(assetState.userId);
     const hrUsers = await this.getHRUsers();
+    const adminUsers = await this.getAdminUsers();
 
     const recipientIds = new Set<string>();
     
@@ -262,6 +272,10 @@ export class NotificationService {
     
     hrUsers.forEach(h => {
       if (h.id !== reportedByUser.id) recipientIds.add(h.id);
+    });
+    
+    adminUsers.forEach(a => {
+      if (a.id !== reportedByUser.id) recipientIds.add(a.id);
     });
 
     for (const recipientId of Array.from(recipientIds)) {
@@ -301,6 +315,8 @@ export class NotificationService {
 
     const teamLeader = await this.getTeamLeaderForAgent(assetState.userId);
     const managers = await this.getManagersForUser(assetState.userId);
+    const hrUsers = await this.getHRUsers();
+    const adminUsers = await this.getAdminUsers();
 
     const recipientIds = new Set<string>();
     
@@ -310,6 +326,14 @@ export class NotificationService {
     
     managers.forEach(m => {
       if (m.id !== reportedByUser.id) recipientIds.add(m.id);
+    });
+    
+    hrUsers.forEach(h => {
+      if (h.id !== reportedByUser.id) recipientIds.add(h.id);
+    });
+    
+    adminUsers.forEach(a => {
+      if (a.id !== reportedByUser.id) recipientIds.add(a.id);
     });
 
     for (const recipientId of Array.from(recipientIds)) {
