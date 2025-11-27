@@ -2,11 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDivisionSchema, insertDepartmentSchema, insertSectionSchema, insertUserDepartmentAssignmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
+import { insertUserSchema, insertDivisionSchema, insertDepartmentSchema, insertSectionSchema, insertUserDepartmentAssignmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, insertNotificationSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
 import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { notificationService } from "./notificationService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -766,6 +767,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         changedBy: user.id,
         changedAt: new Date()
       });
+
+      // Send notifications for lost or not_returned asset states
+      if (status === 'lost') {
+        try {
+          await notificationService.notifyAssetLost(dailyState, user);
+        } catch (notificationError) {
+          console.error("Error sending asset lost notification:", notificationError);
+        }
+      } else if (status === 'not_returned') {
+        try {
+          await notificationService.notifyAssetNotReturned(dailyState, user);
+        } catch (notificationError) {
+          console.error("Error sending asset not returned notification:", notificationError);
+        }
+      }
 
       res.json(dailyState);
     } catch (error) {
@@ -1700,6 +1716,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newSectionId,
       });
       
+      // Send notification for transfer request (don't block main operation on failure)
+      try {
+        await notificationService.notifyTransferRequested(transfer, user);
+      } catch (notificationError) {
+        console.error("Error sending transfer requested notification:", notificationError);
+      }
+      
       res.json(transfer);
     } catch (error) {
       console.error("Error creating transfer:", error);
@@ -1744,6 +1767,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue even if audit fails
       }
       
+      // Send notification for transfer approval (don't block main operation on failure)
+      try {
+        await notificationService.notifyTransferApproved(transfer, user);
+      } catch (notificationError) {
+        console.error("Error sending transfer approved notification:", notificationError);
+      }
+      
       res.json(transfer);
     } catch (error) {
       console.error("Error approving transfer:", error);
@@ -1759,6 +1789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const transferId = req.params.id;
+      const { reason } = req.body || {};
       
       // Fetch the transfer first to capture previous status
       const allTransfers = await storage.getAllTransfers();
@@ -1779,13 +1810,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: 'rejected',
           previousStatus: previousStatus,
           newStatus: 'rejected',
-          comment: `Transfer rejected by ${user.username || user.firstName || 'user'}`,
+          comment: reason || `Transfer rejected by ${user.username || user.firstName || 'user'}`,
           actionBy: user.id,
           actionAt: new Date(),
         });
       } catch (auditError) {
         console.error("Error creating transfers audit:", auditError);
         // Continue even if audit fails
+      }
+      
+      // Send notification for transfer rejection (don't block main operation on failure)
+      try {
+        await notificationService.notifyTransferRejected(transfer, user, reason);
+      } catch (notificationError) {
+        console.error("Error sending transfer rejected notification:", notificationError);
       }
       
       res.json(transfer);
@@ -1956,6 +1994,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .update(attendance)
           .set({ status: terminationData.statusType })
           .where(eq(attendance.id, todayAttendance[0].id));
+      }
+      
+      // Send notification for termination created
+      try {
+        await notificationService.notifyTerminationCreated(termination, user);
+      } catch (notificationError) {
+        console.error("Error sending termination notification:", notificationError);
       }
       
       res.json(termination);
@@ -2146,6 +2191,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user position assignment:", error);
       res.status(500).json({ message: "Failed to remove user position assignment" });
+    }
+  });
+
+  // Notification routes
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+
+      if (isNaN(limit) || limit < 1 || limit > 100) {
+        return res.status(400).json({ message: "Invalid limit parameter. Must be between 1 and 100." });
+      }
+      if (isNaN(offset) || offset < 0) {
+        return res.status(400).json({ message: "Invalid offset parameter. Must be a non-negative integer." });
+      }
+
+      const notifications = await storage.getNotificationsByUser(user.id, limit, offset);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get('/api/notifications/unread-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const count = await storage.getUnreadNotificationCount(user.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread notification count" });
+    }
+  });
+
+  app.patch('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const notificationId = req.params.id;
+      const notification = await storage.getNotificationById(notificationId);
+
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      if (notification.recipientUserId !== user.id) {
+        return res.status(403).json({ message: "Forbidden - You can only access your own notifications" });
+      }
+
+      const updatedNotification = await storage.markNotificationAsRead(notificationId);
+      res.json(updatedNotification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch('/api/notifications/read-all', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      await storage.markAllNotificationsAsRead(user.id);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete('/api/notifications/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const notificationId = req.params.id;
+      const notification = await storage.getNotificationById(notificationId);
+
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      if (notification.recipientUserId !== user.id) {
+        return res.status(403).json({ message: "Forbidden - You can only delete your own notifications" });
+      }
+
+      await storage.deleteNotification(notificationId);
+      res.json({ message: "Notification deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
     }
   });
 

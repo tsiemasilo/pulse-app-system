@@ -4,6 +4,7 @@ import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import NotificationBell from "@/components/notification-bell";
 import type { User } from "@shared/schema";
 
 interface NavigationProps {
@@ -94,7 +95,8 @@ export default function Navigation({ user }: NavigationProps) {
             )}
           </div>
           
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
+            {user && <NotificationBell />}
             <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
               <div className="flex flex-col items-end justify-center">
                 <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">

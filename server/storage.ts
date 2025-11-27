@@ -2718,13 +2718,13 @@ export class DatabaseStorage implements IStorage {
 
   // Notification management
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [result] = await db.insert(notifications).values(notification).returning();
+    const [result] = await db.insert(notifications).values(notification as any).returning();
     return result;
   }
 
   async createBulkNotifications(notificationList: InsertNotification[]): Promise<Notification[]> {
     if (notificationList.length === 0) return [];
-    const results = await db.insert(notifications).values(notificationList).returning();
+    const results = await db.insert(notifications).values(notificationList as any).returning();
     return results;
   }
 

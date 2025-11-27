@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Navigation from "@/components/navigation";
+import NotificationBell from "@/components/notification-bell";
 import TransferManagement from "@/components/transfer-management";
 import TerminationManagement from "@/components/termination-management";
 import AssetManagement from "@/components/asset-management";
@@ -420,10 +421,7 @@ export default function HRDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-              </Button>
+              <NotificationBell />
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
