@@ -12,6 +12,7 @@ import HREmployeeManagement from "@/components/hr-employee-management";
 import DepartmentManagement from "@/components/department-management";
 import TeamLeaderView from "@/components/team-leader-view";
 import GoJSOrganogram from "@/components/organogram/gojs-organogram";
+import NotificationBell from "@/components/notification-bell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -763,17 +764,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
             
             {/* Right side */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative hidden sm:flex"
-                data-testid="button-notifications"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                  3
-                </span>
-              </Button>
+              <NotificationBell />
 
               <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
                 <div className="flex flex-col items-end justify-center">

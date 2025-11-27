@@ -8,6 +8,7 @@ import TransferManagement from "@/components/transfer-management";
 import TerminationManagement from "@/components/termination-management";
 import OnboardingManagement from "@/components/onboarding-management";
 import Reports from "@/pages/reports";
+import NotificationBell from "@/components/notification-bell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -816,17 +817,7 @@ export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: Te
             {/* Right side - Only show for non-readonly */}
             {!isReadOnly && (
               <div className="flex items-center gap-2 sm:gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="relative hidden sm:flex"
-                  data-testid="button-notifications"
-                >
-                  <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
+                <NotificationBell />
 
                 <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
                   <div className="flex flex-col items-end justify-center">
