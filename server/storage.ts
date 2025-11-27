@@ -18,6 +18,7 @@ import {
   transfersAudit,
   assetIncidents,
   assetDetails,
+  notifications,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -58,6 +59,8 @@ import {
   type InsertAssetDetails,
   type UserRole,
   type TeamLeaderSummary,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, gte, lte, sql, inArray } from "drizzle-orm";
@@ -307,6 +310,16 @@ export interface IStorage {
       active: number;
     };
   }>;
+  
+  // Notification management
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  createBulkNotifications(notifications: InsertNotification[]): Promise<Notification[]>;
+  getNotificationsByUser(userId: string, limit?: number, offset?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  markNotificationAsRead(notificationId: string): Promise<Notification>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  deleteNotification(notificationId: string): Promise<void>;
+  getNotificationById(notificationId: string): Promise<Notification | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2701,6 +2714,71 @@ export class DatabaseStorage implements IStorage {
         active: activeAgentIds.length
       }
     };
+  }
+
+  // Notification management
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [result] = await db.insert(notifications).values(notification).returning();
+    return result;
+  }
+
+  async createBulkNotifications(notificationList: InsertNotification[]): Promise<Notification[]> {
+    if (notificationList.length === 0) return [];
+    const results = await db.insert(notifications).values(notificationList).returning();
+    return results;
+  }
+
+  async getNotificationsByUser(userId: string, limit: number = 50, offset: number = 0): Promise<Notification[]> {
+    const results = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.recipientUserId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit)
+      .offset(offset);
+    return results;
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.recipientUserId, userId),
+        sql`${notifications.readAt} IS NULL`
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<Notification> {
+    const [result] = await db
+      .update(notifications)
+      .set({ readAt: new Date() })
+      .where(eq(notifications.id, notificationId))
+      .returning();
+    return result;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(notifications.recipientUserId, userId),
+        sql`${notifications.readAt} IS NULL`
+      ));
+  }
+
+  async deleteNotification(notificationId: string): Promise<void> {
+    await db.delete(notifications).where(eq(notifications.id, notificationId));
+  }
+
+  async getNotificationById(notificationId: string): Promise<Notification | undefined> {
+    const [result] = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, notificationId));
+    return result;
   }
 }
 
