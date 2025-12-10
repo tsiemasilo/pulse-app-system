@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./replitAuth";
-import { insertUserSchema, insertDivisionSchema, insertDepartmentSchema, insertSectionSchema, insertUserDepartmentAssignmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, insertNotificationSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
+import { insertUserSchema, insertDivisionSchema, insertDepartmentSchema, insertSectionSchema, insertUserDepartmentAssignmentSchema, insertAssetSchema, insertTransferSchema, insertTerminationSchema, insertAssetLossRecordSchema, insertHistoricalAssetRecordSchema, insertAssetDailyStateSchema, insertAssetStateAuditSchema, insertAssetIncidentSchema, insertAssetDetailsSchema, insertOrganizationalPositionSchema, insertUserPositionSchema, insertNotificationSchema, insertPendingOnboardingRequestSchema, users, attendance, organizationalPositions, userPositions } from "@shared/schema";
 import { dailyResetScheduler } from "./scheduler";
 import { z } from "zod";
 import { db } from "./db";
@@ -2314,6 +2314,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting notification:", error);
       res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // Onboarding Request routes
+  app.post('/api/onboarding-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'team_leader') {
+        return res.status(403).json({ message: "Forbidden - Only team leaders can submit onboarding requests" });
+      }
+
+      if (!user.reportsTo) {
+        return res.status(400).json({ message: "You must have a manager assigned to submit onboarding requests" });
+      }
+
+      const requestData = insertPendingOnboardingRequestSchema.parse(req.body);
+
+      const hashedPassword = await hashPassword(requestData.password);
+
+      const onboardingRequest = await storage.createPendingOnboardingRequest({
+        ...requestData,
+        password: hashedPassword,
+        teamLeaderId: user.id,
+        managerId: user.reportsTo,
+      });
+
+      await notificationService.createNotification({
+        recipientUserId: user.id,
+        actorUserId: user.id,
+        subjectType: 'system',
+        subjectId: onboardingRequest.id,
+        severity: 'info',
+        title: 'Onboarding Request Submitted',
+        body: `Your onboarding request for ${requestData.firstName} ${requestData.lastName} has been submitted and is pending approval.`,
+        requiresAction: false,
+      });
+
+      await notificationService.createNotification({
+        recipientUserId: user.reportsTo,
+        actorUserId: user.id,
+        subjectType: 'system',
+        subjectId: onboardingRequest.id,
+        severity: 'warning',
+        title: 'New Onboarding Request',
+        body: `${user.firstName || user.username} has submitted an onboarding request for ${requestData.firstName} ${requestData.lastName}. Please review and approve or reject.`,
+        requiresAction: true,
+        actionUrl: '/contact-center?view=onboarding',
+      });
+
+      res.json(onboardingRequest);
+    } catch (error) {
+      console.error("Error creating onboarding request:", error);
+      res.status(500).json({ message: "Failed to create onboarding request" });
+    }
+  });
+
+  app.get('/api/onboarding-requests/my-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const requests = await storage.getPendingOnboardingRequestsByTeamLeader(user.id);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching onboarding requests:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding requests" });
+    }
+  });
+
+  app.get('/api/onboarding-requests/pending-approvals', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Forbidden - Only contact center managers can view pending approvals" });
+      }
+
+      const requests = await storage.getPendingOnboardingRequestsByManager(user.id);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  app.post('/api/onboarding-requests/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Forbidden - Only contact center managers can approve requests" });
+      }
+
+      const requestId = req.params.id;
+      const newAgent = await storage.approvePendingOnboardingRequest(requestId, user.id);
+
+      const [request] = await db.select().from(users).where(eq(users.id, newAgent.reportsTo || ''));
+      const teamLeaderId = newAgent.reportsTo;
+
+      if (teamLeaderId) {
+        await notificationService.createNotification({
+          recipientUserId: teamLeaderId,
+          actorUserId: user.id,
+          subjectType: 'system',
+          subjectId: requestId,
+          severity: 'info',
+          title: 'Onboarding Request Approved',
+          body: `Your onboarding request for ${newAgent.firstName} ${newAgent.lastName} has been approved. The agent has been added to your team.`,
+          requiresAction: false,
+        });
+      }
+
+      res.json({ message: "Onboarding request approved", agent: newAgent });
+    } catch (error) {
+      console.error("Error approving onboarding request:", error);
+      res.status(500).json({ message: "Failed to approve onboarding request" });
+    }
+  });
+
+  app.post('/api/onboarding-requests/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'contact_center_manager') {
+        return res.status(403).json({ message: "Forbidden - Only contact center managers can reject requests" });
+      }
+
+      const requestId = req.params.id;
+      const { reason } = z.object({ reason: z.string().min(1, "Rejection reason is required") }).parse(req.body);
+
+      const rejectedRequest = await storage.rejectPendingOnboardingRequest(requestId, reason);
+
+      await notificationService.createNotification({
+        recipientUserId: rejectedRequest.teamLeaderId,
+        actorUserId: user.id,
+        subjectType: 'system',
+        subjectId: requestId,
+        severity: 'warning',
+        title: 'Onboarding Request Rejected',
+        body: `Your onboarding request for ${rejectedRequest.firstName} ${rejectedRequest.lastName} has been rejected. Reason: ${reason}`,
+        requiresAction: false,
+      });
+
+      res.json({ message: "Onboarding request rejected", request: rejectedRequest });
+    } catch (error) {
+      console.error("Error rejecting onboarding request:", error);
+      res.status(500).json({ message: "Failed to reject onboarding request" });
     }
   });
 

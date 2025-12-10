@@ -456,6 +456,43 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+// Onboarding request status types
+export type OnboardingRequestStatus = 'pending' | 'approved' | 'rejected';
+
+// Pending onboarding requests (team leader submits, manager approves)
+export const pendingOnboardingRequests = pgTable("pending_onboarding_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Agent details
+  username: varchar("username").notNull(),
+  password: text("password").notNull(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email"),
+  // Department assignment
+  divisionId: varchar("division_id").references(() => divisions.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  sectionId: varchar("section_id").references(() => sections.id),
+  // Workflow tracking
+  teamLeaderId: varchar("team_leader_id").notNull().references(() => users.id),
+  managerId: varchar("manager_id").notNull().references(() => users.id),
+  status: varchar("status").$type<OnboardingRequestStatus>().notNull().default('pending'),
+  rejectionReason: text("rejection_reason"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+});
+
+// Insert schema for pending onboarding requests
+export const insertPendingOnboardingRequestSchema = createInsertSchema(pendingOnboardingRequests).omit({
+  id: true,
+  status: true,
+  rejectionReason: true,
+  createdAt: true,
+  approvedAt: true,
+  approvedBy: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -501,6 +538,8 @@ export type UserPosition = typeof userPositions.$inferSelect;
 export type InsertUserPosition = z.infer<typeof insertUserPositionSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type PendingOnboardingRequest = typeof pendingOnboardingRequests.$inferSelect;
+export type InsertPendingOnboardingRequest = z.infer<typeof insertPendingOnboardingRequestSchema>;
 
 // Team Leader Summary for CC Manager Dashboard
 export type TeamLeaderSummary = {

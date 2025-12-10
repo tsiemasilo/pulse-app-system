@@ -19,6 +19,7 @@ import {
   assetIncidents,
   assetDetails,
   notifications,
+  pendingOnboardingRequests,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -61,6 +62,8 @@ import {
   type TeamLeaderSummary,
   type Notification,
   type InsertNotification,
+  type PendingOnboardingRequest,
+  type InsertPendingOnboardingRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, gte, lte, sql, inArray } from "drizzle-orm";
@@ -320,6 +323,13 @@ export interface IStorage {
   markAllNotificationsAsRead(userId: string): Promise<void>;
   deleteNotification(notificationId: string): Promise<void>;
   getNotificationById(notificationId: string): Promise<Notification | undefined>;
+  
+  // Pending Onboarding Requests
+  createPendingOnboardingRequest(request: InsertPendingOnboardingRequest): Promise<PendingOnboardingRequest>;
+  getPendingOnboardingRequestsByTeamLeader(teamLeaderId: string): Promise<PendingOnboardingRequest[]>;
+  getPendingOnboardingRequestsByManager(managerId: string): Promise<PendingOnboardingRequest[]>;
+  approvePendingOnboardingRequest(requestId: string, approverId: string): Promise<User>;
+  rejectPendingOnboardingRequest(requestId: string, reason: string): Promise<PendingOnboardingRequest>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2778,6 +2788,107 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(notifications)
       .where(eq(notifications.id, notificationId));
+    return result;
+  }
+
+  // Pending Onboarding Requests
+  async createPendingOnboardingRequest(request: InsertPendingOnboardingRequest): Promise<PendingOnboardingRequest> {
+    const [result] = await db.insert(pendingOnboardingRequests).values(request).returning();
+    return result;
+  }
+
+  async getPendingOnboardingRequestsByTeamLeader(teamLeaderId: string): Promise<PendingOnboardingRequest[]> {
+    return await db
+      .select()
+      .from(pendingOnboardingRequests)
+      .where(eq(pendingOnboardingRequests.teamLeaderId, teamLeaderId))
+      .orderBy(desc(pendingOnboardingRequests.createdAt));
+  }
+
+  async getPendingOnboardingRequestsByManager(managerId: string): Promise<PendingOnboardingRequest[]> {
+    return await db
+      .select()
+      .from(pendingOnboardingRequests)
+      .where(and(
+        eq(pendingOnboardingRequests.managerId, managerId),
+        eq(pendingOnboardingRequests.status, 'pending')
+      ))
+      .orderBy(desc(pendingOnboardingRequests.createdAt));
+  }
+
+  async approvePendingOnboardingRequest(requestId: string, approverId: string): Promise<User> {
+    const [request] = await db
+      .select()
+      .from(pendingOnboardingRequests)
+      .where(eq(pendingOnboardingRequests.id, requestId));
+
+    if (!request) {
+      throw new Error("Onboarding request not found");
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error("Request has already been processed");
+    }
+
+    await db
+      .update(pendingOnboardingRequests)
+      .set({
+        status: 'approved',
+        approvedAt: new Date(),
+        approvedBy: approverId,
+      })
+      .where(eq(pendingOnboardingRequests.id, requestId));
+
+    const newUser = await this.createUser({
+      username: request.username,
+      password: request.password,
+      firstName: request.firstName,
+      lastName: request.lastName,
+      email: request.email,
+      role: 'agent',
+      departmentId: request.departmentId,
+      reportsTo: request.teamLeaderId,
+      isActive: true,
+    });
+
+    const teamLeaderTeams = await this.getTeamsByLeader(request.teamLeaderId);
+    
+    let team;
+    if (teamLeaderTeams.length > 0) {
+      team = teamLeaderTeams[0];
+    } else {
+      const teamLeader = await this.getUser(request.teamLeaderId);
+      const teamName = teamLeader 
+        ? `${teamLeader.firstName || teamLeader.username}'s Team` 
+        : 'New Team';
+      
+      const [newTeam] = await db.insert(teams).values({
+        name: teamName,
+        leaderId: request.teamLeaderId,
+        departmentId: request.departmentId,
+      }).returning();
+      team = newTeam;
+    }
+
+    await this.addTeamMember(team.id, newUser.id);
+
+    return newUser;
+  }
+
+  async rejectPendingOnboardingRequest(requestId: string, reason: string): Promise<PendingOnboardingRequest> {
+    const [result] = await db
+      .update(pendingOnboardingRequests)
+      .set({
+        status: 'rejected',
+        rejectionReason: reason,
+      })
+      .where(eq(pendingOnboardingRequests.id, requestId))
+      .returning();
+
+    if (!result) {
+      throw new Error("Onboarding request not found");
+    }
+
     return result;
   }
 }
