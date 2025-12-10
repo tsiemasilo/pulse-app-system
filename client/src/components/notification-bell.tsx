@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Bell, Check, AlertTriangle, Info, AlertCircle } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Bell, Check, AlertTriangle, Info, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import {
   useMarkAllAsRead,
 } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
-import type { Notification, NotificationSeverity } from "@shared/schema";
+import type { Notification, NotificationSeverity, NotificationSubjectType } from "@shared/schema";
 
 function getSeverityConfig(severity: NotificationSeverity) {
   switch (severity) {
@@ -28,6 +28,7 @@ function getSeverityConfig(severity: NotificationSeverity) {
         bgColor: "bg-red-100 dark:bg-red-900/30",
         textColor: "text-red-600 dark:text-red-400",
         borderColor: "border-l-red-500",
+        badgeVariant: "destructive" as const,
       };
     case "warning":
       return {
@@ -35,6 +36,7 @@ function getSeverityConfig(severity: NotificationSeverity) {
         bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
         textColor: "text-yellow-600 dark:text-yellow-400",
         borderColor: "border-l-yellow-500",
+        badgeVariant: "secondary" as const,
       };
     case "info":
     default:
@@ -43,29 +45,64 @@ function getSeverityConfig(severity: NotificationSeverity) {
         bgColor: "bg-blue-100 dark:bg-blue-900/30",
         textColor: "text-blue-600 dark:text-blue-400",
         borderColor: "border-l-blue-500",
+        badgeVariant: "outline" as const,
       };
+  }
+}
+
+function getActionLabel(subjectType: NotificationSubjectType, requiresAction?: boolean): string {
+  switch (subjectType) {
+    case "transfer":
+      return requiresAction ? "Review Transfer Request" : "View Transfers";
+    case "termination":
+      return "View Terminations";
+    case "asset":
+      return requiresAction ? "Review Asset Status" : "View Assets";
+    case "onboarding":
+      return "View Onboarding";
+    case "team":
+      return "View Team";
+    case "system":
+      return "View Details";
+    default:
+      return "View Details";
   }
 }
 
 function NotificationItem({
   notification,
+  isExpanded,
+  onToggleExpand,
   onMarkAsRead,
   onNavigate,
 }: {
   notification: Notification;
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
   onMarkAsRead: (id: string) => void;
   onNavigate: (url: string) => void;
 }) {
   const severityConfig = getSeverityConfig(notification.severity);
   const SeverityIcon = severityConfig.icon;
   const isRead = !!notification.readAt;
+  const actionLabel = getActionLabel(notification.subjectType, notification.requiresAction);
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleHeaderClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isRead) {
+    
+    // Mark as read when expanding
+    if (!isRead && !isExpanded) {
       onMarkAsRead(notification.id);
     }
+    
+    onToggleExpand(notification.id);
+  };
+
+  const handleActionClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (notification.actionUrl) {
       onNavigate(notification.actionUrl);
     }
@@ -73,54 +110,150 @@ function NotificationItem({
 
   return (
     <div
-      onClick={handleClick}
       className={cn(
-        "flex gap-3 p-3 border-l-4 cursor-pointer hover-elevate",
+        "border-l-4 transition-all duration-200",
         severityConfig.borderColor,
-        isRead ? "opacity-60" : "",
-        notification.actionUrl ? "cursor-pointer" : ""
+        isRead ? "opacity-70" : "",
       )}
       data-testid={`notification-item-${notification.id}`}
     >
+      {/* Header - Always visible, clickable to expand */}
       <div
+        onClick={handleHeaderClick}
         className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-          severityConfig.bgColor
+          "flex gap-3 p-3 cursor-pointer hover-elevate",
         )}
+        data-testid={`notification-header-${notification.id}`}
       >
-        <SeverityIcon className={cn("w-4 h-4", severityConfig.textColor)} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className={cn(
-              "text-sm font-medium truncate",
-              isRead ? "text-muted-foreground" : "text-foreground"
-            )}
-          >
-            {notification.title}
-          </p>
-          {!isRead && (
-            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+        <div
+          className={cn(
+            "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+            severityConfig.bgColor
           )}
+        >
+          <SeverityIcon className={cn("w-4 h-4", severityConfig.textColor)} />
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-          {notification.body}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {notification.createdAt
-            ? formatDistanceToNow(new Date(notification.createdAt), {
-                addSuffix: true,
-              })
-            : ""}
-        </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={cn(
+                "text-sm font-medium",
+                isRead ? "text-muted-foreground" : "text-foreground",
+                !isExpanded && "truncate"
+              )}
+            >
+              {notification.title}
+            </p>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {!isRead && (
+                <div className="w-2 h-2 rounded-full bg-primary" />
+              )}
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </div>
+          </div>
+          {!isExpanded && (
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+              {notification.body}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground mt-1">
+            {notification.createdAt
+              ? formatDistanceToNow(new Date(notification.createdAt), {
+                  addSuffix: true,
+                })
+              : ""}
+          </p>
+        </div>
       </div>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div 
+          className="px-3 pb-3 pt-0 ml-11 space-y-3"
+          data-testid={`notification-expanded-${notification.id}`}
+        >
+          {/* Full message body */}
+          <div className="bg-muted/50 rounded-md p-3">
+            <p className="text-sm text-foreground whitespace-pre-wrap">
+              {notification.body}
+            </p>
+            
+            {/* Show metadata details if available */}
+            {notification.metadata && typeof notification.metadata === 'object' && (
+              <div className="mt-2 pt-2 border-t border-border/50">
+                {(notification.metadata as Record<string, unknown>).targetUserName && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Agent:</span> {String((notification.metadata as Record<string, unknown>).targetUserName)}
+                  </p>
+                )}
+                {(notification.metadata as Record<string, unknown>).transferType && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Type:</span> {String((notification.metadata as Record<string, unknown>).transferType)}
+                  </p>
+                )}
+                {(notification.metadata as Record<string, unknown>).statusType && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Status:</span> {String((notification.metadata as Record<string, unknown>).statusType)}
+                  </p>
+                )}
+                {(notification.metadata as Record<string, unknown>).assetType && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Asset:</span> {String((notification.metadata as Record<string, unknown>).assetType)}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Timestamp details */}
+          <p className="text-xs text-muted-foreground">
+            {notification.createdAt
+              ? format(new Date(notification.createdAt), "PPpp")
+              : ""}
+          </p>
+
+          {/* Action button */}
+          {notification.actionUrl && (
+            <Button
+              size="sm"
+              onClick={handleActionClick}
+              className="w-full"
+              data-testid={`notification-action-${notification.id}`}
+            >
+              <ExternalLink className="w-3 h-3 mr-2" />
+              {actionLabel}
+            </Button>
+          )}
+
+          {/* Status badges */}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={severityConfig.badgeVariant} className="text-xs">
+              {notification.severity.charAt(0).toUpperCase() + notification.severity.slice(1)}
+            </Badge>
+            {notification.requiresAction && (
+              <Badge variant="outline" className="text-xs">
+                Action Required
+              </Badge>
+            )}
+            {isRead && (
+              <Badge variant="secondary" className="text-xs">
+                Read
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [, navigate] = useLocation();
 
   const { data: notifications = [], isLoading: isLoadingNotifications } =
@@ -139,14 +272,26 @@ export default function NotificationBell() {
     markAllAsRead.mutate();
   };
 
+  const handleToggleExpand = (notificationId: string) => {
+    setExpandedId(prev => prev === notificationId ? null : notificationId);
+  };
+
   const handleNavigate = (url: string) => {
-    // Navigate first, then close dropdown
     navigate(url);
     setOpen(false);
+    setExpandedId(null);
+  };
+
+  // Reset expanded state when dropdown closes
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setExpandedId(null);
+    }
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
@@ -168,7 +313,7 @@ export default function NotificationBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-80 p-0 z-[100]"
+        className="w-96 p-0 z-[100]"
         sideOffset={8}
         data-testid="dropdown-notifications"
       >
@@ -189,7 +334,7 @@ export default function NotificationBell() {
           )}
         </div>
 
-        <ScrollArea className="max-h-96">
+        <ScrollArea className="max-h-[28rem]">
           {isLoadingNotifications ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Loading notifications...
@@ -208,6 +353,8 @@ export default function NotificationBell() {
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
+                  isExpanded={expandedId === notification.id}
+                  onToggleExpand={handleToggleExpand}
                   onMarkAsRead={handleMarkAsRead}
                   onNavigate={handleNavigate}
                 />
@@ -221,8 +368,7 @@ export default function NotificationBell() {
             <DropdownMenuSeparator />
             <div className="p-2 text-center">
               <span className="text-xs text-muted-foreground">
-                Showing {notifications.length} notification
-                {notifications.length !== 1 ? "s" : ""}
+                Click a notification to see full details
               </span>
             </div>
           </>
