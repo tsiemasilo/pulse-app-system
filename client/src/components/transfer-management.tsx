@@ -227,12 +227,16 @@ export default function TransferManagement() {
 
   const getUsersAssignedToDivision = (divisionId: string) => {
     const assignments = userDepartmentAssignments.filter(a => a.divisionId === divisionId);
-    return assignments.map(a => users.find(u => u.id === a.userId)).filter(Boolean) as UserType[];
+    return assignments
+      .map(a => users.find(u => u.id === a.userId))
+      .filter((u): u is UserType => u !== undefined && u.role === 'team_leader');
   };
 
   const getUsersAssignedToDepartment = (departmentId: string) => {
     const assignments = userDepartmentAssignments.filter(a => a.departmentId === departmentId);
-    return assignments.map(a => users.find(u => u.id === a.userId)).filter(Boolean) as UserType[];
+    return assignments
+      .map(a => users.find(u => u.id === a.userId))
+      .filter((u): u is UserType => u !== undefined && u.role === 'team_leader');
   };
 
   const transferFilteredDepartments = useMemo(() => {
