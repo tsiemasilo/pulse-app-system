@@ -18,7 +18,7 @@ import {
   useMarkAllAsRead,
 } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
-import type { Notification, NotificationSeverity, NotificationSubjectType } from "@shared/schema";
+import type { Notification, NotificationSeverity } from "@shared/schema";
 
 function getSeverityConfig(severity: NotificationSeverity) {
   switch (severity) {
@@ -50,7 +50,7 @@ function getSeverityConfig(severity: NotificationSeverity) {
   }
 }
 
-function getActionLabel(subjectType: NotificationSubjectType, requiresAction?: boolean): string {
+function getActionLabel(subjectType: string, requiresAction?: boolean): string {
   switch (subjectType) {
     case "transfer":
       return requiresAction ? "Review Transfer Request" : "View Transfers";
@@ -58,15 +58,53 @@ function getActionLabel(subjectType: NotificationSubjectType, requiresAction?: b
       return "View Terminations";
     case "asset":
       return requiresAction ? "Review Asset Status" : "View Assets";
-    case "onboarding":
-      return "View Onboarding";
-    case "team":
-      return "View Team";
     case "system":
       return "View Details";
     default:
       return "View Details";
   }
+}
+
+interface MetadataRecord {
+  targetUserName?: string;
+  transferType?: string;
+  statusType?: string;
+  assetType?: string;
+  [key: string]: unknown;
+}
+
+function MetadataDetails({ metadata }: { metadata: unknown }) {
+  if (!metadata || typeof metadata !== 'object') return null;
+  
+  const meta = metadata as MetadataRecord;
+  const hasDetails = meta.targetUserName || meta.transferType || meta.statusType || meta.assetType;
+  
+  if (!hasDetails) return null;
+  
+  return (
+    <div className="mt-2 pt-2 border-t border-border/50">
+      {meta.targetUserName && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Agent:</span> {String(meta.targetUserName)}
+        </p>
+      )}
+      {meta.transferType && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Type:</span> {String(meta.transferType)}
+        </p>
+      )}
+      {meta.statusType && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Status:</span> {String(meta.statusType)}
+        </p>
+      )}
+      {meta.assetType && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Asset:</span> {String(meta.assetType)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function NotificationItem({
@@ -75,23 +113,26 @@ function NotificationItem({
   onToggleExpand,
   onMarkAsRead,
   onNavigate,
+  locallyReadIds,
 }: {
   notification: Notification;
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
   onMarkAsRead: (id: string) => void;
   onNavigate: (url: string) => void;
+  locallyReadIds: Set<string>;
 }) {
   const severityConfig = getSeverityConfig(notification.severity);
   const SeverityIcon = severityConfig.icon;
-  const isRead = !!notification.readAt;
+  // Check both server state and local optimistic state
+  const isRead = !!notification.readAt || locallyReadIds.has(notification.id);
   const actionLabel = getActionLabel(notification.subjectType, notification.requiresAction);
 
   const handleHeaderClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Mark as read when expanding
+    // Mark as read when expanding (if not already read)
     if (!isRead && !isExpanded) {
       onMarkAsRead(notification.id);
     }
@@ -182,31 +223,7 @@ function NotificationItem({
               {notification.body}
             </p>
             
-            {/* Show metadata details if available */}
-            {notification.metadata && typeof notification.metadata === 'object' && (
-              <div className="mt-2 pt-2 border-t border-border/50">
-                {(notification.metadata as Record<string, unknown>).targetUserName && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Agent:</span> {String((notification.metadata as Record<string, unknown>).targetUserName)}
-                  </p>
-                )}
-                {(notification.metadata as Record<string, unknown>).transferType && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Type:</span> {String((notification.metadata as Record<string, unknown>).transferType)}
-                  </p>
-                )}
-                {(notification.metadata as Record<string, unknown>).statusType && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Status:</span> {String((notification.metadata as Record<string, unknown>).statusType)}
-                  </p>
-                )}
-                {(notification.metadata as Record<string, unknown>).assetType && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Asset:</span> {String((notification.metadata as Record<string, unknown>).assetType)}
-                  </p>
-                )}
-              </div>
-            )}
+            <MetadataDetails metadata={notification.metadata} />
           </div>
 
           {/* Timestamp details */}
@@ -254,6 +271,7 @@ function NotificationItem({
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
   const [, navigate] = useLocation();
 
   const { data: notifications = [], isLoading: isLoadingNotifications } =
@@ -262,13 +280,23 @@ export default function NotificationBell() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  const unreadCount = unreadData?.count ?? 0;
+  // Calculate unread count including optimistic updates
+  const serverUnreadCount = unreadData?.count ?? 0;
+  const optimisticReadsCount = Array.from(locallyReadIds).filter(
+    id => notifications.some(n => n.id === id && !n.readAt)
+  ).length;
+  const unreadCount = Math.max(0, serverUnreadCount - optimisticReadsCount);
 
   const handleMarkAsRead = (notificationId: string) => {
+    // Optimistically mark as read locally
+    setLocallyReadIds(prev => new Set(prev).add(notificationId));
     markAsRead.mutate(notificationId);
   };
 
   const handleMarkAllAsRead = () => {
+    // Optimistically mark all as read locally
+    const allIds = new Set(notifications.map(n => n.id));
+    setLocallyReadIds(allIds);
     markAllAsRead.mutate();
   };
 
@@ -357,6 +385,7 @@ export default function NotificationBell() {
                   onToggleExpand={handleToggleExpand}
                   onMarkAsRead={handleMarkAsRead}
                   onNavigate={handleNavigate}
+                  locallyReadIds={locallyReadIds}
                 />
               ))}
             </div>
