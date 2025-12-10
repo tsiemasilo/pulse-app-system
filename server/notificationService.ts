@@ -71,6 +71,29 @@ export class NotificationService {
     return storage.getUsersByRole('admin');
   }
 
+  private async getActionUrlForRecipient(recipientId: string, viewType: 'transfers' | 'terminations' | 'assets' | 'employees' | 'team'): Promise<string> {
+    const recipient = await storage.getUser(recipientId);
+    if (!recipient) return '/';
+
+    const viewParam = viewType !== 'team' ? `?view=${viewType}` : '';
+    
+    switch (recipient.role) {
+      case 'admin':
+        if (viewType === 'team') return '/admin/team-leader';
+        return `/admin/hr${viewParam}`;
+      case 'hr':
+        if (viewType === 'team') return '/';
+        return `/hr${viewParam}`;
+      case 'contact_center_manager':
+      case 'contact_center_ops_manager':
+        return '/contact-center';
+      case 'team_leader':
+        return '/team-leader';
+      default:
+        return '/';
+    }
+  }
+
   private getTerminationMessage(statusType: string, agentName: string, comment?: string | null): { title: string; body: string; severity: NotificationSeverity } {
     switch (statusType) {
       case 'AWOL':
@@ -129,6 +152,7 @@ export class NotificationService {
       : targetUser.username;
 
     for (const recipientId of Array.from(recipientIds)) {
+      const actionUrl = await this.getActionUrlForRecipient(recipientId, 'transfers');
       notifications.push({
         recipientUserId: recipientId,
         actorUserId: requestedByUser.id,
@@ -145,7 +169,7 @@ export class NotificationService {
           toDepartmentId: transfer.toDepartmentId
         },
         requiresAction: true,
-        actionUrl: '/admin/hr?view=transfers'
+        actionUrl
       });
     }
 
@@ -167,6 +191,7 @@ export class NotificationService {
     notifiedIds.add(approvedByUser.id);
 
     if (transfer.requestedBy && transfer.requestedBy !== approvedByUser.id) {
+      const actionUrl = await this.getActionUrlForRecipient(transfer.requestedBy, 'transfers');
       notifications.push({
         recipientUserId: transfer.requestedBy,
         actorUserId: approvedByUser.id,
@@ -181,7 +206,7 @@ export class NotificationService {
           targetUserName: targetName
         },
         requiresAction: false,
-        actionUrl: '/admin/hr?view=transfers'
+        actionUrl
       });
       notifiedIds.add(transfer.requestedBy);
     }
@@ -195,6 +220,7 @@ export class NotificationService {
     }
     
     if (oldTeamLeader && !notifiedIds.has(oldTeamLeader.id)) {
+      const actionUrl = await this.getActionUrlForRecipient(oldTeamLeader.id, 'team');
       notifications.push({
         recipientUserId: oldTeamLeader.id,
         actorUserId: approvedByUser.id,
@@ -210,7 +236,7 @@ export class NotificationService {
           direction: 'outgoing'
         },
         requiresAction: false,
-        actionUrl: '/admin/team-leader'
+        actionUrl
       });
       notifiedIds.add(oldTeamLeader.id);
     }
@@ -218,6 +244,7 @@ export class NotificationService {
     if (transfer.toTeamId) {
       const newTeamLeader = await this.getTeamLeaderByTeamId(transfer.toTeamId);
       if (newTeamLeader && !notifiedIds.has(newTeamLeader.id)) {
+        const actionUrl = await this.getActionUrlForRecipient(newTeamLeader.id, 'team');
         notifications.push({
           recipientUserId: newTeamLeader.id,
           actorUserId: approvedByUser.id,
@@ -233,7 +260,7 @@ export class NotificationService {
             direction: 'incoming'
           },
           requiresAction: false,
-          actionUrl: '/admin/team-leader'
+          actionUrl
         });
         notifiedIds.add(newTeamLeader.id);
       }
@@ -253,6 +280,7 @@ export class NotificationService {
       : targetUser.username;
 
     if (transfer.requestedBy !== rejectedByUser.id) {
+      const actionUrl = await this.getActionUrlForRecipient(transfer.requestedBy, 'transfers');
       await storage.createNotification({
         recipientUserId: transfer.requestedBy,
         actorUserId: rejectedByUser.id,
@@ -268,7 +296,7 @@ export class NotificationService {
           reason
         },
         requiresAction: false,
-        actionUrl: '/admin/hr?view=transfers'
+        actionUrl
       });
     }
   }
@@ -328,6 +356,7 @@ export class NotificationService {
 
     for (const recipientId of Array.from(recipientIds)) {
       const isProcessedBy = recipientId === processedByUser.id;
+      const actionUrl = await this.getActionUrlForRecipient(recipientId, 'terminations');
       notifications.push({
         recipientUserId: recipientId,
         actorUserId: processedByUser.id,
@@ -348,7 +377,7 @@ export class NotificationService {
           isConfirmation: isProcessedBy
         },
         requiresAction: false,
-        actionUrl: '/admin/hr?view=terminations'
+        actionUrl
       });
     }
 
@@ -390,6 +419,7 @@ export class NotificationService {
     });
 
     for (const recipientId of Array.from(recipientIds)) {
+      const actionUrl = await this.getActionUrlForRecipient(recipientId, 'assets');
       notifications.push({
         recipientUserId: recipientId,
         actorUserId: reportedByUser.id,
@@ -406,7 +436,7 @@ export class NotificationService {
           currentState: assetState.currentState
         },
         requiresAction: true,
-        actionUrl: '/admin/hr?view=assets'
+        actionUrl
       });
     }
 
@@ -448,6 +478,7 @@ export class NotificationService {
     });
 
     for (const recipientId of Array.from(recipientIds)) {
+      const actionUrl = await this.getActionUrlForRecipient(recipientId, 'assets');
       notifications.push({
         recipientUserId: recipientId,
         actorUserId: reportedByUser.id,
@@ -464,7 +495,7 @@ export class NotificationService {
           currentState: assetState.currentState
         },
         requiresAction: true,
-        actionUrl: '/admin/hr?view=assets'
+        actionUrl
       });
     }
 
@@ -518,6 +549,7 @@ export class NotificationService {
     const managers = await this.getManagersForUser(userId);
     for (const manager of managers) {
       if (!notifiedIds.has(manager.id)) {
+        const actionUrl = await this.getActionUrlForRecipient(manager.id, 'employees');
         notifications.push({
           recipientUserId: manager.id,
           actorUserId: changedByUser.id,
@@ -535,7 +567,7 @@ export class NotificationService {
             newDepartmentName: newDept?.name
           },
           requiresAction: false,
-          actionUrl: '/admin/hr?view=employees'
+          actionUrl
         });
         notifiedIds.add(manager.id);
       }
@@ -544,6 +576,7 @@ export class NotificationService {
     const currentTeamLeader = await this.getTeamLeaderForAgent(userId);
     
     if (currentTeamLeader && !notifiedIds.has(currentTeamLeader.id)) {
+      const actionUrl = await this.getActionUrlForRecipient(currentTeamLeader.id, 'team');
       notifications.push({
         recipientUserId: currentTeamLeader.id,
         actorUserId: changedByUser.id,
@@ -561,7 +594,7 @@ export class NotificationService {
           newDepartmentName: newDept?.name
         },
         requiresAction: false,
-        actionUrl: '/admin/team-leader'
+        actionUrl
       });
       notifiedIds.add(currentTeamLeader.id);
     }
@@ -594,6 +627,7 @@ export class NotificationService {
       ? `${agent.firstName} ${agent.lastName}` 
       : agent.username;
 
+    const actionUrl = await this.getActionUrlForRecipient(teamLeader.id, 'team');
     await storage.createNotification({
       recipientUserId: teamLeader.id,
       actorUserId: addedByUser.id,
@@ -608,7 +642,7 @@ export class NotificationService {
         teamId
       },
       requiresAction: false,
-      actionUrl: '/admin/team-leader'
+      actionUrl
     });
   }
 
@@ -635,6 +669,7 @@ export class NotificationService {
       ? `${agent.firstName} ${agent.lastName}` 
       : agent.username;
 
+    const actionUrl = await this.getActionUrlForRecipient(teamLeader.id, 'team');
     await storage.createNotification({
       recipientUserId: teamLeader.id,
       actorUserId: removedByUser.id,
@@ -649,7 +684,7 @@ export class NotificationService {
         teamId
       },
       requiresAction: false,
-      actionUrl: '/admin/team-leader'
+      actionUrl
     });
   }
 }
