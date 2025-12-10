@@ -11,6 +11,7 @@ import HRDashboard from "@/pages/hr-dashboard";
 import ContactCenterDashboard from "@/pages/contact-center-dashboard";
 import TeamLeaderDashboard from "@/pages/team-leader-dashboard";
 import Organogram from "@/pages/organogram";
+import NotificationsPage from "@/pages/notifications";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -71,6 +72,9 @@ function Router() {
               : <NotFound />
           } />
           <Route path="/team-leader" component={() => user?.role === 'team_leader' ? <TeamLeaderDashboard /> : <NotFound />} />
+          
+          {/* Notifications Route - accessible to all authenticated users */}
+          <Route path="/notifications" component={NotificationsPage} />
           
           <Route component={NotFound} />
         </Switch>

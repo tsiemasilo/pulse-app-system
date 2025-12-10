@@ -392,16 +392,21 @@ export default function NotificationBell() {
           )}
         </ScrollArea>
 
-        {notifications.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="p-2 text-center">
-              <span className="text-xs text-muted-foreground">
-                Click a notification to see full details
-              </span>
-            </div>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <div className="p-2">
+          <Button
+            variant="ghost"
+            className="w-full text-sm"
+            onClick={() => {
+              setOpen(false);
+              navigate("/notifications");
+            }}
+            data-testid="button-view-all-notifications"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View All Notifications
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
