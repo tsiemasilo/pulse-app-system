@@ -60,7 +60,9 @@ function NotificationItem({
   const SeverityIcon = severityConfig.icon;
   const isRead = !!notification.readAt;
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!isRead) {
       onMarkAsRead(notification.id);
     }
@@ -138,8 +140,9 @@ export default function NotificationBell() {
   };
 
   const handleNavigate = (url: string) => {
-    setOpen(false);
+    // Navigate first, then close dropdown
     navigate(url);
+    setOpen(false);
   };
 
   return (
