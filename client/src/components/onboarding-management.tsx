@@ -6,123 +6,111 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { insertUserSchema, type Department, type Asset, type User } from "@shared/schema";
+import { 
+  insertPendingOnboardingRequestSchema,
+  type Division, 
+  type Department,
+  type Section,
+  type PendingOnboardingRequest
+} from "@shared/schema";
 import { 
   UserPlus, 
-  CheckCircle, 
   Clock, 
-  FileText, 
-  Briefcase, 
-  User as UserIcon, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar,
-  Upload,
-  Download
+  CheckCircle,
+  XCircle,
+  AlertCircle
 } from "lucide-react";
 import { z } from "zod";
 
-// Enhanced onboarding schema
-const onboardingSchema = insertUserSchema.extend({
-  startDate: z.string().min(1, "Start date is required"),
-  jobTitle: z.string().min(1, "Job title is required"),
-  manager: z.string().optional(),
-  workLocation: z.string().min(1, "Work location is required"),
-  phoneNumber: z.string().optional(),
-  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
-  notes: z.string().optional(),
+const onboardingFormSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  divisionId: z.string().optional(),
+  departmentId: z.string().optional(),
+  sectionId: z.string().optional(),
 });
 
-type OnboardingData = z.infer<typeof onboardingSchema>;
-
-interface OnboardingChecklistItem {
-  id: string;
-  title: string;
-  description: string;
-  category: 'documentation' | 'systems' | 'equipment' | 'training';
-  required: boolean;
-  completed: boolean;
-}
+type OnboardingFormData = z.infer<typeof onboardingFormSchema>;
 
 export default function OnboardingManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
 
-  const { data: departments = [] } = useQuery<Department[]>({
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: allDepartments = [] } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
   });
 
-  const { data: assets = [] } = useQuery<Asset[]>({
-    queryKey: ["/api/assets"],
+  const { data: allSections = [] } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
   });
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+  const { data: myRequests = [], isLoading: loadingRequests } = useQuery<PendingOnboardingRequest[]>({
+    queryKey: ["/api/onboarding-requests/my-requests"],
   });
 
-  const form = useForm<OnboardingData>({
-    resolver: zodResolver(onboardingSchema),
+  const form = useForm<OnboardingFormData>({
+    resolver: zodResolver(onboardingFormSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
       email: "",
       username: "",
       password: "",
-      role: "agent",
-      departmentId: "",
-      startDate: "",
-      jobTitle: "",
-      manager: "",
-      workLocation: "",
-      phoneNumber: "",
-      emergencyContactName: "",
-      emergencyContactPhone: "",
-      notes: "",
-      isActive: true,
+      divisionId: "none",
+      departmentId: "none",
+      sectionId: "none",
     },
   });
 
-  const onboardEmployeeMutation = useMutation({
-    mutationFn: async (data: OnboardingData) => {
-      // Create the user first
-      const userData = {
+  const selectedDivisionId = form.watch("divisionId");
+  const selectedDepartmentId = form.watch("departmentId");
+
+  const filteredDepartments = allDepartments.filter(
+    dept => !selectedDivisionId || selectedDivisionId === 'none' || dept.divisionId === selectedDivisionId
+  );
+
+  const filteredSections = allSections.filter(
+    section => !selectedDepartmentId || selectedDepartmentId === 'none' || section.departmentId === selectedDepartmentId
+  );
+
+  const onboardAgentMutation = useMutation({
+    mutationFn: async (data: OnboardingFormData) => {
+      const requestData = {
         firstName: data.firstName,
         lastName: data.lastName,
-        email: data.email,
+        email: data.email && data.email.trim() !== '' ? data.email : null,
         username: data.username,
         password: data.password,
-        role: data.role,
-        departmentId: data.departmentId,
-        isActive: data.isActive,
+        divisionId: data.divisionId && data.divisionId !== 'none' ? data.divisionId : null,
+        departmentId: data.departmentId && data.departmentId !== 'none' ? data.departmentId : null,
+        sectionId: data.sectionId && data.sectionId !== 'none' ? data.sectionId : null,
       };
       
-      return await apiRequest("POST", "/api/users", userData);
+      return await apiRequest("POST", "/api/onboarding-requests", requestData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding-requests/my-requests"] });
       toast({
-        title: "Success",
-        description: "Employee onboarded successfully! Remember to complete the onboarding checklist.",
+        title: "Request Submitted",
+        description: "Your onboarding request has been submitted and is pending manager approval.",
       });
       form.reset();
       setShowForm(false);
-      setCurrentStep(1);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -134,50 +122,57 @@ export default function OnboardingManagement() {
         }, 500);
         return;
       }
+      const message = error?.message || "Failed to submit onboarding request";
       toast({
         title: "Error",
-        description: "Failed to onboard employee",
+        description: message,
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: OnboardingData) => {
-    onboardEmployeeMutation.mutate(data);
+  const onSubmit = (data: OnboardingFormData) => {
+    onboardAgentMutation.mutate(data);
   };
 
-  const getStepTitle = (step: number) => {
-    switch(step) {
-      case 1: return "Personal Info";
-      case 2: return "Job Details";
-      case 3: return "Contact Info";
-      case 4: return "Emergency";
-      default: return "Personal Info";
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-800"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+      case 'approved':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
+      case 'rejected':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-800"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const availableAssets = assets.filter(asset => asset.status === 'available');
-  const managers = users.filter(user => 
-    ['admin', 'hr', 'contact_center_manager', 'team_leader'].includes(user.role || '')
-  );
+  const pendingCount = myRequests.filter(r => r.status === 'pending').length;
+  const approvedCount = myRequests.filter(r => r.status === 'approved').length;
+  const rejectedCount = myRequests.filter(r => r.status === 'rejected').length;
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
-      {/* Header */}
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-lg p-6 border border-purple-100 dark:border-purple-800/30">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Employee Onboarding</h2>
-            <p className="text-purple-600 dark:text-purple-400">Streamlined onboarding process for new employees</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Agent Onboarding</h2>
+            <p className="text-purple-600 dark:text-purple-400">Onboard new agents to your team - requires manager approval</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1"><Clock className="h-4 w-4 text-yellow-500" /> {pendingCount} pending</span>
+              <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-green-500" /> {approvedCount} approved</span>
+              <span className="flex items-center gap-1"><XCircle className="h-4 w-4 text-red-500" /> {rejectedCount} rejected</span>
+            </div>
             <Button 
               className="bg-purple-600 hover:bg-purple-700 text-white" 
-              data-testid="button-add-employee"
+              data-testid="button-add-agent"
               onClick={() => setShowForm(!showForm)}
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              {showForm ? "Cancel Onboarding" : "Start New Onboarding"}
+              {showForm ? "Cancel" : "Onboard New Agent"}
             </Button>
           </div>
         </div>
@@ -186,340 +181,272 @@ export default function OnboardingManagement() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>New Employee Onboarding</CardTitle>
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Progress</span>
-                <span className="text-sm text-gray-500">{currentStep}/4</span>
-              </div>
-              <Progress value={(currentStep / 4) * 100} className="w-full" />
-              <div className="flex justify-between mt-2 text-xs text-gray-500">
-                <span className={currentStep >= 1 ? 'text-purple-600 font-medium' : ''}>Personal Info</span>
-                <span className={currentStep >= 2 ? 'text-purple-600 font-medium' : ''}>Job Details</span>
-                <span className={currentStep >= 3 ? 'text-purple-600 font-medium' : ''}>Contact Info</span>
-                <span className={currentStep >= 4 ? 'text-purple-600 font-medium' : ''}>Emergency</span>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              New Agent Onboarding Request
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Fill in the agent details below. The agent will be automatically assigned to your team once approved.
+            </p>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <Tabs value={`step-${currentStep}`} onValueChange={(value) => setCurrentStep(parseInt(value.split('-')[1]))} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="step-1">Personal Info</TabsTrigger>
-                    <TabsTrigger value="step-2">Job Details</TabsTrigger>
-                    <TabsTrigger value="step-3">Contact Info</TabsTrigger>
-                    <TabsTrigger value="step-4">Emergency</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="step-1" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="firstName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>First Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="First Name" data-testid="input-firstname" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="lastName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Last Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Last Name" data-testid="input-lastname" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="username"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Username</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Username" data-testid="input-username" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Temporary Password</FormLabel>
-                                <FormControl>
-                                  <Input type="password" placeholder="Password" data-testid="input-password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </TabsContent>
-
-                  <TabsContent value="step-2" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="role"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Role</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger data-testid="select-role">
-                                      <SelectValue placeholder="Select a role" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="admin">System Admin</SelectItem>
-                                    <SelectItem value="hr">HR Manager</SelectItem>
-                                    <SelectItem value="contact_center_ops_manager">Contact Center Ops Manager</SelectItem>
-                                    <SelectItem value="contact_center_manager">Contact Center Manager</SelectItem>
-                                    <SelectItem value="team_leader">Team Leader</SelectItem>
-                                    <SelectItem value="agent">Agent</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="departmentId"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Department</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger data-testid="select-department">
-                                      <SelectValue placeholder="Select department" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {departments.map((dept) => (
-                                      <SelectItem key={dept.id} value={dept.id}>
-                                        {dept.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="jobTitle"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Job Title</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Job Title" data-testid="input-job-title" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="manager"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Direct Manager</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger data-testid="select-manager">
-                                      <SelectValue placeholder="Select manager" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {managers.map((manager) => (
-                                      <SelectItem key={manager.id} value={manager.id}>
-                                        {manager.firstName} {manager.lastName} ({manager.role})
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="startDate"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Start Date</FormLabel>
-                                <FormControl>
-                                  <Input type="date" data-testid="input-start-date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="workLocation"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Work Location</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="e.g., Office A, Remote, Hybrid" data-testid="input-work-location" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </TabsContent>
-
-                  <TabsContent value="step-3" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Email Address</FormLabel>
-                                <FormControl>
-                                  <Input type="email" placeholder="Email" data-testid="input-email" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="phoneNumber"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Phone Number</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="+1 (555) 123-4567" data-testid="input-phone" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </TabsContent>
-
-                  <TabsContent value="step-4" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="emergencyContactName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Emergency Contact Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Contact Name" data-testid="input-emergency-name" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="emergencyContactPhone"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Emergency Contact Phone</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="+1 (555) 123-4567" data-testid="input-emergency-phone" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <FormField
-                          control={form.control}
-                          name="notes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Additional Notes</FormLabel>
-                              <FormControl>
-                                <Textarea placeholder="Any additional information..." rows={3} data-testid="textarea-notes" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                  </TabsContent>
-                </Tabs>
-
-                <div className="flex justify-between space-x-2">
-                  <div className="flex space-x-2">
-                    {currentStep > 1 && (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setCurrentStep(currentStep - 1)}
-                        data-testid="button-previous"
-                      >
-                        Previous
-                      </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="First Name" data-testid="input-firstname" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {setShowForm(false); setCurrentStep(1);}}
-                      data-testid="button-cancel"
-                    >
-                      Cancel
-                    </Button>
-                    {currentStep < 4 ? (
-                      <Button 
-                        type="button" 
-                        onClick={() => setCurrentStep(currentStep + 1)}
-                        className="bg-purple-600 hover:bg-purple-700"
-                        data-testid="button-next"
-                      >
-                        Next
-                      </Button>
-                    ) : (
-                      <Button 
-                        type="submit" 
-                        disabled={onboardEmployeeMutation.isPending}
-                        className="bg-purple-600 hover:bg-purple-700"
-                        data-testid="button-submit-onboarding"
-                      >
-                        {onboardEmployeeMutation.isPending ? "Creating..." : "Complete Onboarding"}
-                      </Button>
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Last Name" data-testid="input-lastname" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Username for login" data-testid="input-username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Initial password" data-testid="input-password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="agent@example.com" data-testid="input-email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="divisionId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Division (Optional)</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("departmentId", "none");
+                            form.setValue("sectionId", "none");
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-division">
+                              <SelectValue placeholder="Select a division" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {divisions.map((division) => (
+                              <SelectItem key={division.id} value={division.id}>
+                                {division.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="departmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Department (Optional)</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("sectionId", "none");
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-department">
+                              <SelectValue placeholder="Select a department" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {filteredDepartments.map((department) => (
+                              <SelectItem key={department.id} value={department.id}>
+                                {department.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sectionId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Section (Optional)</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-section">
+                              <SelectValue placeholder="Select a section" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {filteredSections.map((section) => (
+                              <SelectItem key={section.id} value={section.id}>
+                                {section.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Approval Required</p>
+                      <p className="text-sm text-blue-600 dark:text-blue-400">
+                        This request will be sent to your manager for approval. Once approved, the agent will be added to your team automatically.
+                      </p>
+                    </div>
                   </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {setShowForm(false); form.reset();}}
+                    data-testid="button-cancel"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={onboardAgentMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700"
+                    data-testid="button-submit-onboarding"
+                  >
+                    {onboardAgentMutation.isPending ? "Submitting..." : "Submit for Approval"}
+                  </Button>
                 </div>
               </form>
             </Form>
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>My Onboarding Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingRequests ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            </div>
+          ) : myRequests.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No onboarding requests yet</p>
+              <p className="text-sm">Click "Onboard New Agent" to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myRequests.map((request) => (
+                <div 
+                  key={request.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                  data-testid={`request-item-${request.id}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">
+                        {request.firstName?.charAt(0)}{request.lastName?.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{request.firstName} {request.lastName}</p>
+                      <p className="text-sm text-muted-foreground">@{request.username}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {request.status === 'rejected' && request.rejectionReason && (
+                      <p className="text-sm text-red-600 dark:text-red-400 max-w-xs truncate" title={request.rejectionReason}>
+                        {request.rejectionReason}
+                      </p>
+                    )}
+                    {getStatusBadge(request.status)}
+                    <span className="text-xs text-muted-foreground">
+                      {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -13,6 +13,17 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard-stats";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Select,
   SelectContent,
@@ -41,6 +52,7 @@ import {
   Package, 
   ArrowRightLeft, 
   UserX,
+  UserPlus,
   Search,
   Calendar,
   BarChart3,
@@ -56,7 +68,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
-import type { User, Transfer } from "@shared/schema";
+import type { User, Transfer, PendingOnboardingRequest } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 
@@ -95,7 +107,7 @@ interface Analytics {
 }
 
 type DatePreset = 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
-type ActiveSection = 'attendance' | 'assets' | 'operations' | 'approvals';
+type ActiveSection = 'attendance' | 'assets' | 'operations' | 'approvals' | 'onboarding';
 
 export default function ContactCenterDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -106,6 +118,9 @@ export default function ContactCenterDashboard() {
   const [datePreset, setDatePreset] = useState<DatePreset>('last30');
   const [activeSection, setActiveSection] = useState<ActiveSection>('attendance');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   
   const today = new Date();
   const [startDate, setStartDate] = useState<string>(() => {
@@ -127,6 +142,7 @@ export default function ContactCenterDashboard() {
         'approvals': 'approvals',
         'transfers': 'approvals',
         'terminations': 'operations',
+        'onboarding': 'onboarding',
       };
       const mappedSection = viewMapping[viewParam];
       if (mappedSection) {
@@ -219,7 +235,12 @@ export default function ContactCenterDashboard() {
 
   const { data: allUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    enabled: activeSection === 'approvals',
+    enabled: activeSection === 'approvals' || activeSection === 'onboarding',
+  });
+
+  const { data: pendingOnboardingRequests = [], isLoading: isLoadingOnboarding } = useQuery<PendingOnboardingRequest[]>({
+    queryKey: ["/api/onboarding-requests/pending-approvals"],
+    enabled: activeSection === 'onboarding',
   });
 
   const { data: departments = [] } = useQuery<any[]>({
@@ -285,6 +306,46 @@ export default function ContactCenterDashboard() {
       toast({
         title: "Error",
         description: error.message || "Failed to complete transfer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveOnboardingMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      return await apiRequest("POST", `/api/onboarding-requests/${requestId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding-requests/pending-approvals"] });
+      toast({
+        title: "Success",
+        description: "Onboarding request approved successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to approve onboarding request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectOnboardingMutation = useMutation({
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
+      return await apiRequest("POST", `/api/onboarding-requests/${requestId}/reject`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding-requests/pending-approvals"] });
+      toast({
+        title: "Success",
+        description: "Onboarding request rejected",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject onboarding request",
         variant: "destructive",
       });
     },
@@ -420,6 +481,11 @@ export default function ContactCenterDashboard() {
       icon: CheckCircle2,
       key: 'approvals' as ActiveSection,
     },
+    {
+      title: 'ONBOARDING',
+      icon: UserPlus,
+      key: 'onboarding' as ActiveSection,
+    },
   ];
 
   // Get dynamic header title and subtitle
@@ -433,6 +499,8 @@ export default function ContactCenterDashboard() {
         return 'Operations Management';
       case 'approvals':
         return 'Transfer Approvals';
+      case 'onboarding':
+        return 'Onboarding Approvals';
       default:
         return 'Team Analytics';
     }
@@ -448,6 +516,8 @@ export default function ContactCenterDashboard() {
         return 'Oversee transfers and operations';
       case 'approvals':
         return 'Review and manage transfer requests';
+      case 'onboarding':
+        return 'Review and approve new agent onboarding requests';
       default:
         return 'Team Performance & Analytics';
     }
@@ -1160,6 +1230,167 @@ export default function ContactCenterDashboard() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        );
+
+      case 'onboarding':
+        const getTeamLeaderName = (teamLeaderId: string | null | undefined) => {
+          if (!teamLeaderId) return 'N/A';
+          const teamLeader = allUsers.find(u => u.id === teamLeaderId);
+          return teamLeader ? `${teamLeader.firstName} ${teamLeader.lastName}` : 'Unknown';
+        };
+
+        const getOnboardingStatusColor = (status: string) => {
+          switch (status) {
+            case 'pending':
+              return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400';
+            case 'approved':
+              return 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400';
+            case 'rejected':
+              return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400';
+            default:
+              return '';
+          }
+        };
+
+        const handleRejectOnboarding = (requestId: string) => {
+          setRejectingRequestId(requestId);
+          setRejectionReason("");
+          setRejectDialogOpen(true);
+        };
+
+        const handleConfirmReject = () => {
+          if (rejectingRequestId && rejectionReason.trim()) {
+            rejectOnboardingMutation.mutate({ requestId: rejectingRequestId, reason: rejectionReason.trim() });
+            setRejectDialogOpen(false);
+            setRejectingRequestId(null);
+            setRejectionReason("");
+          }
+        };
+
+        return (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Onboarding Requests</CardTitle>
+                <CardDescription>Review and approve new agent onboarding requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingOnboarding ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
+                      <p className="text-muted-foreground">Loading onboarding requests...</p>
+                    </div>
+                  </div>
+                ) : pendingOnboardingRequests.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <UserPlus className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">No pending onboarding requests</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Agent Name</TableHead>
+                          <TableHead>Username</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Team Leader</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Created Date</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pendingOnboardingRequests.map((request) => (
+                          <TableRow key={request.id} data-testid={`request-item-${request.id}`}>
+                            <TableCell className="font-medium">
+                              {request.firstName} {request.lastName}
+                            </TableCell>
+                            <TableCell>{request.username}</TableCell>
+                            <TableCell>{request.email || 'N/A'}</TableCell>
+                            <TableCell>{getTeamLeaderName(request.teamLeaderId)}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="default"
+                                className={getOnboardingStatusColor(request.status)}
+                                data-testid={`badge-onboarding-status-${request.id}`}
+                              >
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {request.status === 'pending' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => approveOnboardingMutation.mutate(request.id)}
+                                      disabled={approveOnboardingMutation.isPending}
+                                      data-testid={`button-approve-onboarding-${request.id}`}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleRejectOnboarding(request.id)}
+                                      disabled={rejectOnboardingMutation.isPending}
+                                      data-testid={`button-reject-onboarding-${request.id}`}
+                                    >
+                                      <XCircle className="h-4 w-4 mr-1" />
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+                                {request.status !== 'pending' && (
+                                  <span className="text-sm text-muted-foreground">No actions</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reject Onboarding Request</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Please provide a reason for rejecting this request.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <Textarea 
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
+                  data-testid="textarea-rejection-reason"
+                />
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="button-cancel-rejection">Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleConfirmReject}
+                    disabled={!rejectionReason.trim()}
+                    data-testid="button-confirm-rejection"
+                  >
+                    Reject
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         );
 
