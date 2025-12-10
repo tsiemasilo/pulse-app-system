@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -99,6 +100,7 @@ type ActiveSection = 'attendance' | 'assets' | 'operations' | 'approvals';
 export default function ContactCenterDashboard() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [location] = useLocation();
   const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<DatePreset>('last30');
@@ -111,6 +113,27 @@ export default function ContactCenterDashboard() {
     return date.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState<string>(today.toISOString().split('T')[0]);
+
+  // Read view parameter from URL on mount and when location changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam) {
+      // Map notification view types to contact center sections
+      const viewMapping: Record<string, ActiveSection> = {
+        'attendance': 'attendance',
+        'assets': 'assets',
+        'operations': 'operations',
+        'approvals': 'approvals',
+        'transfers': 'approvals',
+        'terminations': 'operations',
+      };
+      const mappedSection = viewMapping[viewParam];
+      if (mappedSection) {
+        setActiveSection(mappedSection);
+      }
+    }
+  }, [location]);
 
   // Scroll to top when section changes
   useEffect(() => {

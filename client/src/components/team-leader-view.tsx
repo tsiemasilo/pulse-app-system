@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { StatCard } from "@/components/dashboard-stats";
 import AttendanceTable from "@/components/attendance-table";
@@ -53,10 +54,20 @@ interface TeamLeaderViewProps {
 
 export default function TeamLeaderView({ leaderId, isReadOnly, currentUser }: TeamLeaderViewProps) {
   const { toast } = useToast();
+  const [location] = useLocation();
   const [activeTab, setActiveTab] = useState('attendance');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+
+  // Read view parameter from URL on mount and when location changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam && ['attendance', 'assets', 'transfers', 'terminations', 'onboarding', 'reports'].includes(viewParam)) {
+      setActiveTab(viewParam);
+    }
+  }, [location]);
 
   // Scroll to top when tab changes
   useEffect(() => {

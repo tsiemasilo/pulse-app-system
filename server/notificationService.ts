@@ -86,9 +86,9 @@ export class NotificationService {
         return `/hr${viewParam}`;
       case 'contact_center_manager':
       case 'contact_center_ops_manager':
-        return '/contact-center';
+        return `/contact-center${viewParam}`;
       case 'team_leader':
-        return '/team-leader';
+        return `/team-leader${viewParam}`;
       default:
         return '/';
     }
