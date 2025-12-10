@@ -620,30 +620,65 @@ export class NotificationService {
       console.warn(`[NotificationService] Cannot notify agent added: team ${teamId} has no leader`);
       return;
     }
-    
-    if (teamLeader.id === addedByUser.id) return;
 
     const agentName = agent.firstName && agent.lastName 
       ? `${agent.firstName} ${agent.lastName}` 
       : agent.username;
 
-    const actionUrl = await this.getActionUrlForRecipient(teamLeader.id, 'team');
-    await storage.createNotification({
-      recipientUserId: teamLeader.id,
-      actorUserId: addedByUser.id,
-      subjectType: 'transfer',
-      subjectId: null,
-      severity: 'info',
-      title: 'New Agent Added to Your Team',
-      body: `${agentName} has been added to your team.`,
-      metadata: {
-        agentUserId,
-        agentName,
-        teamId
-      },
-      requiresAction: false,
-      actionUrl
-    });
+    const teamLeaderName = teamLeader.firstName && teamLeader.lastName
+      ? `${teamLeader.firstName} ${teamLeader.lastName}`
+      : teamLeader.username;
+
+    const notifications: Parameters<typeof storage.createNotification>[0][] = [];
+
+    if (teamLeader.id !== addedByUser.id) {
+      const actionUrl = await this.getActionUrlForRecipient(teamLeader.id, 'team');
+      notifications.push({
+        recipientUserId: teamLeader.id,
+        actorUserId: addedByUser.id,
+        subjectType: 'transfer',
+        subjectId: null,
+        severity: 'info',
+        title: 'New Agent Added to Your Team',
+        body: `${agentName} has been added to your team.`,
+        metadata: {
+          agentUserId,
+          agentName,
+          teamId
+        },
+        requiresAction: false,
+        actionUrl
+      });
+    }
+
+    if (teamLeader.reportsTo) {
+      const manager = await storage.getUser(teamLeader.reportsTo);
+      if (manager && manager.id !== addedByUser.id) {
+        const managerActionUrl = await this.getActionUrlForRecipient(manager.id, 'team');
+        notifications.push({
+          recipientUserId: manager.id,
+          actorUserId: addedByUser.id,
+          subjectType: 'transfer',
+          subjectId: null,
+          severity: 'info',
+          title: 'New Agent Assigned to Your Team Leader',
+          body: `${agentName} has been assigned to ${teamLeaderName}'s team.`,
+          metadata: {
+            agentUserId,
+            agentName,
+            teamLeaderId: teamLeader.id,
+            teamLeaderName,
+            teamId
+          },
+          requiresAction: false,
+          actionUrl: managerActionUrl
+        });
+      }
+    }
+
+    for (const notification of notifications) {
+      await storage.createNotification(notification);
+    }
   }
 
   async notifyAgentRemovedFromTeam(
