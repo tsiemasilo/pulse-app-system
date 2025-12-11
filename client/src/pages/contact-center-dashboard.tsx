@@ -1634,12 +1634,15 @@ export default function ContactCenterDashboard() {
                     </div>
                   </div>
                   
-                  {/* Division Assignment Section */}
+                  {/* Division Assignment Section - Shows divisions from managed team leaders */}
                   {(() => {
-                    const managerAssignments = userDepartmentAssignments.filter(a => a.userId === user.id);
-                    if (managerAssignments.length === 0) return null;
+                    // Get team leader IDs
+                    const teamLeaderIds = teamLeaders.map(tl => tl.id);
+                    // Get assignments for all team leaders managed by this manager
+                    const teamLeaderAssignments = userDepartmentAssignments.filter(a => teamLeaderIds.includes(a.userId));
+                    if (teamLeaderAssignments.length === 0) return null;
                     
-                    const uniqueDivisionIds = Array.from(new Set(managerAssignments.map(a => a.divisionId).filter(Boolean)));
+                    const uniqueDivisionIds = Array.from(new Set(teamLeaderAssignments.map(a => a.divisionId).filter(Boolean)));
                     const divisionNames = uniqueDivisionIds
                       .map(divId => divisions.find(d => d.id === divId)?.name)
                       .filter(Boolean)
