@@ -235,7 +235,7 @@ export default function ContactCenterDashboard() {
 
   const { data: allUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    enabled: activeSection === 'approvals' || activeSection === 'onboarding',
+    enabled: activeSection === 'approvals' || activeSection === 'onboarding' || activeSection === 'assets' || activeSection === 'operations',
   });
 
   const { data: pendingOnboardingRequests = [], isLoading: isLoadingOnboarding } = useQuery<PendingOnboardingRequest[]>({
@@ -249,6 +249,11 @@ export default function ContactCenterDashboard() {
 
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
+  });
+
+  const { data: allAssets = [] } = useQuery<any[]>({
+    queryKey: ["/api/assets"],
+    enabled: activeSection === 'assets',
   });
 
   const approveMutation = useMutation({
@@ -459,6 +464,25 @@ export default function ContactCenterDashboard() {
     { name: 'Completed', value: analytics.transfers.completed || 0, color: '#10b981' }
   ] : [];
 
+  // Helper functions
+  const getUserName = (userId: string | null | undefined) => {
+    if (!userId) return 'Unknown';
+    const user = allUsers.find(u => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+  };
+
+  const getTeamName = (teamId: string | null | undefined) => {
+    if (!teamId) return null;
+    const team = teams.find((t: any) => t.id === teamId);
+    return team?.name || null;
+  };
+
+  const getDepartmentName = (deptId: string | null | undefined) => {
+    if (!deptId) return null;
+    const dept = departments.find((d: any) => d.id === deptId);
+    return dept?.name || null;
+  };
+
   // Navigation sections
   const sidebarSections = [
     {
@@ -525,43 +549,46 @@ export default function ContactCenterDashboard() {
 
   // Render main content based on active section
   const renderMainContent = () => {
-    if (!selectedTeamLeaderId) {
-      return (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center space-y-2">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground" />
-              <p className="text-muted-foreground">Select a team leader to view analytics</p>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
+    // For attendance tab, require team leader selection
+    if (activeSection === 'attendance') {
+      if (!selectedTeamLeaderId) {
+        return (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center space-y-2">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">Select a team leader to view analytics</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
 
-    if (isLoadingAnalytics) {
-      return (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center space-y-2">
-              <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
-              <p className="text-muted-foreground">Loading analytics...</p>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
+      if (isLoadingAnalytics) {
+        return (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center space-y-2">
+                <Activity className="h-12 w-12 mx-auto text-primary animate-pulse" />
+                <p className="text-muted-foreground">Loading analytics...</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
 
-    if (!analytics) {
-      return (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center space-y-2">
-              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
-              <p className="text-muted-foreground">No analytics data available</p>
-            </div>
-          </CardContent>
-        </Card>
-      );
+      if (!analytics) {
+        return (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center space-y-2">
+                <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">No analytics data available</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
     }
 
     switch (activeSection) {
@@ -757,311 +784,237 @@ export default function ContactCenterDashboard() {
 
       case 'assets':
         return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Asset Status Distribution</CardTitle>
-                  <CardDescription>Current asset allocation</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {assetStatusData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={assetStatusData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {assetStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-[300px]">
-                      <p className="text-muted-foreground">No asset data available</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Asset Compliance Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-500/10">
-                          <Package className="h-5 w-5 text-blue-600 dark:text-blue-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Assets Issued</p>
-                          <p className="text-xs text-muted-foreground">Total distributed</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.assets?.issued || 0}</div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-500/10">
-                          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Assets Returned</p>
-                          <p className="text-xs text-muted-foreground">Successfully returned</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.assets?.returned || 0}</div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-yellow-500/10">
-                          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Unreturned Assets</p>
-                          <p className="text-xs text-muted-foreground">Still with agents</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.assets?.unreturned || 0}</div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10">
-                          <XCircle className="h-5 w-5 text-red-600 dark:text-red-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Lost Assets</p>
-                          <p className="text-xs text-muted-foreground">Reported as lost</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.assets?.lost || 0}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
-
-      case 'operations':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Transfer Status</CardTitle>
-                  <CardDescription>Current transfer pipeline</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {transfersData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={transfersData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" className="text-muted-foreground" />
-                        <YAxis dataKey="name" type="category" className="text-muted-foreground" />
-                        <Tooltip />
-                        <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                          {transfersData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-[300px]">
-                      <p className="text-muted-foreground">No transfer data available</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Team Operations Summary</CardTitle>
-                  <CardDescription>Key operational metrics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-500/10">
-                          <ArrowRightLeft className="h-5 w-5 text-purple-600 dark:text-purple-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Total Transfers</p>
-                          <p className="text-xs text-muted-foreground">All transfer requests</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.transfers?.total || 0}</div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-500/10">
-                          <Users className="h-5 w-5 text-orange-600 dark:text-orange-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Active Team Members</p>
-                          <p className="text-xs text-muted-foreground">Currently active</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold">{analytics.teamMembers?.active || 0}</div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-500/10">
-                          <UserX className="h-5 w-5 text-gray-600 dark:text-gray-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Terminations</p>
-                          <p className="text-xs text-muted-foreground">Period exits</p>
-                        </div>
-                      </div>
-                      <div className="text-2xl font-bold" data-testid="text-terminations-total">{analytics.terminations?.total || 0}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              <StatCard
+                title="Assets Issued"
+                value={allAssets.filter(a => a.status === 'issued').length}
+                icon={Package}
+                cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                textColor="text-blue-600 dark:text-blue-400"
+                iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                iconColor="text-blue-600 dark:text-blue-400"
+                testId="stat-assets-issued"
+              />
+              <StatCard
+                title="Assets Returned"
+                value={allAssets.filter(a => a.status === 'returned').length}
+                icon={CheckCircle2}
+                cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                textColor="text-green-600 dark:text-green-400"
+                iconBgColor="bg-green-100 dark:bg-green-900/50"
+                iconColor="text-green-600 dark:text-green-400"
+                testId="stat-assets-returned"
+              />
+              <StatCard
+                title="Unreturned Assets"
+                value={allAssets.filter(a => a.status === 'issued').length}
+                icon={AlertCircle}
+                cardColor="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-800/30"
+                textColor="text-yellow-600 dark:text-yellow-400"
+                iconBgColor="bg-yellow-100 dark:bg-yellow-900/50"
+                iconColor="text-yellow-600 dark:text-yellow-400"
+                testId="stat-assets-unreturned"
+              />
+              <StatCard
+                title="Lost Assets"
+                value={allAssets.filter(a => a.status === 'lost').length}
+                icon={XCircle}
+                cardColor="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-800/30"
+                textColor="text-red-600 dark:text-red-400"
+                iconBgColor="bg-red-100 dark:bg-red-900/50"
+                iconColor="text-red-600 dark:text-red-400"
+                testId="stat-assets-lost"
+              />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Transfer Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Count</TableHead>
-                        <TableHead className="text-right">Percentage</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                            <span className="font-medium">Pending</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {analytics.transfers?.pending || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950">
-                            {analytics.transfers?.total && analytics.transfers.total > 0 
-                              ? ((analytics.transfers.pending / analytics.transfers.total) * 100).toFixed(1)
-                              : '0'}%
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-blue-500" />
-                            <span className="font-medium">Approved</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {analytics.transfers?.approved || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950">
-                            {analytics.transfers?.total && analytics.transfers.total > 0 
-                              ? ((analytics.transfers.approved / analytics.transfers.total) * 100).toFixed(1)
-                              : '0'}%
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-green-500" />
-                            <span className="font-medium">Completed</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {analytics.transfers?.completed || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
-                            {analytics.transfers?.total && analytics.transfers.total > 0 
-                              ? ((analytics.transfers.completed / analytics.transfers.total) * 100).toFixed(1)
-                              : '0'}%
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              {analytics.terminations?.byType && Object.keys(analytics.terminations.byType).length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Termination Reasons</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+            {/* Assets Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  All Assets Overview
+                </CardTitle>
+                <CardDescription>View all assets across your team leaders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {allAssets.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <Package className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">No assets found</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Reason</TableHead>
-                          <TableHead className="text-right">Count</TableHead>
+                          <TableHead>Asset Type</TableHead>
+                          <TableHead>Serial Number</TableHead>
+                          <TableHead>Assigned To</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Issue Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Object.entries(analytics.terminations.byType).map(([type, count]) => (
-                          <TableRow key={type}>
-                            <TableCell className="font-medium capitalize">
-                              {type.replace(/_/g, ' ')}
+                        {allAssets.slice(0, 10).map((asset) => (
+                          <TableRow key={asset.id} data-testid={`asset-row-${asset.id}`}>
+                            <TableCell className="font-medium">{asset.assetType}</TableCell>
+                            <TableCell>{asset.serialNumber || 'N/A'}</TableCell>
+                            <TableCell>{getUserName(asset.userId)}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="default"
+                                className={
+                                  asset.status === 'issued' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400' :
+                                  asset.status === 'returned' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' :
+                                  'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400'
+                                }
+                              >
+                                {asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}
+                              </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-bold">{count}</TableCell>
+                            <TableCell>
+                              {asset.issueDate ? new Date(asset.issueDate).toLocaleDateString() : 'N/A'}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                  </CardContent>
-                </Card>
-              )}
+                    {allAssets.length > 10 && (
+                      <p className="text-sm text-muted-foreground mt-4 text-center">
+                        Showing 10 of {allAssets.length} assets
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'operations':
+        const pendingTransfers = transfers.filter(t => t.status === 'pending').length;
+        const approvedTransfers = transfers.filter(t => t.status === 'approved').length;
+        const completedTransfers = transfers.filter(t => t.status === 'completed').length;
+        const totalTransfers = transfers.length;
+        
+        return (
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              <StatCard
+                title="Total Transfers"
+                value={totalTransfers}
+                icon={ArrowRightLeft}
+                cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
+                textColor="text-purple-600 dark:text-purple-400"
+                iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+                iconColor="text-purple-600 dark:text-purple-400"
+                testId="stat-total-transfers"
+              />
+              <StatCard
+                title="Pending"
+                value={pendingTransfers}
+                icon={Clock}
+                cardColor="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-800/30"
+                textColor="text-yellow-600 dark:text-yellow-400"
+                iconBgColor="bg-yellow-100 dark:bg-yellow-900/50"
+                iconColor="text-yellow-600 dark:text-yellow-400"
+                testId="stat-pending-transfers"
+              />
+              <StatCard
+                title="Approved"
+                value={approvedTransfers}
+                icon={CheckCircle2}
+                cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                textColor="text-blue-600 dark:text-blue-400"
+                iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                iconColor="text-blue-600 dark:text-blue-400"
+                testId="stat-approved-transfers"
+              />
+              <StatCard
+                title="Completed"
+                value={completedTransfers}
+                icon={CheckCircle2}
+                cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                textColor="text-green-600 dark:text-green-400"
+                iconBgColor="bg-green-100 dark:bg-green-900/50"
+                iconColor="text-green-600 dark:text-green-400"
+                testId="stat-completed-transfers"
+              />
             </div>
+
+            {/* Transfers Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-5 w-5" />
+                  All Transfers Overview
+                </CardTitle>
+                <CardDescription>View all transfers across your team leaders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {transfers.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <ArrowRightLeft className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">No transfers found</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>From</TableHead>
+                          <TableHead>To</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Request Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transfers.slice(0, 10).map((transfer) => (
+                          <TableRow key={transfer.id} data-testid={`transfer-row-${transfer.id}`}>
+                            <TableCell className="font-medium">{getUserName(transfer.userId)}</TableCell>
+                            <TableCell>{getTeamName(transfer.fromTeamId) || getDepartmentName(transfer.fromDepartmentId) || 'N/A'}</TableCell>
+                            <TableCell>{getTeamName(transfer.toTeamId) || getDepartmentName(transfer.toDepartmentId) || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="default"
+                                className={
+                                  transfer.status === 'pending' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400' :
+                                  transfer.status === 'approved' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400' :
+                                  transfer.status === 'completed' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' :
+                                  'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400'
+                                }
+                              >
+                                {transfer.status.charAt(0).toUpperCase() + transfer.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {transfer.requestDate ? new Date(transfer.requestDate).toLocaleDateString() : 'N/A'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {transfers.length > 10 && (
+                      <p className="text-sm text-muted-foreground mt-4 text-center">
+                        Showing 10 of {transfers.length} transfers
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
 
       case 'approvals':
-        const getUserName = (userId: string) => {
-          const user = allUsers.find(u => u.id === userId);
-          return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
-        };
-
-        const getTeamName = (teamId: string | null | undefined) => {
-          if (!teamId) return null;
-          const team = teams.find((t: any) => t.id === teamId);
-          return team?.name || 'Unknown Team';
-        };
-
-        const getDepartmentName = (deptId: string | null | undefined) => {
-          if (!deptId) return null;
-          const department = departments.find((d: any) => d.id === deptId);
-          return department?.name || 'Unknown Department';
-        };
-
         const getFromTeamDept = (transfer: Transfer) => {
           const teamName = getTeamName(transfer.fromTeamId);
           const deptName = getDepartmentName(transfer.fromDepartmentId);
@@ -1112,11 +1065,63 @@ export default function ContactCenterDashboard() {
           }
         };
 
+        const pendingApprovals = transfers.filter(t => t.status === 'pending').length;
+        const approvedTransfersCount = transfers.filter(t => t.status === 'approved').length;
+        const completedTransfersCount = transfers.filter(t => t.status === 'completed').length;
+        const rejectedTransfersCount = transfers.filter(t => t.status === 'rejected').length;
+
         return (
-          <div className="space-y-4">
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              <StatCard
+                title="Pending Approvals"
+                value={pendingApprovals}
+                icon={Clock}
+                cardColor="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-800/30"
+                textColor="text-yellow-600 dark:text-yellow-400"
+                iconBgColor="bg-yellow-100 dark:bg-yellow-900/50"
+                iconColor="text-yellow-600 dark:text-yellow-400"
+                testId="stat-pending-approvals"
+              />
+              <StatCard
+                title="Approved"
+                value={approvedTransfersCount}
+                icon={CheckCircle2}
+                cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                textColor="text-green-600 dark:text-green-400"
+                iconBgColor="bg-green-100 dark:bg-green-900/50"
+                iconColor="text-green-600 dark:text-green-400"
+                testId="stat-approved-approvals"
+              />
+              <StatCard
+                title="Completed"
+                value={completedTransfersCount}
+                icon={CheckCircle2}
+                cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                textColor="text-blue-600 dark:text-blue-400"
+                iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                iconColor="text-blue-600 dark:text-blue-400"
+                testId="stat-completed-approvals"
+              />
+              <StatCard
+                title="Rejected"
+                value={rejectedTransfersCount}
+                icon={XCircle}
+                cardColor="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-800/30"
+                textColor="text-red-600 dark:text-red-400"
+                iconBgColor="bg-red-100 dark:bg-red-900/50"
+                iconColor="text-red-600 dark:text-red-400"
+                testId="stat-rejected-approvals"
+              />
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle>Transfer Requests</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Transfer Requests
+                </CardTitle>
                 <CardDescription>Review and manage transfer requests</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1268,11 +1273,30 @@ export default function ContactCenterDashboard() {
           }
         };
 
+        const pendingOnboardingCount = pendingOnboardingRequests.length;
+
         return (
-          <div className="space-y-4">
+          <div className="space-y-6 animate-in fade-in-50 duration-500">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              <StatCard
+                title="Pending Requests"
+                value={pendingOnboardingCount}
+                icon={UserPlus}
+                cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
+                textColor="text-purple-600 dark:text-purple-400"
+                iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+                iconColor="text-purple-600 dark:text-purple-400"
+                testId="stat-pending-onboarding"
+              />
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle>Pending Onboarding Requests</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Pending Onboarding Requests
+                </CardTitle>
                 <CardDescription>Review and approve new agent onboarding requests</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1578,159 +1602,167 @@ export default function ContactCenterDashboard() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">
-          <div className="fade-in">
-              {/* Welcome Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2" data-testid="text-welcome-greeting">
-                      Welcome back, {user.firstName || 'Manager'}
-                    </h2>
-                    <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">
-                      Monitor your team leaders' performance and analytics
-                    </p>
+          <div className="fade-in space-y-4">
+            {/* Attendance tab shows full analytics controls */}
+            {activeSection === 'attendance' && (
+              <>
+                {/* Welcome Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2" data-testid="text-welcome-greeting">
+                        Welcome back, {user.firstName || 'Manager'}
+                      </h2>
+                      <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400">
+                        Monitor your team leaders' performance and analytics
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Today</p>
+                      <p className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white" data-testid="text-current-date">
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Today</p>
-                    <p className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white" data-testid="text-current-date">
-                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
+                </div>
+
+                {/* Team Leader Selection */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Select Team Leader</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Select value={selectedTeamLeaderId || undefined} onValueChange={setSelectedTeamLeaderId}>
+                      <SelectTrigger data-testid="select-team-leader">
+                        <SelectValue placeholder="Choose a team leader" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredTeamLeaders.map((leader) => (
+                          <SelectItem key={leader.id} value={leader.id}>
+                            {leader.firstName} {leader.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+
+                {/* Date Range Controls */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <Button 
+                    variant={datePreset === 'last7' ? 'default' : 'outline'} 
+                    onClick={() => handleDatePresetChange('last7')}
+                    data-testid="button-date-last7"
+                    className="flex-shrink-0"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Last 7 Days
+                  </Button>
+                  <Button 
+                    variant={datePreset === 'last30' ? 'default' : 'outline'} 
+                    onClick={() => handleDatePresetChange('last30')}
+                    data-testid="button-date-last30"
+                    className="flex-shrink-0"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Last 30 Days
+                  </Button>
+                  <Button 
+                    variant={datePreset === 'thisMonth' ? 'default' : 'outline'} 
+                    onClick={() => handleDatePresetChange('thisMonth')}
+                    data-testid="button-date-this-month"
+                    className="flex-shrink-0"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    This Month
+                  </Button>
+                  <Button 
+                    variant={datePreset === 'lastMonth' ? 'default' : 'outline'} 
+                    onClick={() => handleDatePresetChange('lastMonth')}
+                    data-testid="button-date-last-month"
+                    className="flex-shrink-0"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Last Month
+                  </Button>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setDatePreset('custom');
+                      }}
+                      className="w-auto"
+                      data-testid="input-start-date"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setDatePreset('custom');
+                      }}
+                      className="w-auto"
+                      data-testid="input-end-date"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Team Leader Selection */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Select Team Leader</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Select value={selectedTeamLeaderId || undefined} onValueChange={setSelectedTeamLeaderId}>
-                    <SelectTrigger data-testid="select-team-leader">
-                      <SelectValue placeholder="Choose a team leader" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredTeamLeaders.map((leader) => (
-                        <SelectItem key={leader.id} value={leader.id}>
-                          {leader.firstName} {leader.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
+                {/* KPI Stats Cards */}
+                {analytics && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    <StatCard
+                      title="Attendance Rate"
+                      value={`${analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%`}
+                      icon={UserCheck}
+                      cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
+                      textColor="text-green-600 dark:text-green-400"
+                      iconBgColor="bg-green-100 dark:bg-green-900/50"
+                      iconColor="text-green-600 dark:text-green-400"
+                      testId="text-attendance-rate"
+                    />
+                    <StatCard
+                      title="Asset Compliance"
+                      value={`${analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%`}
+                      icon={Package}
+                      cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
+                      textColor="text-blue-600 dark:text-blue-400"
+                      iconBgColor="bg-blue-100 dark:bg-blue-900/50"
+                      iconColor="text-blue-600 dark:text-blue-400"
+                      testId="text-asset-compliance"
+                    />
+                    <StatCard
+                      title="Total Transfers"
+                      value={analytics.transfers?.total || 0}
+                      icon={ArrowRightLeft}
+                      cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
+                      textColor="text-purple-600 dark:text-purple-400"
+                      iconBgColor="bg-purple-100 dark:bg-purple-900/50"
+                      iconColor="text-purple-600 dark:text-purple-400"
+                      testId="text-transfers-total"
+                    />
+                    <StatCard
+                      title="Active Members"
+                      value={analytics.teamMembers?.active || 0}
+                      icon={Users}
+                      cardColor="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800/30"
+                      textColor="text-orange-600 dark:text-orange-400"
+                      iconBgColor="bg-orange-100 dark:bg-orange-900/50"
+                      iconColor="text-orange-600 dark:text-orange-400"
+                      testId="text-team-members"
+                    />
+                  </div>
+                )}
 
-              {/* Date Range Controls */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Button 
-                  variant={datePreset === 'last7' ? 'default' : 'outline'} 
-                  onClick={() => handleDatePresetChange('last7')}
-                  data-testid="button-date-last7"
-                  className="flex-shrink-0"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Last 7 Days
-                </Button>
-                <Button 
-                  variant={datePreset === 'last30' ? 'default' : 'outline'} 
-                  onClick={() => handleDatePresetChange('last30')}
-                  data-testid="button-date-last30"
-                  className="flex-shrink-0"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Last 30 Days
-                </Button>
-                <Button 
-                  variant={datePreset === 'thisMonth' ? 'default' : 'outline'} 
-                  onClick={() => handleDatePresetChange('thisMonth')}
-                  data-testid="button-date-this-month"
-                  className="flex-shrink-0"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  This Month
-                </Button>
-                <Button 
-                  variant={datePreset === 'lastMonth' ? 'default' : 'outline'} 
-                  onClick={() => handleDatePresetChange('lastMonth')}
-                  data-testid="button-date-last-month"
-                  className="flex-shrink-0"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Last Month
-                </Button>
-                <div className="flex items-center gap-2 ml-auto">
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="w-auto"
-                    data-testid="input-start-date"
-                  />
-                  <span className="text-muted-foreground">to</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="w-auto"
-                    data-testid="input-end-date"
-                  />
-                </div>
-              </div>
+                {/* Main Content Area for Attendance */}
+                {renderMainContent()}
+              </>
+            )}
 
-              {/* KPI Stats Cards */}
-              {analytics && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                  <StatCard
-                    title="Attendance Rate"
-                    value={`${analytics.attendance?.presentPercentage?.toFixed(1) || '0.0'}%`}
-                    icon={UserCheck}
-                    cardColor="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800/30"
-                    textColor="text-green-600 dark:text-green-400"
-                    iconBgColor="bg-green-100 dark:bg-green-900/50"
-                    iconColor="text-green-600 dark:text-green-400"
-                    testId="text-attendance-rate"
-                  />
-                  <StatCard
-                    title="Asset Compliance"
-                    value={`${analytics.assets?.complianceRate?.toFixed(1) || '0.0'}%`}
-                    icon={Package}
-                    cardColor="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800/30"
-                    textColor="text-blue-600 dark:text-blue-400"
-                    iconBgColor="bg-blue-100 dark:bg-blue-900/50"
-                    iconColor="text-blue-600 dark:text-blue-400"
-                    testId="text-asset-compliance"
-                  />
-                  <StatCard
-                    title="Total Transfers"
-                    value={analytics.transfers?.total || 0}
-                    icon={ArrowRightLeft}
-                    cardColor="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200 dark:border-purple-800/30"
-                    textColor="text-purple-600 dark:text-purple-400"
-                    iconBgColor="bg-purple-100 dark:bg-purple-900/50"
-                    iconColor="text-purple-600 dark:text-purple-400"
-                    testId="text-transfers-total"
-                  />
-                  <StatCard
-                    title="Active Members"
-                    value={analytics.teamMembers?.active || 0}
-                    icon={Users}
-                    cardColor="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-200 dark:border-orange-800/30"
-                    textColor="text-orange-600 dark:text-orange-400"
-                    iconBgColor="bg-orange-100 dark:bg-orange-900/50"
-                    iconColor="text-orange-600 dark:text-orange-400"
-                    testId="text-team-members"
-                  />
-                </div>
-              )}
-
-            {/* Main Content Area */}
-            {renderMainContent()}
+            {/* Other tabs show direct content without analytics controls */}
+            {activeSection !== 'attendance' && renderMainContent()}
           </div>
         </main>
       </div>
