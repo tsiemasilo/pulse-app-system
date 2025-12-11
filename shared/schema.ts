@@ -486,6 +486,8 @@ export const pendingOnboardingRequests = pgTable("pending_onboarding_requests", 
 // Insert schema for pending onboarding requests
 export const insertPendingOnboardingRequestSchema = createInsertSchema(pendingOnboardingRequests).omit({
   id: true,
+  teamLeaderId: true,
+  managerId: true,
   status: true,
   rejectionReason: true,
   createdAt: true,

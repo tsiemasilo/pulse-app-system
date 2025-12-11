@@ -2335,7 +2335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...requestData,
         teamLeaderId: user.id,
         managerId: user.reportsTo,
-      });
+      } as any);
 
       await notificationService.createSystemNotification(
         user.id,
