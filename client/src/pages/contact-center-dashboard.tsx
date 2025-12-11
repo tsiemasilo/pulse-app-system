@@ -65,10 +65,11 @@ import {
   Bell,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Building2
 } from "lucide-react";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
-import type { User, Transfer, PendingOnboardingRequest } from "@shared/schema";
+import type { User, Transfer, PendingOnboardingRequest, Division, UserDepartmentAssignment } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 
@@ -245,6 +246,14 @@ export default function ContactCenterDashboard() {
 
   const { data: departments = [] } = useQuery<any[]>({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: divisions = [] } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
+
+  const { data: userDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
   });
 
   const { data: teams = [] } = useQuery<any[]>({
@@ -1608,7 +1617,7 @@ export default function ContactCenterDashboard() {
               <>
                 {/* Welcome Header */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                     <div>
                       <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2" data-testid="text-welcome-greeting">
                         Welcome back, {user.firstName || 'Manager'}
@@ -1624,6 +1633,36 @@ export default function ContactCenterDashboard() {
                       </p>
                     </div>
                   </div>
+                  
+                  {/* Division Assignment Section */}
+                  {(() => {
+                    const managerAssignments = userDepartmentAssignments.filter(a => a.userId === user.id);
+                    if (managerAssignments.length === 0) return null;
+                    
+                    const uniqueDivisionIds = Array.from(new Set(managerAssignments.map(a => a.divisionId).filter(Boolean)));
+                    const divisionNames = uniqueDivisionIds
+                      .map(divId => divisions.find(d => d.id === divId)?.name)
+                      .filter(Boolean)
+                      .join(', ');
+                    
+                    if (!divisionNames) return null;
+                    
+                    return (
+                      <div className="border-t border-blue-200 dark:border-blue-700 pt-4">
+                        <div className="flex items-center gap-3">
+                          <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          <div>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                              Division{uniqueDivisionIds.length > 1 ? 's' : ''}
+                            </p>
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-manager-division">
+                              {divisionNames}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Team Leader Selection */}
