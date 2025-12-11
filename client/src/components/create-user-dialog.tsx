@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { insertUserSchema, canRoleLogin } from "@shared/schema";
-import type { User, UserRole, Division, Department, Section } from "@shared/schema";
+import type { User, UserRole, Division, Department, Section, UserDepartmentAssignment } from "@shared/schema";
 import { z } from "zod";
 
 interface CreateUserDialogProps {
@@ -38,6 +38,39 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const { data: allSections = [] } = useQuery<Section[]>({
     queryKey: ["/api/sections"],
   });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: userDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
+  });
+
+  const getTeamLeaderForSection = (sectionId: string) => {
+    const assignmentsForSection = userDepartmentAssignments.filter(a => a.sectionId === sectionId);
+    for (const assignment of assignmentsForSection) {
+      const assignedUser = users.find(u => u.id === assignment.userId);
+      if (assignedUser && assignedUser.role === 'team_leader') {
+        return assignedUser;
+      }
+    }
+    return null;
+  };
+
+  const getUsersAssignedToDivision = (divisionId: string) => {
+    const assignments = userDepartmentAssignments.filter(a => a.divisionId === divisionId);
+    return assignments
+      .map(a => users.find(u => u.id === a.userId))
+      .filter((u): u is User => u !== undefined && u.role === 'team_leader');
+  };
+
+  const getUsersAssignedToDepartment = (departmentId: string) => {
+    const assignments = userDepartmentAssignments.filter(a => a.departmentId === departmentId);
+    return assignments
+      .map(a => users.find(u => u.id === a.userId))
+      .filter((u): u is User => u !== undefined && u.role === 'team_leader');
+  };
 
   const form = useForm({
     resolver: zodResolver(
@@ -285,11 +318,22 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {divisions.map((division) => (
-                          <SelectItem key={division.id} value={division.id}>
-                            {division.name}
-                          </SelectItem>
-                        ))}
+                        {divisions.map((division) => {
+                          const assignedUsers = getUsersAssignedToDivision(division.id);
+                          const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                          return (
+                            <SelectItem key={division.id} value={division.id}>
+                              <div className="flex flex-col">
+                                <span>{division.name}</span>
+                                {assignedUsers.length > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -319,11 +363,22 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {filteredDepartments.map((department) => (
-                          <SelectItem key={department.id} value={department.id}>
-                            {department.name}
-                          </SelectItem>
-                        ))}
+                        {filteredDepartments.map((department) => {
+                          const assignedUsers = getUsersAssignedToDepartment(department.id);
+                          const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                          return (
+                            <SelectItem key={department.id} value={department.id}>
+                              <div className="flex flex-col">
+                                <span>{department.name}</span>
+                                {assignedUsers.length > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -350,11 +405,23 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {filteredSections.map((section) => (
-                          <SelectItem key={section.id} value={section.id}>
-                            {section.name}
-                          </SelectItem>
-                        ))}
+                        {filteredSections.map((section) => {
+                          const teamLeader = getTeamLeaderForSection(section.id);
+                          return (
+                            <SelectItem key={section.id} value={section.id}>
+                              <div className="flex flex-col">
+                                <span>{section.name}</span>
+                                {teamLeader ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    TL: {teamLeader.firstName} {teamLeader.lastName}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-destructive">No team leader assigned</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />

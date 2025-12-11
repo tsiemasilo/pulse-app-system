@@ -1540,11 +1540,22 @@ export default function TransferManagement() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {divisions.map((division) => (
-                        <SelectItem key={division.id} value={division.id}>
-                          {division.name}
-                        </SelectItem>
-                      ))}
+                      {divisions.map((division) => {
+                        const assignedUsers = getUsersAssignedToDivision(division.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={division.id} value={division.id}>
+                            <div className="flex flex-col">
+                              <span>{division.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -1569,11 +1580,22 @@ export default function TransferManagement() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredDepartments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
+                      {filteredDepartments.map((department) => {
+                        const assignedUsers = getUsersAssignedToDepartment(department.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={department.id} value={department.id}>
+                            <div className="flex flex-col">
+                              <span>{department.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -1598,11 +1620,23 @@ export default function TransferManagement() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredSections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
+                      {filteredSections.map((section) => {
+                        const teamLeader = getTeamLeaderForSection(section.id);
+                        return (
+                          <SelectItem key={section.id} value={section.id}>
+                            <div className="flex flex-col">
+                              <span>{section.name}</span>
+                              {teamLeader ? (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {teamLeader.firstName} {teamLeader.lastName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-destructive">No team leader assigned</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -1776,11 +1810,22 @@ export default function TransferManagement() {
                       <SelectValue placeholder="Select division" />
                     </SelectTrigger>
                     <SelectContent>
-                      {divisions.map((division) => (
-                        <SelectItem key={division.id} value={division.id}>
-                          {division.name}
-                        </SelectItem>
-                      ))}
+                      {divisions.map((division) => {
+                        const assignedUsers = getUsersAssignedToDivision(division.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={division.id} value={division.id}>
+                            <div className="flex flex-col">
+                              <span>{division.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1799,11 +1844,22 @@ export default function TransferManagement() {
                       <SelectValue placeholder={newDivisionId ? "Select department" : "Select division first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {newFilteredDepartments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
+                      {newFilteredDepartments.map((department) => {
+                        const assignedUsers = getUsersAssignedToDepartment(department.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={department.id} value={department.id}>
+                            <div className="flex flex-col">
+                              <span>{department.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1819,11 +1875,23 @@ export default function TransferManagement() {
                       <SelectValue placeholder={newDepartmentId ? "Select section" : "Select department first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {newFilteredSections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
+                      {newFilteredSections.map((section) => {
+                        const teamLeader = getTeamLeaderForSection(section.id);
+                        return (
+                          <SelectItem key={section.id} value={section.id}>
+                            <div className="flex flex-col">
+                              <span>{section.name}</span>
+                              {teamLeader ? (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {teamLeader.firstName} {teamLeader.lastName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-destructive">No team leader assigned</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

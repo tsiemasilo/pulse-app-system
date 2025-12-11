@@ -93,6 +93,43 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     section => !selectedDepartmentId || selectedDepartmentId === 'none' || section.departmentId === selectedDepartmentId
   );
 
+  // Fetch all users for team leader lookup
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: open,
+  });
+
+  // Fetch all user department assignments for team leader lookup
+  const { data: allUserDepartmentAssignments = [] } = useQuery<UserDepartmentAssignment[]>({
+    queryKey: ["/api/user-department-assignments"],
+    enabled: open,
+  });
+
+  const getTeamLeaderForSection = (sectionId: string) => {
+    const assignmentsForSection = allUserDepartmentAssignments.filter(a => a.sectionId === sectionId);
+    for (const assignment of assignmentsForSection) {
+      const assignedUser = allUsers.find(u => u.id === assignment.userId);
+      if (assignedUser && assignedUser.role === 'team_leader') {
+        return assignedUser;
+      }
+    }
+    return null;
+  };
+
+  const getUsersAssignedToDivision = (divisionId: string) => {
+    const assignments = allUserDepartmentAssignments.filter(a => a.divisionId === divisionId);
+    return assignments
+      .map(a => allUsers.find(u => u.id === a.userId))
+      .filter((u): u is User => u !== undefined && u.role === 'team_leader');
+  };
+
+  const getUsersAssignedToDepartment = (departmentId: string) => {
+    const assignments = allUserDepartmentAssignments.filter(a => a.departmentId === departmentId);
+    return assignments
+      .map(a => allUsers.find(u => u.id === a.userId))
+      .filter((u): u is User => u !== undefined && u.role === 'team_leader');
+  };
+
   // Reset form when user changes
   useEffect(() => {
     if (user) {
@@ -374,11 +411,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {divisions.map((division) => (
-                        <SelectItem key={division.id} value={division.id}>
-                          {division.name}
-                        </SelectItem>
-                      ))}
+                      {divisions.map((division) => {
+                        const assignedUsers = getUsersAssignedToDivision(division.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={division.id} value={division.id}>
+                            <div className="flex flex-col">
+                              <span>{division.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -408,11 +456,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {filteredDepartments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
+                      {filteredDepartments.map((department) => {
+                        const assignedUsers = getUsersAssignedToDepartment(department.id);
+                        const userNames = assignedUsers.slice(0, 3).map(u => `${u.firstName || ''} ${u.lastName || ''}`.trim()).join(', ');
+                        return (
+                          <SelectItem key={department.id} value={department.id}>
+                            <div className="flex flex-col">
+                              <span>{department.name}</span>
+                              {assignedUsers.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -439,11 +498,23 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {filteredSections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
+                      {filteredSections.map((section) => {
+                        const teamLeader = getTeamLeaderForSection(section.id);
+                        return (
+                          <SelectItem key={section.id} value={section.id}>
+                            <div className="flex flex-col">
+                              <span>{section.name}</span>
+                              {teamLeader ? (
+                                <span className="text-xs text-muted-foreground">
+                                  TL: {teamLeader.firstName} {teamLeader.lastName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-destructive">No team leader assigned</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
