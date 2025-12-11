@@ -2331,16 +2331,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const requestData = insertPendingOnboardingRequestSchema.parse(req.body);
 
-      const hashedPassword = await hashPassword(requestData.password);
-
       const onboardingRequest = await storage.createPendingOnboardingRequest({
         ...requestData,
-        password: hashedPassword,
         teamLeaderId: user.id,
         managerId: user.reportsTo,
       });
 
-      await notificationService.createNotification({
+      await notificationService.createSystemNotification({
         recipientUserId: user.id,
         actorUserId: user.id,
         subjectType: 'system',
@@ -2351,7 +2348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requiresAction: false,
       });
 
-      await notificationService.createNotification({
+      await notificationService.createSystemNotification({
         recipientUserId: user.reportsTo,
         actorUserId: user.id,
         subjectType: 'system',
@@ -2414,7 +2411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const teamLeaderId = newAgent.reportsTo;
 
       if (teamLeaderId) {
-        await notificationService.createNotification({
+        await notificationService.createSystemNotification({
           recipientUserId: teamLeaderId,
           actorUserId: user.id,
           subjectType: 'system',
@@ -2445,7 +2442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const rejectedRequest = await storage.rejectPendingOnboardingRequest(requestId, reason);
 
-      await notificationService.createNotification({
+      await notificationService.createSystemNotification({
         recipientUserId: rejectedRequest.teamLeaderId,
         actorUserId: user.id,
         subjectType: 'system',

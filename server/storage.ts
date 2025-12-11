@@ -2839,9 +2839,18 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(pendingOnboardingRequests.id, requestId));
 
+    // Generate username from first and last name (agents don't log in, so this is just for identification)
+    const baseUsername = `${request.firstName?.toLowerCase() || 'agent'}.${request.lastName?.toLowerCase() || 'user'}`.replace(/\s+/g, '');
+    const timestamp = Date.now().toString(36);
+    const generatedUsername = `${baseUsername}.${timestamp}`;
+    
+    // Generate a random placeholder password (agents don't log in)
+    const { hashPassword } = await import("./replitAuth");
+    const placeholderPassword = await hashPassword(`agent-${Date.now()}-${Math.random().toString(36)}`);
+
     const newUser = await this.createUser({
-      username: request.username,
-      password: request.password,
+      username: generatedUsername,
+      password: placeholderPassword,
       firstName: request.firstName,
       lastName: request.lastName,
       email: request.email,

@@ -462,16 +462,16 @@ export type OnboardingRequestStatus = 'pending' | 'approved' | 'rejected';
 // Pending onboarding requests (team leader submits, manager approves)
 export const pendingOnboardingRequests = pgTable("pending_onboarding_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // Agent details
-  username: varchar("username").notNull(),
-  password: text("password").notNull(),
+  // Agent details (username/password are optional since agents don't log in)
+  username: varchar("username"),
+  password: text("password"),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   email: varchar("email"),
-  // Department assignment
-  divisionId: varchar("division_id").references(() => divisions.id),
-  departmentId: varchar("department_id").references(() => departments.id),
-  sectionId: varchar("section_id").references(() => sections.id),
+  // Department assignment (required)
+  divisionId: varchar("division_id").notNull().references(() => divisions.id),
+  departmentId: varchar("department_id").notNull().references(() => departments.id),
+  sectionId: varchar("section_id").notNull().references(() => sections.id),
   // Workflow tracking
   teamLeaderId: varchar("team_leader_id").notNull().references(() => users.id),
   managerId: varchar("manager_id").notNull().references(() => users.id),

@@ -31,11 +31,9 @@ const onboardingFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  divisionId: z.string().optional(),
-  departmentId: z.string().optional(),
-  sectionId: z.string().optional(),
+  divisionId: z.string().min(1, "Division is required").refine(val => val !== "none", { message: "Division is required" }),
+  departmentId: z.string().min(1, "Department is required").refine(val => val !== "none", { message: "Department is required" }),
+  sectionId: z.string().min(1, "Section is required").refine(val => val !== "none", { message: "Section is required" }),
 });
 
 type OnboardingFormData = z.infer<typeof onboardingFormSchema>;
@@ -67,11 +65,9 @@ export default function OnboardingManagement() {
       firstName: "",
       lastName: "",
       email: "",
-      username: "",
-      password: "",
-      divisionId: "none",
-      departmentId: "none",
-      sectionId: "none",
+      divisionId: "",
+      departmentId: "",
+      sectionId: "",
     },
   });
 
@@ -79,11 +75,11 @@ export default function OnboardingManagement() {
   const selectedDepartmentId = form.watch("departmentId");
 
   const filteredDepartments = allDepartments.filter(
-    dept => !selectedDivisionId || selectedDivisionId === 'none' || dept.divisionId === selectedDivisionId
+    dept => selectedDivisionId && selectedDivisionId !== '' && dept.divisionId === selectedDivisionId
   );
 
   const filteredSections = allSections.filter(
-    section => !selectedDepartmentId || selectedDepartmentId === 'none' || section.departmentId === selectedDepartmentId
+    section => selectedDepartmentId && selectedDepartmentId !== '' && section.departmentId === selectedDepartmentId
   );
 
   const onboardAgentMutation = useMutation({
@@ -92,11 +88,9 @@ export default function OnboardingManagement() {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email && data.email.trim() !== '' ? data.email : null,
-        username: data.username,
-        password: data.password,
-        divisionId: data.divisionId && data.divisionId !== 'none' ? data.divisionId : null,
-        departmentId: data.departmentId && data.departmentId !== 'none' ? data.departmentId : null,
-        sectionId: data.sectionId && data.sectionId !== 'none' ? data.sectionId : null,
+        divisionId: data.divisionId,
+        departmentId: data.departmentId,
+        sectionId: data.sectionId,
       };
       
       return await apiRequest("POST", "/api/onboarding-requests", requestData);
@@ -221,35 +215,6 @@ export default function OnboardingManagement() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Username for login" data-testid="input-username" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Initial password" data-testid="input-password" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
                 <FormField
                   control={form.control}
                   name="email"
@@ -270,12 +235,12 @@ export default function OnboardingManagement() {
                     name="divisionId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Division (Optional)</FormLabel>
+                        <FormLabel>Division</FormLabel>
                         <Select 
                           onValueChange={(value) => {
                             field.onChange(value);
-                            form.setValue("departmentId", "none");
-                            form.setValue("sectionId", "none");
+                            form.setValue("departmentId", "");
+                            form.setValue("sectionId", "");
                           }} 
                           value={field.value}
                         >
@@ -285,7 +250,6 @@ export default function OnboardingManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
                             {divisions.map((division) => (
                               <SelectItem key={division.id} value={division.id}>
                                 {division.name}
@@ -303,21 +267,21 @@ export default function OnboardingManagement() {
                     name="departmentId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Department (Optional)</FormLabel>
+                        <FormLabel>Department</FormLabel>
                         <Select 
                           onValueChange={(value) => {
                             field.onChange(value);
-                            form.setValue("sectionId", "none");
+                            form.setValue("sectionId", "");
                           }} 
                           value={field.value}
+                          disabled={!selectedDivisionId}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-department">
-                              <SelectValue placeholder="Select a department" />
+                              <SelectValue placeholder={selectedDivisionId ? "Select a department" : "Select division first"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
                             {filteredDepartments.map((department) => (
                               <SelectItem key={department.id} value={department.id}>
                                 {department.name}
@@ -335,18 +299,18 @@ export default function OnboardingManagement() {
                     name="sectionId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Section (Optional)</FormLabel>
+                        <FormLabel>Section</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}
+                          disabled={!selectedDepartmentId}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-section">
-                              <SelectValue placeholder="Select a section" />
+                              <SelectValue placeholder={selectedDepartmentId ? "Select a section" : "Select department first"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
                             {filteredSections.map((section) => (
                               <SelectItem key={section.id} value={section.id}>
                                 {section.name}
@@ -427,7 +391,7 @@ export default function OnboardingManagement() {
                     </div>
                     <div>
                       <p className="font-medium">{request.firstName} {request.lastName}</p>
-                      <p className="text-sm text-muted-foreground">@{request.username}</p>
+                      {request.email && <p className="text-sm text-muted-foreground">{request.email}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
