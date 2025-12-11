@@ -2337,28 +2337,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         managerId: user.reportsTo,
       });
 
-      await notificationService.createSystemNotification({
-        recipientUserId: user.id,
-        actorUserId: user.id,
-        subjectType: 'system',
-        subjectId: onboardingRequest.id,
-        severity: 'info',
-        title: 'Onboarding Request Submitted',
-        body: `Your onboarding request for ${requestData.firstName} ${requestData.lastName} has been submitted and is pending approval.`,
-        requiresAction: false,
-      });
+      await notificationService.createSystemNotification(
+        user.id,
+        'Onboarding Request Submitted',
+        `Your onboarding request for ${requestData.firstName} ${requestData.lastName} has been submitted and is pending approval.`,
+        'info'
+      );
 
-      await notificationService.createSystemNotification({
-        recipientUserId: user.reportsTo,
-        actorUserId: user.id,
-        subjectType: 'system',
-        subjectId: onboardingRequest.id,
-        severity: 'warning',
-        title: 'New Onboarding Request',
-        body: `${user.firstName || user.username} has submitted an onboarding request for ${requestData.firstName} ${requestData.lastName}. Please review and approve or reject.`,
-        requiresAction: true,
-        actionUrl: '/contact-center?view=onboarding',
-      });
+      await notificationService.createSystemNotification(
+        user.reportsTo,
+        'New Onboarding Request',
+        `${user.firstName || user.username} has submitted an onboarding request for ${requestData.firstName} ${requestData.lastName}. Please review and approve or reject.`,
+        'warning',
+        '/contact-center?view=onboarding'
+      );
 
       res.json(onboardingRequest);
     } catch (error) {
@@ -2411,16 +2403,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const teamLeaderId = newAgent.reportsTo;
 
       if (teamLeaderId) {
-        await notificationService.createSystemNotification({
-          recipientUserId: teamLeaderId,
-          actorUserId: user.id,
-          subjectType: 'system',
-          subjectId: requestId,
-          severity: 'info',
-          title: 'Onboarding Request Approved',
-          body: `Your onboarding request for ${newAgent.firstName} ${newAgent.lastName} has been approved. The agent has been added to your team.`,
-          requiresAction: false,
-        });
+        await notificationService.createSystemNotification(
+          teamLeaderId,
+          'Onboarding Request Approved',
+          `Your onboarding request for ${newAgent.firstName} ${newAgent.lastName} has been approved. The agent has been added to your team.`,
+          'info'
+        );
       }
 
       res.json({ message: "Onboarding request approved", agent: newAgent });
@@ -2442,16 +2430,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const rejectedRequest = await storage.rejectPendingOnboardingRequest(requestId, reason);
 
-      await notificationService.createSystemNotification({
-        recipientUserId: rejectedRequest.teamLeaderId,
-        actorUserId: user.id,
-        subjectType: 'system',
-        subjectId: requestId,
-        severity: 'warning',
-        title: 'Onboarding Request Rejected',
-        body: `Your onboarding request for ${rejectedRequest.firstName} ${rejectedRequest.lastName} has been rejected. Reason: ${reason}`,
-        requiresAction: false,
-      });
+      await notificationService.createSystemNotification(
+        rejectedRequest.teamLeaderId,
+        'Onboarding Request Rejected',
+        `Your onboarding request for ${rejectedRequest.firstName} ${rejectedRequest.lastName} has been rejected. Reason: ${reason}`,
+        'warning'
+      );
 
       res.json({ message: "Onboarding request rejected", request: rejectedRequest });
     } catch (error) {
