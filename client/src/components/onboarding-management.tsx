@@ -294,7 +294,7 @@ export default function OnboardingManagement() {
                                     <span>{division.name}</span>
                                     {assignedUsers.length > 0 && (
                                       <span className="text-xs text-muted-foreground">
-                                        TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                        {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
                                       </span>
                                     )}
                                   </div>
@@ -337,7 +337,7 @@ export default function OnboardingManagement() {
                                     <span>{department.name}</span>
                                     {assignedUsers.length > 0 && (
                                       <span className="text-xs text-muted-foreground">
-                                        TL: {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
+                                        {userNames}{assignedUsers.length > 3 ? ` +${assignedUsers.length - 3} more` : ''}
                                       </span>
                                     )}
                                   </div>
@@ -376,7 +376,7 @@ export default function OnboardingManagement() {
                                     <span>{section.name}</span>
                                     {teamLeader ? (
                                       <span className="text-xs text-muted-foreground">
-                                        TL: {teamLeader.firstName} {teamLeader.lastName}
+                                        {teamLeader.firstName} {teamLeader.lastName}
                                       </span>
                                     ) : (
                                       <span className="text-xs text-destructive">No team leader assigned</span>
