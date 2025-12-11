@@ -1652,15 +1652,22 @@ export default function ContactCenterDashboard() {
                     
                     return (
                       <div className="border-t border-blue-200 dark:border-blue-700 pt-4">
-                        <div className="flex items-center gap-3">
-                          <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          <div>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                              Division{uniqueDivisionIds.length > 1 ? 's' : ''}
-                            </p>
-                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-manager-division">
-                              {divisionNames}
-                            </p>
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          {/* Spacer for left side */}
+                          <div></div>
+                          {/* Division info on right side */}
+                          <div className="flex items-start gap-3">
+                            <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                              <div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                  Division{uniqueDivisionIds.length > 1 ? 's' : ''}
+                                </p>
+                                <p className="text-sm font-medium text-blue-800 dark:text-blue-200" data-testid="text-manager-division">
+                                  {divisionNames}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
