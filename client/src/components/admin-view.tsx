@@ -163,7 +163,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
     switch (activeTab) {
       case 'admin':
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                 <div>
@@ -230,7 +230,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
 
       case 'hr':
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-lg p-4 sm:p-6 border border-purple-100 dark:border-purple-800/30">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 HR Management
@@ -238,30 +238,54 @@ export default function AdminView({ currentUser }: AdminViewProps) {
               <p className="text-sm sm:text-base text-purple-600 dark:text-purple-400">Manage employee lifecycle and HR operations</p>
             </div>
 
-            <div className="grid gap-4">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Attendance Overview</h3>
-                <HRAttendanceView />
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attendance Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <HRAttendanceView />
+                </CardContent>
               </Card>
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Employee Management</h3>
-                <HREmployeeManagement />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Employee Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <HREmployeeManagement />
+                </CardContent>
               </Card>
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Transfers</h3>
-                <TransferManagement />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transfers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TransferManagement />
+                </CardContent>
               </Card>
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Terminations</h3>
-                <TerminationManagement />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Terminations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TerminationManagement />
+                </CardContent>
               </Card>
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Asset Management</h3>
-                <AssetManagement showActions={true} />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AssetManagement showActions={true} />
+                </CardContent>
               </Card>
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Onboarding</h3>
-                <OnboardingManagement />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Onboarding</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OnboardingManagement />
+                </CardContent>
               </Card>
             </div>
           </div>
@@ -269,7 +293,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
 
       case 'contact-center':
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20 rounded-lg p-4 sm:p-6 border border-cyan-100 dark:border-cyan-800/30">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Contact Center Operations
@@ -449,7 +473,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
 
       case 'team-leader':
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-4 sm:p-6 border border-green-100 dark:border-green-800/30">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Team Leader Management
@@ -648,7 +672,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
         };
 
         return (
-          <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg p-4 sm:p-6 border border-orange-100 dark:border-orange-800/30">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Organizational Structure
@@ -822,8 +846,8 @@ export default function AdminView({ currentUser }: AdminViewProps) {
           </header>
 
           {/* Content */}
-          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 bg-background">
-            <div className="fade-in">
+          <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 bg-background">
+            <div className="max-w-7xl mx-auto">
               {renderMainContent()}
             </div>
           </main>
