@@ -174,8 +174,8 @@ function NotificationItem({
         >
           <SeverityIcon className={cn("w-4 h-4", severityConfig.textColor)} />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-start justify-between gap-2">
             <p
               className={cn(
                 "text-sm font-medium truncate",
@@ -196,7 +196,7 @@ function NotificationItem({
             </div>
           </div>
           {!isExpanded && (
-            <p className="text-xs text-muted-foreground truncate w-full block mt-0.5" data-testid={`text-notification-preview-${notification.id}`}>
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5" data-testid={`text-notification-preview-${notification.id}`}>
               {notification.body}
             </p>
           )}
