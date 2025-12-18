@@ -197,7 +197,7 @@ function NotificationItem({
             </div>
           </div>
           {!isExpanded && (
-            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+            <p className="text-xs text-muted-foreground truncate mt-0.5" data-testid={`text-notification-preview-${notification.id}`}>
               {notification.body}
             </p>
           )}
