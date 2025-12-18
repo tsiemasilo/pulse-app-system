@@ -19,19 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-  SidebarHeader,
-} from "@/components/ui/sidebar";
 import { apiRequest } from "@/lib/queryClient";
 import alteramLogo from "@assets/alteram1_1_600x197_1750838676214_1757926492507.png";
 import { 
@@ -50,6 +37,9 @@ import {
   User as UserIcon,
   Eye,
   Activity,
+  ChevronRight,
+  Menu,
+  X,
 } from "lucide-react";
 import type { User, Asset, Attendance, Department, Team, UserDepartmentAssignment } from "@shared/schema";
 
@@ -61,6 +51,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('admin');
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Scroll to top when tab changes
   useEffect(() => {
@@ -153,11 +144,6 @@ export default function AdminView({ currentUser }: AdminViewProps) {
     { icon: Network, label: 'Organogram', key: 'organogram' },
   ];
 
-  // Custom sidebar width
-  const sidebarStyle = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
 
   const renderMainContent = () => {
     switch (activeTab) {
@@ -709,63 +695,128 @@ export default function AdminView({ currentUser }: AdminViewProps) {
   };
 
   return (
-    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        {/* Sidebar */}
-        <Sidebar>
-          <SidebarHeader className="border-b">
-            <div className="flex h-[60px] items-center justify-center px-4">
-              <img 
-                src={alteramLogo} 
-                alt="Alteram Solutions" 
-                className="h-12 w-auto max-w-full object-contain"
-              />
+    <div className="flex h-screen w-full">
+      {/* Sidebar - Desktop */}
+      <div className="hidden lg:flex w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex-col h-screen sticky top-0">
+        <div className="h-[88px] px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
+          <img 
+            src={alteramLogo} 
+            alt="Alteram Solutions" 
+            className="h-12 w-auto max-w-full object-contain"
+          />
+        </div>
+        
+        <div className="p-4 flex-1 flex flex-col">
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input 
+              placeholder="Search anything.." 
+              className="pl-10 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+            />
+          </div>
+          
+          <nav className="space-y-6 flex-1">
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Administration
+              </h3>
+              <ul className="space-y-1">
+                {navigationItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.key;
+                  return (
+                    <li key={item.key}>
+                      <button
+                        onClick={() => setActiveTab(item.key)}
+                        className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                          isActive 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                        data-testid={`tab-${item.key}`}
+                      >
+                        <Icon className={`mr-3 h-5 w-5 ${
+                          isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                        }`} />
+                        {item.label}
+                        {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <div className="p-4">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search..." 
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <SidebarGroup>
-              <SidebarGroupLabel>ADMINISTRATION</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navigationItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.key;
-                    return (
-                      <SidebarMenuItem key={item.key}>
-                        <SidebarMenuButton
-                          onClick={() => setActiveTab(item.key)}
-                          isActive={isActive}
-                          data-testid={`tab-${item.key}`}
-                        >
-                          <Icon className="h-5 w-5" />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
+          </nav>
+        </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="flex flex-col flex-1">
-          {/* Header */}
-          <header className="flex items-center justify-between p-4 border-b">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="h-[60px] px-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <img src={alteramLogo} alt="Alteram Solutions" className="h-8 w-auto" />
+              <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-4 overflow-y-auto h-[calc(100vh-60px)]">
+              <nav className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                    Administration
+                  </h3>
+                  <ul className="space-y-1">
+                    {navigationItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.key;
+                      return (
+                        <li key={item.key}>
+                          <button
+                            onClick={() => {
+                              setActiveTab(item.key);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                              isActive 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                            data-testid={`tab-${item.key}`}
+                          >
+                            <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
+                            {item.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-mobile-menu-toggle" />
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lg:hidden p-2 transition-all duration-200"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle menu"
+                data-testid="button-mobile-menu-toggle"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-foreground">
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {activeTab === 'admin' ? 'System Administration' :
                    activeTab === 'hr' ? 'HR Management' :
                    activeTab === 'contact-center' ? 'Contact Center Operations' :
@@ -774,7 +825,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
                    activeTab === 'organogram' ? 'Organizational Structure' :
                    'Admin Dashboard'}
                 </h1>
-                <p className="text-xs sm:text-base text-muted-foreground hidden sm:block">
+                <p className="text-xs sm:text-base text-gray-600 dark:text-gray-400 hidden sm:block">
                   {activeTab === 'admin' ? 'Manage users, departments, and system settings' :
                    activeTab === 'hr' ? 'Manage employee lifecycle and HR operations' :
                    activeTab === 'contact-center' ? 'Monitor and manage contact center performance' :
@@ -790,18 +841,18 @@ export default function AdminView({ currentUser }: AdminViewProps) {
             <div className="flex items-center gap-2 sm:gap-4">
               <NotificationBell />
 
-              <div className="hidden sm:flex items-center gap-3 bg-secondary/50 rounded-lg px-3 py-1.5 border border-border">
+              <div className="hidden sm:flex items-center gap-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-600">
                 <div className="flex flex-col items-end justify-center">
-                  <span className="text-sm font-semibold text-foreground leading-tight" data-testid="text-username">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white leading-tight" data-testid="text-username">
                     {currentUser?.firstName && currentUser?.lastName 
                       ? `${currentUser.firstName} ${currentUser.lastName}` 
                       : currentUser?.username || 'Admin'}
                   </span>
-                  <span className="text-xs text-muted-foreground leading-tight" data-testid="text-user-role">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 leading-tight" data-testid="text-user-role">
                     Administrator
                   </span>
                 </div>
-                <div className="h-8 w-px bg-border"></div>
+                <div className="h-8 w-px bg-gray-200 dark:bg-gray-600"></div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -814,7 +865,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
                       window.location.reload();
                     }
                   }}
-                  className="h-8 px-2 text-muted-foreground"
+                  className="h-8 px-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
                   data-testid="button-logout"
                 >
                   <LogOut className="h-4 w-4 mr-1.5" />
@@ -843,16 +894,16 @@ export default function AdminView({ currentUser }: AdminViewProps) {
                 </Button>
               </div>
             </div>
-          </header>
+          </div>
+        </header>
 
-          {/* Content */}
-          <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 bg-background">
-            <div className="max-w-7xl mx-auto">
-              {renderMainContent()}
-            </div>
-          </main>
-        </div>
+        {/* Content */}
+        <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 bg-background">
+          <div className="fade-in">
+            {renderMainContent()}
+          </div>
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
