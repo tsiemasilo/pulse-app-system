@@ -102,7 +102,7 @@ function NotificationListItem({
       >
         <SeverityIcon className={cn("w-4 h-4", severityConfig.textColor)} />
       </div>
-      <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex-1 min-w-0 space-y-1 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
           {!isRead && (
             <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" data-testid={`indicator-unread-${notification.id}`} />
@@ -114,7 +114,7 @@ function NotificationListItem({
             {notification.title}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground truncate" data-testid={`text-notification-preview-${notification.id}`}>
+        <p className="text-xs text-muted-foreground truncate w-full block" data-testid={`text-notification-preview-${notification.id}`}>
           {notification.body}
         </p>
         <p className="text-xs text-muted-foreground" data-testid={`text-notification-time-${notification.id}`}>
