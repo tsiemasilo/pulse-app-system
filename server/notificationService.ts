@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { sendAssetLostEmail } from "./emailService";
 import type { InsertNotification, User, Transfer, Termination, AssetDailyState, NotificationSubjectType, NotificationSeverity } from "@shared/schema";
 
 interface NotificationContext {
@@ -442,6 +443,12 @@ export class NotificationService {
 
     if (notifications.length > 0) {
       await storage.createBulkNotifications(notifications);
+    }
+
+    try {
+      await sendAssetLostEmail(assetState, reportedByUser);
+    } catch (error) {
+      console.error("Error sending asset lost email:", error);
     }
   }
 
