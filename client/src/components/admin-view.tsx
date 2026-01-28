@@ -10,6 +10,7 @@ import AssetManagement from "@/components/asset-management";
 import OnboardingManagement from "@/components/onboarding-management";
 import HREmployeeManagement from "@/components/hr-employee-management";
 import DepartmentManagement from "@/components/department-management";
+import EmailConfigurations from "@/components/email-configurations";
 import TeamLeaderView from "@/components/team-leader-view";
 import GoJSOrganogram from "@/components/organogram/gojs-organogram";
 import NotificationBell from "@/components/notification-bell";
@@ -141,6 +142,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
     { icon: Headphones, label: 'Contact Center', key: 'contact-center' },
     { icon: UserCheck, label: 'Team Leaders', key: 'team-leader' },
     { icon: Building2, label: 'Departments', key: 'departments' },
+    { icon: Mail, label: 'Email Configurations', key: 'email-configurations' },
     { icon: Network, label: 'Organogram', key: 'organogram' },
   ];
 
@@ -625,6 +627,9 @@ export default function AdminView({ currentUser }: AdminViewProps) {
       case 'departments':
         return <DepartmentManagement />;
 
+      case 'email-configurations':
+        return <EmailConfigurations />;
+
       case 'organogram':
         const handleViewDetails = (userId: string) => {
           const userData = allUsers.find(u => u.id === userId);
@@ -822,6 +827,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
                    activeTab === 'contact-center' ? 'Contact Center Operations' :
                    activeTab === 'team-leader' ? 'Team Leader Management' :
                    activeTab === 'departments' ? 'Department Management' :
+                   activeTab === 'email-configurations' ? 'Email Configurations' :
                    activeTab === 'organogram' ? 'Organizational Structure' :
                    'Admin Dashboard'}
                 </h1>
@@ -831,6 +837,7 @@ export default function AdminView({ currentUser }: AdminViewProps) {
                    activeTab === 'contact-center' ? 'Monitor and manage contact center performance' :
                    activeTab === 'team-leader' ? 'Oversee all team leaders and their teams' :
                    activeTab === 'departments' ? 'Assign users to divisions, departments, and sections' :
+                   activeTab === 'email-configurations' ? 'Define which departments receive key app notifications' :
                    activeTab === 'organogram' ? 'View and manage organizational hierarchy' :
                    'Comprehensive administration tools'}
                 </p>
